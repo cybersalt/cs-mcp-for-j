@@ -1,0 +1,31 @@
+<div class="changelog-container">
+	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
+
+	<h2>
+		<span class="version-badge">v1.0.0</span>
+		<span class="date">2026-04-25</span>
+	</h2>
+
+	<p>Initial release with 51 built-in tools across 11 Joomla admin domains.</p>
+
+	<h3><span class="section-icon">📦</span>New Features</h3>
+	<ul>
+		<li><strong>MCP endpoint</strong>: Streamable-HTTP MCP server at <code>/api/index.php/v1/mcp</code>, authenticated by Joomla API token (<code>X-Joomla-Token</code> or <code>Authorization: Bearer</code>).</li>
+		<li><strong>JSON-RPC 2.0 server</strong>: <code>initialize</code>, <code>notifications/initialized</code>, <code>ping</code>, <code>tools/list</code>, <code>tools/call</code>. Single messages and batches supported.</li>
+		<li><strong>ACL gating</strong>: <code>csmcpforj.use</code> (read) and <code>csmcpforj.write</code> (write) actions. Super Users / Administrator / Manager pass automatically.</li>
+		<li><strong>Tool registry</strong>: Plugins extend the surface by subscribing to the <code>onCsMcpRegisterTools</code> event.</li>
+		<li><strong>Admin dashboard</strong>: Endpoint URL, ready-to-paste client config, permissions table, and grouped tool list.</li>
+		<li><strong>Built-in tool set</strong> (51 tools): Articles, Categories (any extension), Tags, Menus, Users &amp; Access, Modules, Extensions/Plugins, Templates, Languages, Custom Fields, System.</li>
+	</ul>
+
+	<h3><span class="section-icon">🔍</span>Security</h3>
+	<ul>
+		<li>Per-tool permission gate runs before every <code>tools/call</code> execution.</li>
+		<li><code>access.xml</code> ships with the component so per-action permissions appear in <strong>System → Permissions</strong> immediately after install.</li>
+		<li>All writes route through the corresponding <code>com_*</code> Administrator model so workflow, asset, and ACL side effects stay consistent.</li>
+		<li>Database access uses <code>quoteName()</code> and parameterised values throughout — no string concatenation into SQL.</li>
+		<li><code>delete_user</code> refuses to delete the calling user.</li>
+		<li><code>set_extension_enabled</code> refuses to touch protected or locked core extensions.</li>
+		<li><code>get_site_info</code> deliberately omits secrets (DB password, mailer credentials, captcha keys).</li>
+	</ul>
+</div>

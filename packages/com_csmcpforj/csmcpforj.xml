@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="component" method="upgrade" version="5.0">
+	<name>COM_CSMCPFORJ</name>
+	<element>com_csmcpforj</element>
+	<author>Cybersalt</author>
+	<creationDate>2026-04-25</creationDate>
+	<copyright>Copyright (C) 2026 Cybersalt. All rights reserved.</copyright>
+	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
+	<authorEmail>support@cybersalt.com</authorEmail>
+	<authorUrl>https://cybersalt.com</authorUrl>
+	<version>1.0.0</version>
+	<description>COM_CSMCPFORJ_XML_DESCRIPTION</description>
+
+	<namespace path="src">Cybersalt\Component\Csmcpforj</namespace>
+
+	<files folder="site">
+		<folder>language</folder>
+	</files>
+
+	<administration>
+		<menu img="class:cog" link="option=com_csmcpforj">COM_CSMCPFORJ</menu>
+
+		<files folder="admin">
+			<filename>access.xml</filename>
+			<folder>language</folder>
+			<folder>services</folder>
+			<folder>src</folder>
+			<folder>tmpl</folder>
+		</files>
+	</administration>
+
+	<api>
+		<files folder="api">
+			<folder>language</folder>
+			<folder>src</folder>
+		</files>
+	</api>
+</extension>

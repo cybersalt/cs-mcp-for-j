@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="webservices" method="upgrade">
+	<name>PLG_WEBSERVICES_CSMCPFORJ</name>
+	<author>Cybersalt</author>
+	<creationDate>2026-04-25</creationDate>
+	<copyright>Copyright (C) 2026 Cybersalt. All rights reserved.</copyright>
+	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
+	<authorEmail>support@cybersalt.com</authorEmail>
+	<authorUrl>https://cybersalt.com</authorUrl>
+	<version>1.0.0</version>
+	<description>PLG_WEBSERVICES_CSMCPFORJ_XML_DESCRIPTION</description>
+
+	<namespace path="src">Cybersalt\Plugin\WebServices\Csmcpforj</namespace>
+
+	<files>
+		<folder plugin="csmcpforj">services</folder>
+		<folder>src</folder>
+	</files>
+
+	<languages>
+		<language tag="en-GB">language/en-GB/plg_webservices_csmcpforj.ini</language>
+		<language tag="en-GB">language/en-GB/plg_webservices_csmcpforj.sys.ini</language>
+	</languages>
+</extension>

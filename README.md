@@ -1,0 +1,171 @@
+# Cybersalt MCP for Joomla (`cs-mcp-for-j`)
+
+Turns a Joomla 5/6 site into its own MCP server. Connect Claude (Desktop, Code, claude.ai) directly to your site using a Joomla API token — no local Node/Python/WSL install, no MCP server process to babysit.
+
+> **Status:** v1.0.0 — 51 built-in tools across 11 Joomla admin domains.
+
+## What it ships
+
+| Element | Type | Job |
+|---|---|---|
+| `com_csmcpforj` | Component | Owns the `/api/index.php/v1/mcp` route, the JSON-RPC server, the tool registry, and ACL gating. |
+| `plg_webservices_csmcpforj` | Web Services plugin | Registers the route. **Required** — without it the route 404s. |
+| `plg_system_csmcpforj` | System plugin | Registers the built-in tools and translates `Authorization: Bearer` headers into `X-Joomla-Token`. |
+
+All three are bundled in `pkg_csmcpforj` and enabled automatically on install.
+
+## Connecting a client
+
+1. **Generate a Joomla API token** for the user account that should perform the actions. (Joomla admin → System → Users → My Profile → Joomla API Token, click the eye icon.)
+2. **Permissions** — Super Users, Administrators, and Managers all work out of the box. For any other user group, grant `Use MCP endpoint` and/or `Write through MCP endpoint` in System → Permissions on the component.
+3. **Configure your MCP client.** Either header works:
+
+   **Claude Desktop / `claude_desktop_config.json`:**
+   ```json
+   {
+     "mcpServers": {
+       "joomla-mysite": {
+         "type": "http",
+         "url": "https://yoursite.com/api/index.php/v1/mcp",
+         "headers": {
+           "Authorization": "Bearer YOUR_JOOMLA_API_TOKEN"
+         }
+       }
+     }
+   }
+   ```
+
+   **Or, if your client only allows custom headers:**
+   ```json
+   "headers": { "X-Joomla-Token": "YOUR_JOOMLA_API_TOKEN" }
+   ```
+
+## Built-in tools
+
+`read` tools require ACL `csmcpforj.use`; `write` tools require `csmcpforj.write`. Super Users / Administrators / Managers pass both automatically.
+
+### Articles
+| Tool | Access |
+|---|---|
+| `list_articles` | read |
+| `get_article` | read |
+| `list_categories` | read |
+| `create_article` | write |
+| `update_article` | write |
+| `delete_article` | write |
+
+### Categories (any extension)
+| Tool | Access |
+|---|---|
+| `list_categories_in` | read |
+| `get_category` | read |
+| `create_category` | write |
+| `update_category` | write |
+| `delete_category` | write |
+
+### Tags
+| Tool | Access |
+|---|---|
+| `list_tags` | read |
+| `get_tag` | read |
+| `create_tag` | write |
+| `update_tag` | write |
+| `delete_tag` | write |
+
+### Menus
+| Tool | Access |
+|---|---|
+| `list_menus` | read |
+| `list_menu_items` | read |
+| `get_menu_item` | read |
+| `create_menu_item` | write |
+| `update_menu_item` | write |
+| `delete_menu_item` | write |
+
+### Users & Access
+| Tool | Access |
+|---|---|
+| `list_users` | read |
+| `get_user` | read |
+| `list_user_groups` | read |
+| `list_access_levels` | read |
+| `create_user` | write |
+| `update_user` | write |
+| `delete_user` | write |
+
+### Modules
+| Tool | Access |
+|---|---|
+| `list_modules` | read |
+| `list_module_positions` | read |
+| `get_module` | read |
+| `create_module` | write |
+| `update_module` | write |
+| `delete_module` | write |
+
+### Extensions / Plugins
+| Tool | Access |
+|---|---|
+| `list_extensions` | read |
+| `list_plugins` | read |
+| `set_extension_enabled` | write |
+
+### Templates
+| Tool | Access |
+|---|---|
+| `list_template_styles` | read |
+| `set_default_template_style` | write |
+
+### Languages
+| Tool | Access |
+|---|---|
+| `list_languages` | read |
+| `list_content_languages` | read |
+
+### Custom Fields
+| Tool | Access |
+|---|---|
+| `list_custom_fields` | read |
+| `get_custom_field` | read |
+| `create_custom_field` | write |
+| `set_custom_field_value` | write |
+
+### System
+| Tool | Access |
+|---|---|
+| `get_joomla_version` | read |
+| `get_site_info` | read |
+| `list_scheduled_tasks` | read |
+| `check_for_updates` | read |
+| `clear_cache` | write |
+
+## Extending — custom tools
+
+The system plugin registers built-in tools by subscribing to the `onCsMcpRegisterTools` event. Any other plugin can subscribe to the same event and register its own `ToolInterface` implementations. See [packages/plg_system_csmcpforj/src/Extension/Csmcpforj.php](packages/plg_system_csmcpforj/src/Extension/Csmcpforj.php) for the pattern.
+
+```php
+public function onCsMcpRegisterTools(\Cybersalt\Component\Csmcpforj\Administrator\MCP\Event\RegisterToolsEvent $event): void
+{
+    $event->getRegistry()->register(new MyCustomTool($this->getDatabase()));
+}
+```
+
+`MyCustomTool` should extend `Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool` and implement the abstract `run()` method.
+
+## Building
+
+```powershell
+& .\build.ps1
+```
+
+Produces `pkg_csmcpforj_v{version}_{yyyymmdd}_{hhmm}.zip` in the project root.
+
+## Licensing
+
+GPL-2.0-or-later. See `LICENSE.txt`.
+
+This extension is a **clean-room** implementation. It does not derive from, copy, or include any code from Nicholas Dionysopoulos's [MCP4Joomla](https://github.com/nikosdion/joomla-mcp-php) (AGPL-3.0). See `BUILD-NOTES.md` for reference provenance.
+
+## Reporting issues
+
+[support@cybersalt.com](mailto:support@cybersalt.com)

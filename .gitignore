@@ -1,0 +1,19 @@
+## Cybersalt cs-mcp-for-j
+
+# Build artefacts
+*.zip
+*.tar.gz
+dist/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# PHP / dev
+vendor/
+composer.lock
+.phpunit.result.cache
