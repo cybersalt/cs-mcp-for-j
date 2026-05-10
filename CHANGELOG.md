@@ -1,5 +1,10 @@
 # Changelog
 
+## 🚀 Version 1.4.1 (May 9, 2026)
+
+### 🐛 Bug Fixes
+- **"Generate / view API token" link landed on the user list, not the admin's own profile.** The link was `task=user.edit` with no id, so Joomla's controller fell through to the user list instead of opening the current admin's profile (where the API Token tab lives). Fixed by computing the current admin's user id and substituting it into `task=user.edit&id={N}`. Both link instances on the dashboard also now open in a new tab so the user keeps the dashboard open while copying the token. Same pattern as cs-template-integrity.
+
 ## 🚀 Version 1.4.0 (May 9, 2026)
 
 ### 🐛 Bug Fixes

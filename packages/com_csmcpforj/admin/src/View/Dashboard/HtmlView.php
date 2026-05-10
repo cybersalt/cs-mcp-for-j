@@ -34,6 +34,14 @@ final class HtmlView extends BaseHtmlView
 	public string $mcpConfigJson = '';
 	public string $claudePrompt  = '';
 
+	/**
+	 * Deep-link to the currently-logged-in admin's own profile edit page.
+	 * The Joomla API Token tab lives on that page. Without the id query
+	 * param, Joomla's task=user.edit falls through to the user list, which
+	 * is not what we want.
+	 */
+	public string $tokenProfileUrl = '';
+
 	/** @var array<string, array<int, array{name:string, description:string, permission:string}>> */
 	public array $toolsByDomain = [];
 	public int $toolCount = 0;
@@ -56,8 +64,9 @@ final class HtmlView extends BaseHtmlView
 		$this->host        = parse_url($this->endpointUrl, PHP_URL_HOST) ?: 'site';
 
 		$this->buildToolGroups();
-		$this->mcpConfigJson = $this->buildMcpConfigJson();
-		$this->claudePrompt  = $this->buildClaudePrompt();
+		$this->mcpConfigJson   = $this->buildMcpConfigJson();
+		$this->claudePrompt    = $this->buildClaudePrompt();
+		$this->tokenProfileUrl = $this->buildTokenProfileUrl();
 
 		// Bootstrap tab JS isn't auto-loaded in Joomla admin — without this,
 		// clicking a tab just changes the URL hash and the panel never
@@ -118,6 +127,27 @@ final class HtmlView extends BaseHtmlView
 			}
 		}
 		return $out;
+	}
+
+	/**
+	 * Build a deep-link to the current admin's own profile edit page so the
+	 * "Generate / view API token" link drops them straight onto the Joomla
+	 * API Token tab. Falls back to the bare task URL (which lands on the
+	 * user list) only if there's somehow no logged-in user — shouldn't
+	 * happen in admin context, but defensive.
+	 */
+	private function buildTokenProfileUrl(): string
+	{
+		$identity = Factory::getApplication()->getIdentity();
+		$userId   = $identity ? (int) $identity->id : 0;
+
+		if ($userId > 0) {
+			return \Joomla\CMS\Router\Route::_(
+				'index.php?option=com_users&task=user.edit&id=' . $userId,
+				false
+			);
+		}
+		return \Joomla\CMS\Router\Route::_('index.php?option=com_users&task=user.edit', false);
 	}
 
 	/**

@@ -2,6 +2,16 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.4.1</span>
+		<span class="date">2026-05-09</span>
+	</h2>
+
+	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
+	<ul>
+		<li><strong>"Generate / view API token" link landed on the user list, not the admin's own profile.</strong> The link was <code>task=user.edit</code> with no id, so Joomla's controller fell through to the user list instead of opening the current admin's profile (where the API Token tab lives). Fixed by computing the current admin's user id and substituting it into <code>task=user.edit&amp;id={N}</code>. Both link instances on the dashboard also now open in a new tab so the user keeps the dashboard open while copying the token.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.4.0</span>
 		<span class="date">2026-05-09</span>
 	</h2>

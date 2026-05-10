@@ -9,7 +9,11 @@ use Joomla\CMS\Router\Route;
 
 /** @var \Cybersalt\Component\Csmcpforj\Administrator\View\Dashboard\HtmlView $this */
 
-$tokenUrl = Route::_('index.php?option=com_users&task=user.edit');
+// Token URL deep-links to the CURRENT admin's profile (where the API
+// Token tab lives). Built in HtmlView so it includes the user id —
+// without it, Joomla drops the user on the user list, not their own
+// profile.
+$tokenUrl = htmlspecialchars($this->tokenProfileUrl, ENT_QUOTES, 'UTF-8');
 $permsUrl = Route::_('index.php?option=com_config&view=component&component=com_csmcpforj');
 $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 ?>
@@ -27,7 +31,7 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 						<dt class="col-sm-3"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN'); ?></dt>
 						<dd class="col-sm-9">
 							<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN_VALUE'); ?>
-							<a href="<?php echo $tokenUrl; ?>" class="ms-2"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN_LINK'); ?></a>
+							<a href="<?php echo $tokenUrl; ?>" target="_blank" rel="noopener" class="ms-2"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN_LINK'); ?></a>
 						</dd>
 					</dl>
 				</div>
@@ -202,7 +206,7 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 							<small><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_QUICKSTART_STEP3_BODY'); ?></small>
 						</li>
 					</ol>
-					<a href="<?php echo $tokenUrl; ?>" class="btn btn-primary text-white d-block mb-2">
+					<a href="<?php echo $tokenUrl; ?>" target="_blank" rel="noopener" class="btn btn-primary text-white d-block mb-2">
 						<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_LINK_GENERATE_TOKEN'); ?>
 					</a>
 				</div>
