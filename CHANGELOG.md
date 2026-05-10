@@ -1,5 +1,16 @@
 # Changelog
 
+## 🚀 Version 1.3.0 (May 9, 2026)
+
+### 📦 New Features
+- **Two-method dashboard for connecting Claude.** The dashboard now offers two clear setup paths in a tabbed UI:
+    - **Method 1 — MCP Connector.** The traditional MCP setup: copy a JSON snippet (pre-filled with the site's URL), paste into your Claude client's config (Claude Desktop / claude.ai connectors / `claude mcp add`), restart. One-time, persistent.
+    - **Method 2 — Copy-paste prompt.** A new "no client config required" path. The dashboard generates a complete instruction prompt (site URL, endpoint, auth, JSON-RPC shape, tool surface summary, workflow rules, example curl). Paste into a fresh Claude Code conversation and Claude talks to the MCP endpoint directly via curl. Best for one-off tasks or when you can't change client config.
+- **Copy buttons** with "Copied!" feedback on both setup payloads (clipboard API with text-selection fallback).
+
+### 🔧 Improvements
+- Dashboard tools list and setup payloads are both auto-generated from the live tool registry — the prompt always reflects what's actually installed.
+
 ## 🚀 Version 1.2.0 (May 9, 2026)
 
 ### 📦 New Features

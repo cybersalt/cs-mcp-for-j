@@ -11,7 +11,6 @@ use Joomla\CMS\Router\Route;
 
 $tokenUrl = Route::_('index.php?option=com_users&task=user.edit');
 $permsUrl = Route::_('index.php?option=com_config&view=component&component=com_csmcpforj');
-$host     = parse_url($this->endpointUrl, PHP_URL_HOST) ?: 'site';
 $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 ?>
 <div class="container-fluid">
@@ -31,6 +30,73 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 							<a href="<?php echo $tokenUrl; ?>" class="ms-2"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN_LINK'); ?></a>
 						</dd>
 					</dl>
+				</div>
+			</div>
+
+			<div class="card mb-3 border-info">
+				<div class="card-body">
+					<h3 class="card-title"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHODS_HEADING'); ?></h3>
+					<p class="card-text mb-3"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHODS_INTRO'); ?></p>
+
+					<ul class="nav nav-tabs" id="csmcpforj-method-tabs" role="tablist">
+						<li class="nav-item" role="presentation">
+							<button class="nav-link active" id="method-1-tab" data-bs-toggle="tab" data-bs-target="#method-1" type="button" role="tab">
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_TAB'); ?>
+							</button>
+						</li>
+						<li class="nav-item" role="presentation">
+							<button class="nav-link" id="method-2-tab" data-bs-toggle="tab" data-bs-target="#method-2" type="button" role="tab">
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_TAB'); ?>
+							</button>
+						</li>
+					</ul>
+
+					<div class="tab-content pt-3" id="csmcpforj-method-tab-content">
+						<div class="tab-pane fade show active" id="method-1" role="tabpanel">
+							<h4 class="h5"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_HEADING'); ?></h4>
+							<p><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_INTRO'); ?></p>
+
+							<ol class="mb-3">
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_STEP1'); ?></li>
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_STEP2'); ?></li>
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_STEP3'); ?></li>
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_STEP4'); ?></li>
+							</ol>
+
+							<pre class="p-2 mb-2" style="white-space: pre-wrap;"><code id="csmcpforj-config"><?php echo htmlspecialchars($this->mcpConfigJson, ENT_QUOTES, 'UTF-8'); ?></code></pre>
+							<button type="button" class="btn btn-primary" data-csmcpforj-copy="csmcpforj-config" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_BUTTON')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED')); ?>">
+								<span class="icon-copy" aria-hidden="true"></span>
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_BUTTON'); ?>
+							</button>
+
+							<p class="mt-3 mb-0"><small class="text-body-secondary">
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_XHEADER_NOTE'); ?>
+								<code>"headers": { "X-Joomla-Token": "YOUR_JOOMLA_API_TOKEN" }</code>
+							</small></p>
+						</div>
+
+						<div class="tab-pane fade" id="method-2" role="tabpanel">
+							<h4 class="h5"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_HEADING'); ?></h4>
+							<p><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_INTRO'); ?></p>
+
+							<ol class="mb-3">
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_STEP1'); ?></li>
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_STEP2'); ?></li>
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_STEP3'); ?></li>
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_STEP4'); ?></li>
+							</ol>
+
+							<pre class="p-2 mb-2" style="white-space: pre-wrap; max-height: 400px; overflow: auto;"><code id="csmcpforj-prompt"><?php echo htmlspecialchars($this->claudePrompt, ENT_QUOTES, 'UTF-8'); ?></code></pre>
+							<button type="button" class="btn btn-primary" data-csmcpforj-copy="csmcpforj-prompt" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_PROMPT_BUTTON')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED')); ?>">
+								<span class="icon-copy" aria-hidden="true"></span>
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_PROMPT_BUTTON'); ?>
+							</button>
+
+							<div class="alert alert-info mt-3 mb-0">
+								<small><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_HINT'); ?></small>
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
 
@@ -65,30 +131,6 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 							<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_LINK_PERMISSIONS'); ?>
 						</a>
 					</p>
-				</div>
-			</div>
-
-			<div class="card mb-3">
-				<div class="card-body">
-					<h3 class="card-title"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CLIENT_CONFIG_HEADING'); ?></h3>
-					<p><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CLIENT_CONFIG_INTRO'); ?></p>
-
-					<h4 class="h6"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CLIENT_CONFIG_BEARER_HEADING'); ?></h4>
-					<pre class="p-2 mb-3" style="white-space: pre-wrap;"><code>{
-  "mcpServers": {
-    "joomla-<?php echo htmlspecialchars($host, ENT_QUOTES, 'UTF-8'); ?>": {
-      "type": "http",
-      "url": "<?php echo $endpoint; ?>",
-      "headers": {
-        "Authorization": "Bearer YOUR_JOOMLA_API_TOKEN"
-      }
-    }
-  }
-}</code></pre>
-
-					<h4 class="h6"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CLIENT_CONFIG_XHEADER_HEADING'); ?></h4>
-					<p><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CLIENT_CONFIG_XHEADER_INTRO'); ?></p>
-					<pre class="p-2 mb-0" style="white-space: pre-wrap;"><code>"headers": { "X-Joomla-Token": "YOUR_JOOMLA_API_TOKEN" }</code></pre>
 				</div>
 			</div>
 
@@ -135,7 +177,6 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 					<?php endif; ?>
 				</div>
 			</div>
-
 		</div>
 
 		<div class="col-12 col-lg-4">
@@ -178,3 +219,31 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 		</div>
 	</div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	document.querySelectorAll('[data-csmcpforj-copy]').forEach(function(btn) {
+		btn.addEventListener('click', function() {
+			var targetId = btn.getAttribute('data-csmcpforj-copy');
+			var el = document.getElementById(targetId);
+			if (!el) return;
+			var text = el.textContent || el.innerText;
+			var copied = btn.getAttribute('data-copied-label');
+			var defaultLabel = btn.getAttribute('data-default-label');
+			navigator.clipboard.writeText(text).then(function() {
+				var iconHtml = '<span class="icon-checkmark" aria-hidden="true"></span> ';
+				btn.innerHTML = iconHtml + copied;
+				setTimeout(function() {
+					btn.innerHTML = '<span class="icon-copy" aria-hidden="true"></span> ' + defaultLabel;
+				}, 2000);
+			}).catch(function() {
+				// Fallback: select text so user can Ctrl+C manually
+				var range = document.createRange();
+				range.selectNode(el);
+				window.getSelection().removeAllRanges();
+				window.getSelection().addRange(range);
+			});
+		});
+	});
+});
+</script>

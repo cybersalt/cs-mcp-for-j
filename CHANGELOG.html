@@ -2,6 +2,29 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.3.0</span>
+		<span class="date">2026-05-09</span>
+	</h2>
+
+	<p>Adds a "Method 2" copy-paste prompt path to the dashboard so users can connect Claude to a site without ever touching client MCP config (best in Claude Code).</p>
+
+	<h3><span class="section-icon">📦</span>New Features</h3>
+	<ul>
+		<li><strong>Two-method dashboard.</strong> Tabbed UI with two setup paths:
+			<ul>
+				<li><strong>Method 1 &mdash; MCP Connector</strong>: copy a pre-filled JSON snippet, paste into your Claude client config (Claude Desktop / claude.ai connectors / <code>claude mcp add</code>), restart. One-time, persistent.</li>
+				<li><strong>Method 2 &mdash; Copy-paste prompt</strong>: dashboard generates a complete instruction prompt baking in site URL, endpoint, auth, JSON-RPC shape, tool surface, workflow rules, and an example curl. Paste into a fresh Claude Code conversation; Claude talks to the MCP endpoint directly via curl. Best for one-off tasks or when you can't change client config.</li>
+			</ul>
+		</li>
+		<li><strong>Copy buttons</strong> with "Copied!" feedback on both setup payloads (clipboard API with text-selection fallback for older browsers).</li>
+	</ul>
+
+	<h3><span class="section-icon">🔧</span>Improvements</h3>
+	<ul>
+		<li>Dashboard tools list and setup payloads are both auto-generated from the live tool registry &mdash; the prompt always reflects what's actually installed.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.2.0</span>
 		<span class="date">2026-05-09</span>
 	</h2>
