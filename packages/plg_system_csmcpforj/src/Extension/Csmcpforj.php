@@ -84,6 +84,8 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Extensions\ListExtensionsTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Extensions\ListPluginsTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Extensions\SetExtensionEnabledTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Extensions\GetPluginParamsTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Extensions\SetPluginParamsTool::class,
 		],
 		'Templates' => [
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Templates\ListTemplateStylesTool::class,
@@ -105,6 +107,7 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\System\ClearCacheTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\System\CheckForUpdatesTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\System\ListScheduledTasksTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\System\FetchRenderedUrlTool::class,
 		],
 		'Schema.org (SEO)' => [
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\ListSchemaTypesTool::class,
@@ -112,6 +115,7 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\GetArticleSchemaTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\SetArticleSchemaTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\SetArticleCustomJsonldTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\SetArticleCustomJsonldBulkTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\ClearArticleSchemaTool::class,
 		],
 	];

@@ -43,6 +43,29 @@ final class ListArticlesTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$applyFilters = function ($query) use ($arguments): void {
+			if (!empty($arguments['search'])) {
+				$like = '%' . $this->db->escape((string) $arguments['search'], true) . '%';
+				$query->where($this->db->quoteName('a.title') . ' LIKE ' . $this->db->quote($like, false));
+			}
+			if (isset($arguments['catid'])) {
+				$query->where($this->db->quoteName('a.catid') . ' = ' . (int) $arguments['catid']);
+			}
+			if (isset($arguments['author_id'])) {
+				$query->where($this->db->quoteName('a.created_by') . ' = ' . (int) $arguments['author_id']);
+			}
+			if (isset($arguments['state'])) {
+				$query->where($this->db->quoteName('a.state') . ' = ' . (int) $arguments['state']);
+			}
+			if (isset($arguments['featured'])) {
+				$query->where($this->db->quoteName('a.featured') . ' = ' . (int) $arguments['featured']);
+			}
+			if (!empty($arguments['language'])) {
+				$query->where($this->db->quoteName('a.language') . ' = ' . $this->db->quote((string) $arguments['language']));
+			}
+		};
+
+		// Page rows
 		$query = $this->db->getQuery(true)
 			->select([
 				$this->db->quoteName('a.id'), $this->db->quoteName('a.title'), $this->db->quoteName('a.alias'),
@@ -58,33 +81,24 @@ final class ListArticlesTool extends AbstractTool
 				. ' ON ' . $this->db->quoteName('c.id') . ' = ' . $this->db->quoteName('a.catid')
 			)
 			->order($this->db->quoteName('a.id') . ' DESC');
-
-		if (!empty($arguments['search'])) {
-			$like = '%' . $this->db->escape((string) $arguments['search'], true) . '%';
-			$query->where($this->db->quoteName('a.title') . ' LIKE ' . $this->db->quote($like, false));
-		}
-		if (isset($arguments['catid'])) {
-			$query->where($this->db->quoteName('a.catid') . ' = ' . (int) $arguments['catid']);
-		}
-		if (isset($arguments['author_id'])) {
-			$query->where($this->db->quoteName('a.created_by') . ' = ' . (int) $arguments['author_id']);
-		}
-		if (isset($arguments['state'])) {
-			$query->where($this->db->quoteName('a.state') . ' = ' . (int) $arguments['state']);
-		}
-		if (isset($arguments['featured'])) {
-			$query->where($this->db->quoteName('a.featured') . ' = ' . (int) $arguments['featured']);
-		}
-		if (!empty($arguments['language'])) {
-			$query->where($this->db->quoteName('a.language') . ' = ' . $this->db->quote((string) $arguments['language']));
-		}
+		$applyFilters($query);
 
 		$limit  = isset($arguments['limit']) ? max(1, min(500, (int) $arguments['limit'])) : 50;
 		$offset = isset($arguments['offset']) ? max(0, (int) $arguments['offset']) : 0;
 		$query->setLimit($limit, $offset);
 
 		$rows = $this->db->setQuery($query)->loadAssocList() ?: [];
+
+		// Total across the whole filtered set (no pagination) so the agent
+		// knows when to stop paginating without poll-till-empty.
+		$totalQuery = $this->db->getQuery(true)
+			->select('COUNT(*)')
+			->from($this->db->quoteName('#__content', 'a'));
+		$applyFilters($totalQuery);
+		$total = (int) $this->db->setQuery($totalQuery)->loadResult();
+
 		return ToolResult::json([
+			'total'    => $total,
 			'count'    => count($rows),
 			'limit'    => $limit,
 			'offset'   => $offset,

@@ -2,6 +2,27 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.5.0</span>
+		<span class="date">2026-05-09</span>
+	</h2>
+
+	<p>Feature release responding to the v1.4.x test feedback. Adds five new tools, total counts on paginated responses, and a token-substitute UI on the dashboard so non-technical users can copy a fully-ready prompt without manual editing. Tool count: 67 &rarr; 72.</p>
+
+	<h3><span class="section-icon">📦</span>New Features</h3>
+	<ul>
+		<li><strong><code>get_plugin_params</code> / <code>set_plugin_params</code></strong> &mdash; generic plugin params read/write via direct DB. Unlocks site-wide schemaorg config (<code>folder=system, element=schemaorg</code>), router options, third-party plugin config, anything on any plugin's Options screen. Refuses protected/locked core plugins.</li>
+		<li><strong><code>fetch_rendered_url(path, extract_jsonld?)</code></strong> &mdash; fetches a rendered page from the SAME Joomla site (same-origin only &mdash; no SSRF). Optional JSON-LD extractor pulls every <code>&lt;script type="application/ld+json"&gt;</code> block out of <code>&lt;head&gt;</code> and returns them parsed &mdash; closes the verification loop for Schema.org workflows.</li>
+		<li><strong><code>set_article_custom_jsonld_bulk</code></strong> &mdash; bulk variant for sites with hundreds of articles. Per-item independent, capped at 500 per call.</li>
+		<li><strong><code>get_4seo_config</code></strong> (4SEO add-on) &mdash; reads <code>#__forseo_config</code> where the real settings live (the Joomla extensions row's params field is near-empty for 4SEO).</li>
+		<li><strong><code>total</code> field on paginated responses</strong> &mdash; <code>list_articles</code>, <code>list_articles_with_schema</code>, <code>list_users</code>, and <code>query_4seo_table</code> now return the count across the whole filtered set so the agent knows when pagination is done without poll-till-empty.</li>
+	</ul>
+
+	<h3><span class="section-icon">🔧</span>Improvements</h3>
+	<ul>
+		<li><strong>Token-substitute UI on the dashboard's prompt tab.</strong> Optional input field for the user's token; when set, the Copy button substitutes the <code>&lt;PASTE YOUR JOOMLA API TOKEN HERE&gt;</code> placeholder before copying. Token never leaves the browser. Button label flips to "Copied with token included!" so the user knows substitution happened.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.4.2</span>
 		<span class="date">2026-05-09</span>
 	</h2>

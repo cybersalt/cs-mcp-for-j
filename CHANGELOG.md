@@ -1,5 +1,23 @@
 # Changelog
 
+## 🚀 Version 1.5.0 (May 9, 2026)
+
+Feature release responding to the v1.4.x test feedback. Adds five new tools, total counts on paginated responses, and a token-substitute UI on the dashboard so non-technical users can copy a fully-ready prompt without manual editing.
+
+Tool count: 67 → 72 (and three pre-existing paginated tools learned a `total` field).
+
+### 📦 New Features
+
+- **`get_plugin_params(folder, element)` / `set_plugin_params(folder, element, params, mode?)`** — generic plugin params read/write via direct DB. Unlocks site-wide schemaorg config (`folder=system, element=schemaorg`), router options, third-party plugin config, anything in the Options screen of any plugin. `set_plugin_params` defaults to merge mode (preserves keys you don't supply); refuses protected/locked core plugins.
+- **`fetch_rendered_url(path, extract_jsonld?)`** — fetches a rendered page from the SAME Joomla site (same-origin only — no SSRF) so the agent can verify its writes worked. Optional `extract_jsonld=true` parses every `<script type="application/ld+json">` block in `<head>` and returns them as structured data — closes the verification loop for any Schema.org workflow.
+- **`set_article_custom_jsonld_bulk(updates[])`** — bulk variant of `set_article_custom_jsonld` for sites with hundreds of articles. Per-item independent (one failure doesn't roll back the others), capped at 500 updates per call. Response gives per-item `ok`/`error`.
+- **`get_4seo_config`** (4SEO add-on) — reads the actual 4SEO settings from `#__forseo_config` (where the real config lives — site-wide schema templates, default tags, scan rules) instead of the near-empty Joomla extensions row that `get_4seo_component_params` returns. Schema-agnostic: returns every column verbatim plus a `__parsed` field for any column whose value is JSON.
+- **`total` field on paginated responses** — `list_articles`, `list_articles_with_schema`, `list_users`, and `query_4seo_table` now return a top-level `total` (the count across the whole filtered set, not just the current page) so the agent knows when pagination is complete without poll-till-empty.
+
+### 🔧 Improvements
+
+- **Token-substitute UI on the dashboard's prompt tab.** New "Optional: paste your token here for one-click setup" input field — when the user pastes a token, the Copy button substitutes the `<PASTE YOUR JOOMLA API TOKEN HERE>` placeholder before copying. Token never leaves the browser; the dashboard never sends it back to the server. The button label flips to "Copied with token included!" so the user knows substitution happened.
+
 ## 🚀 Version 1.4.2 (May 9, 2026)
 
 Patch release responding to a real-world test of the v1.4.x onboarding prompt — first-call friction fixes, no new tools.

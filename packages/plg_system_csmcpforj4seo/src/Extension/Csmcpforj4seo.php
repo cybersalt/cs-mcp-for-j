@@ -34,6 +34,7 @@ final class Csmcpforj4seo extends CMSPlugin implements SubscriberInterface
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Get4seoComponentInfoTool::class,
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Get4seoComponentParamsTool::class,
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Set4seoComponentParamsTool::class,
+		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Get4seoConfigTool::class,
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Query4seoTableTool::class,
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Insert4seoRowTool::class,
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Update4seoRowTool::class,

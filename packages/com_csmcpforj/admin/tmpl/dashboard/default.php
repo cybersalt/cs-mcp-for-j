@@ -72,8 +72,23 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP4'); ?></li>
 							</ol>
 
+							<div class="card mb-3 border-secondary">
+								<div class="card-body py-3">
+									<label for="csmcpforj-token-input" class="form-label fw-bold">
+										<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_LABEL'); ?>
+									</label>
+									<div class="input-group">
+										<input type="password" class="form-control" id="csmcpforj-token-input" placeholder="sha256:42:abc123def456..." autocomplete="off" data-csmcpforj-token-input>
+										<button type="button" class="btn btn-outline-secondary" data-csmcpforj-token-toggle title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_TOGGLE_SHOW')); ?>">
+											<span class="icon-eye" aria-hidden="true"></span>
+										</button>
+									</div>
+									<small class="text-body-secondary d-block mt-2"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_HINT'); ?></small>
+								</div>
+							</div>
+
 							<pre class="p-2 mb-2" style="white-space: pre-wrap; max-height: 400px; overflow: auto;"><code id="csmcpforj-prompt"><?php echo htmlspecialchars($this->claudePrompt, ENT_QUOTES, 'UTF-8'); ?></code></pre>
-							<button type="button" class="btn btn-primary btn-lg" data-csmcpforj-copy="csmcpforj-prompt" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_PROMPT_BUTTON')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED')); ?>">
+							<button type="button" class="btn btn-primary btn-lg" data-csmcpforj-copy="csmcpforj-prompt" data-csmcpforj-token-substitute="1" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_PROMPT_BUTTON')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED')); ?>" data-copied-substituted-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED_WITH_TOKEN')); ?>">
 								<span class="icon-copy" aria-hidden="true"></span>
 								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_PROMPT_BUTTON'); ?>
 							</button>
@@ -231,22 +246,49 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+	// Token-show toggle for the prompt-tab token input.
+	var tokenToggle = document.querySelector('[data-csmcpforj-token-toggle]');
+	var tokenInput  = document.querySelector('[data-csmcpforj-token-input]');
+	if (tokenToggle && tokenInput) {
+		tokenToggle.addEventListener('click', function() {
+			tokenInput.type = tokenInput.type === 'password' ? 'text' : 'password';
+		});
+	}
+
+	// Copy buttons. If data-csmcpforj-token-substitute is set on the button
+	// AND the token input has a non-empty value, substitute the placeholder
+	// in the copied text — token never leaves the browser.
 	document.querySelectorAll('[data-csmcpforj-copy]').forEach(function(btn) {
 		btn.addEventListener('click', function() {
 			var targetId = btn.getAttribute('data-csmcpforj-copy');
 			var el = document.getElementById(targetId);
 			if (!el) return;
 			var text = el.textContent || el.innerText;
-			var copied = btn.getAttribute('data-copied-label');
+
+			var substituted = false;
+			if (btn.getAttribute('data-csmcpforj-token-substitute') === '1' && tokenInput) {
+				var token = (tokenInput.value || '').trim();
+				if (token !== '') {
+					text = text.replace(/<PASTE YOUR JOOMLA API TOKEN HERE>/g, token);
+					substituted = true;
+				}
+			}
+
+			var copiedLabel = substituted && btn.getAttribute('data-copied-substituted-label')
+				? btn.getAttribute('data-copied-substituted-label')
+				: btn.getAttribute('data-copied-label');
 			var defaultLabel = btn.getAttribute('data-default-label');
+
 			navigator.clipboard.writeText(text).then(function() {
 				var iconHtml = '<span class="icon-checkmark" aria-hidden="true"></span> ';
-				btn.innerHTML = iconHtml + copied;
+				btn.innerHTML = iconHtml + copiedLabel;
 				setTimeout(function() {
 					btn.innerHTML = '<span class="icon-copy" aria-hidden="true"></span> ' + defaultLabel;
-				}, 2000);
+				}, 2500);
 			}).catch(function() {
-				// Fallback: select text so user can Ctrl+C manually
+				// Fallback: select text so user can Ctrl+C manually. Note
+				// fallback can't substitute the token because we'd need to
+				// mutate the DOM and can't easily undo it.
 				var range = document.createRange();
 				range.selectNode(el);
 				window.getSelection().removeAllRanges();
