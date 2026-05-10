@@ -31,7 +31,10 @@ final class SetArticleCustomJsonldBulkTool extends AbstractTool
 		return 'Bulk attach Custom JSON-LD to many articles in one call. Required: updates[] '
 			. 'where each entry is {item_id, jsonld, context?}. Per-item independent — one '
 			. 'failure does not abort the rest. Response gives per-item ok/error. Cap: '
-			. self::MAX_UPDATES_PER_CALL . ' updates per call. For more, chunk and call again.';
+			. self::MAX_UPDATES_PER_CALL . ' updates per call. For more, chunk and call again. '
+			. 'IMPORTANT: each `jsonld` must be a SINGLE object (e.g. {"@type":"VideoObject",...}); '
+			. 'do NOT wrap it in your own @graph — Joomla merges each block into the page\'s '
+			. 'existing @graph automatically.';
 	}
 
 	public function getInputSchema(): array

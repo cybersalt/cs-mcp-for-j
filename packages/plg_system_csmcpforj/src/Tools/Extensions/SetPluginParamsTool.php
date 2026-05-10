@@ -27,7 +27,9 @@ final class SetPluginParamsTool extends AbstractTool
 		return 'Modify a Joomla plugin\'s params (its Options screen settings). Required: '
 			. 'folder, element, params. Default mode "merge" preserves existing keys not in '
 			. 'the supplied params object; mode="replace" overwrites the whole params object. '
-			. 'Refuses protected/locked core plugins.';
+			. 'Refuses protected core plugins outright. Refuses locked plugins by default; pass '
+			. '`allow_locked: true` to override the lock — most "locked" plugins (notably '
+			. 'plg_system_schemaorg) are legitimately user-editable through Joomla\'s admin UI.';
 	}
 
 	public function getInputSchema(): array
@@ -36,10 +38,11 @@ final class SetPluginParamsTool extends AbstractTool
 			'type'     => 'object',
 			'required' => ['folder', 'element', 'params'],
 			'properties' => [
-				'folder'  => ['type' => 'string'],
-				'element' => ['type' => 'string'],
-				'params'  => ['type' => 'object', 'description' => 'Key/value object to set.'],
-				'mode'    => ['type' => 'string', 'enum' => ['merge', 'replace'], 'description' => 'Default merge.'],
+				'folder'       => ['type' => 'string'],
+				'element'      => ['type' => 'string'],
+				'params'       => ['type' => 'object', 'description' => 'Key/value object to set.'],
+				'mode'         => ['type' => 'string', 'enum' => ['merge', 'replace'], 'description' => 'Default merge.'],
+				'allow_locked' => ['type' => 'boolean', 'description' => 'Override the locked-plugin guard. Required for plg_system_schemaorg and any other locked plugin you legitimately need to edit.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -59,6 +62,7 @@ final class SetPluginParamsTool extends AbstractTool
 		if (!in_array($mode, ['merge', 'replace'], true)) {
 			return ToolResult::error('mode must be merge or replace.');
 		}
+		$allowLocked = (bool) ($arguments['allow_locked'] ?? false);
 
 		$query = $this->db->getQuery(true)
 			->select($this->db->quoteName(['extension_id', 'protected', 'locked', 'params']))
@@ -71,8 +75,19 @@ final class SetPluginParamsTool extends AbstractTool
 		if (!$row) {
 			return ToolResult::error('Plugin not found: folder=' . $folder . ', element=' . $element);
 		}
-		if (!empty($row['protected']) || !empty($row['locked'])) {
-			return ToolResult::error('Refusing to modify protected or locked core plugin.');
+		// `protected` is a hard refusal — those plugins are flagged by Joomla as
+		// dangerous to modify (e.g. plg_system_logout). `locked` is softer:
+		// plg_system_schemaorg and friends ship locked but are obviously
+		// user-editable (Joomla's admin UI lets you edit them). Allow override
+		// for locked-only via the explicit allow_locked flag.
+		if (!empty($row['protected'])) {
+			return ToolResult::error('Refusing to modify protected core plugin.');
+		}
+		if (!empty($row['locked']) && !$allowLocked) {
+			return ToolResult::error(
+				'Plugin is locked. Pass allow_locked=true to override (legitimately needed for '
+				. 'plg_system_schemaorg, etc. — Joomla\'s own admin UI bypasses this same lock).'
+			);
 		}
 
 		$existing = $row['params'] ? json_decode((string) $row['params'], true) : [];

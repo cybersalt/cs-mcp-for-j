@@ -1,5 +1,19 @@
 # Changelog
 
+## 🚀 Version 1.5.1 (May 9, 2026)
+
+Patch release responding to v1.5.0 test feedback. Fixes the JSON-RPC corruption class of bug structurally and unblocks editing legitimately user-editable locked plugins via `set_plugin_params`.
+
+### 🐛 Bug Fixes
+
+- **Critical: stray PHP output corrupted JSON-RPC envelopes.** Any tool that triggered a PHP notice/warning (e.g. v1.5.0's `fetch_rendered_url` casting an array Content-Type header to string) emitted that warning text in front of the JSON-RPC response, which caused MCP clients to throw "Parse error: Unexpected token" on the otherwise-valid response. Wrapped `McpController::handle()` in `ob_start()` and discard the buffer before emitting JSON. Defends every tool — present and future — from this whole class of bug. Local cause in `FetchRenderedUrlTool` is also fixed (multi-value headers now joined with `, ` instead of cast to "Array").
+- **`set_plugin_params` couldn't modify legitimately user-editable locked plugins** like `plg_system_schemaorg`. Joomla's own admin UI lets you edit these even though they're flagged `locked: true`. Added `allow_locked: true` flag to override the lock guard explicitly; `protected: true` plugins still get a hard refusal because those are genuinely dangerous to touch.
+
+### 🔧 Improvements
+
+- **`fetch_rendered_url` returns `jsonld_types`** — a flat, dedup'd, sorted array of every `@type` value across all JSON-LD blocks (recursively walking `@graph`). Common SEO check "did my X type land?" becomes `result.jsonld_types.includes("FAQPage")` instead of walking every block.
+- **`set_article_custom_jsonld` and `set_article_custom_jsonld_bulk` descriptions** now warn against wrapping the supplied JSON-LD in a top-level `@graph` — Joomla 5.1+ merges each block into the page's existing `@graph` automatically, so wrapping yourself produces a graph-in-graph that's likely wrong.
+
 ## 🚀 Version 1.5.0 (May 9, 2026)
 
 Feature release responding to the v1.4.x test feedback. Adds five new tools, total counts on paginated responses, and a token-substitute UI on the dashboard so non-technical users can copy a fully-ready prompt without manual editing.

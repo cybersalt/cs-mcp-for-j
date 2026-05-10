@@ -92,12 +92,22 @@ final class FetchRenderedUrlTool extends AbstractTool
 			$body = substr($body, 0, self::MAX_BYTES);
 		}
 
+		// Joomla's HTTP response stores headers as either string or array
+		// (multi-value headers come back as arrays). Casting an array to
+		// string emits a PHP warning, which corrupted the JSON-RPC envelope
+		// in v1.5.0 — see the ob_start guard in McpController for the
+		// structural fix; this is the local fix.
+		$ctRaw = $response->headers['Content-Type']
+			?? $response->headers['content-type']
+			?? '';
+		$contentType = is_array($ctRaw) ? implode(', ', $ctRaw) : (string) $ctRaw;
+
 		$result = [
-			'url'         => $absoluteUrl,
-			'status'      => $status,
-			'bytes'       => $bytes,
-			'truncated'   => $bytes > self::MAX_BYTES,
-			'content_type' => (string) ($response->headers['Content-Type'] ?? $response->headers['content-type'] ?? ''),
+			'url'          => $absoluteUrl,
+			'status'       => $status,
+			'bytes'        => $bytes,
+			'truncated'    => $bytes > self::MAX_BYTES,
+			'content_type' => $contentType,
 		];
 
 		if ($extractJ) {
@@ -120,6 +130,12 @@ final class FetchRenderedUrlTool extends AbstractTool
 			}
 			$result['jsonld_blocks'] = $jsonld;
 			$result['jsonld_count']  = count($jsonld);
+
+			// Flat dedup'd list of every @type seen across all blocks
+			// (recursing into @graph entries). The common SEO question is
+			// "did my X type land?" — without this the agent has to walk
+			// every block to answer.
+			$result['jsonld_types'] = $this->collectJsonldTypes($jsonld);
 		}
 
 		if ($includeHtml) {
@@ -127,5 +143,54 @@ final class FetchRenderedUrlTool extends AbstractTool
 		}
 
 		return ToolResult::json($result);
+	}
+
+	/**
+	 * Walks every parsed JSON-LD block (recursing into @graph entries) and
+	 * returns a flat, sorted, dedup'd list of @type values.
+	 *
+	 * @param array<int, array{parsed?: mixed}> $blocks
+	 * @return array<int, string>
+	 */
+	private function collectJsonldTypes(array $blocks): array
+	{
+		$types = [];
+		foreach ($blocks as $block) {
+			$this->extractTypes($block['parsed'] ?? null, $types);
+		}
+		$types = array_values(array_unique($types));
+		sort($types);
+		return $types;
+	}
+
+	private function extractTypes(mixed $node, array &$types): void
+	{
+		if (!is_array($node)) {
+			return;
+		}
+		if (isset($node['@type'])) {
+			$t = $node['@type'];
+			if (is_array($t)) {
+				foreach ($t as $one) {
+					if (is_string($one) && $one !== '') {
+						$types[] = $one;
+					}
+				}
+			} elseif (is_string($t) && $t !== '') {
+				$types[] = $t;
+			}
+		}
+		// Recurse into @graph and any nested arrays/objects.
+		foreach ($node as $key => $value) {
+			if (is_array($value)) {
+				if ($key === '@graph' || array_is_list($value)) {
+					foreach ($value as $child) {
+						$this->extractTypes($child, $types);
+					}
+				} else {
+					$this->extractTypes($value, $types);
+				}
+			}
+		}
 	}
 }

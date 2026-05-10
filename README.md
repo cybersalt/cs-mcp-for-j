@@ -2,7 +2,7 @@
 
 Turns a Joomla 5/6 site into its own MCP server. Connect Claude (Desktop, Code, claude.ai) directly to your site using a Joomla API token — no local Node/Python/WSL install, no MCP server process to babysit.
 
-> **Status:** v1.5.0 — 72 built-in tools across 13 domains. Self-installing copy-paste prompt with token-substitute UI + manual MCP connector setup. Includes a 4SEO add-on for sites running the Weeblr 4SEO extension.
+> **Status:** v1.5.1 — 72 built-in tools across 13 domains. Self-installing copy-paste prompt with token-substitute UI + manual MCP connector setup. Includes a 4SEO add-on for sites running the Weeblr 4SEO extension.
 
 ## What it ships
 

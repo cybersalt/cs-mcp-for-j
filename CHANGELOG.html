@@ -2,6 +2,25 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.5.1</span>
+		<span class="date">2026-05-09</span>
+	</h2>
+
+	<p>Patch release responding to v1.5.0 test feedback. Fixes the JSON-RPC corruption class of bug structurally and unblocks editing legitimately user-editable locked plugins via <code>set_plugin_params</code>.</p>
+
+	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
+	<ul>
+		<li><strong>Critical: stray PHP output corrupted JSON-RPC envelopes.</strong> v1.5.0's <code>fetch_rendered_url</code> cast an array-valued Content-Type header to string, emitting a PHP warning that prefixed the JSON response and broke parsing in any MCP client. Wrapped <code>McpController::handle()</code> in <code>ob_start()</code> and discard the buffer before emitting JSON &mdash; defends every tool, present and future, from this whole class of bug. Local cause in <code>FetchRenderedUrlTool</code> also fixed (multi-value headers joined with <code>, </code>).</li>
+		<li><strong><code>set_plugin_params</code> couldn't modify legitimately user-editable locked plugins</strong> like <code>plg_system_schemaorg</code>. Added <code>allow_locked: true</code> flag to override the lock guard explicitly; <code>protected: true</code> plugins still get a hard refusal.</li>
+	</ul>
+
+	<h3><span class="section-icon">🔧</span>Improvements</h3>
+	<ul>
+		<li><strong><code>fetch_rendered_url</code> returns <code>jsonld_types</code></strong> &mdash; flat, dedup'd, sorted array of every <code>@type</code> value across all JSON-LD blocks (recursively walking <code>@graph</code>). "Did my X type land?" becomes a single inclusion check.</li>
+		<li><strong><code>set_article_custom_jsonld</code> and <code>set_article_custom_jsonld_bulk</code> descriptions</strong> now warn against wrapping the supplied JSON-LD in a top-level <code>@graph</code> &mdash; Joomla 5.1+ merges each block into the page's existing <code>@graph</code> automatically.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.5.0</span>
 		<span class="date">2026-05-09</span>
 	</h2>

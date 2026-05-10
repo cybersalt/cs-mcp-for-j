@@ -28,7 +28,10 @@ final class SetArticleCustomJsonldTool extends AbstractTool
 			. 'item_id, jsonld (the @context+@type+rest object). Use this for FAQPage, Service, '
 			. 'LocalBusiness, Product, Review, BreadcrumbList, or any other schema.org type Joomla '
 			. 'does not ship a native form for. The object is stringified into the Custom plugin\'s '
-			. '"json" field automatically.';
+			. '"json" field automatically. IMPORTANT: supply a SINGLE JSON-LD object '
+			. '(e.g. {"@type":"FAQPage","mainEntity":[...]}); do NOT wrap it in your own @graph — '
+			. 'Joomla 5.1+ merges your block into the page\'s existing @graph automatically, so '
+			. 'wrapping in @graph yourself produces a graph-in-graph that\'s likely wrong.';
 	}
 
 	public function getInputSchema(): array
