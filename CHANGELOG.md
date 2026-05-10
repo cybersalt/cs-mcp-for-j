@@ -1,5 +1,11 @@
 # Changelog
 
+## 🚀 Version 1.6.0 (May 9, 2026)
+
+### 📦 New Features
+
+- **`validate_jsonld(jsonld, expected_type?)`** — pre-flight JSON-LD shape validator. Returns `errors` (must-fix), `warnings` (should-fix), and `info` (cosmetic) messages. Designed to be called *before* `set_article_custom_jsonld_bulk` so a typo doesn't produce 500 silently-broken schema rows. Knows the required + strongly-recommended fields for: Article, BlogPosting, NewsArticle, FAQPage, Question, HowTo, Recipe, Event, Product, Offer, Review, JobPosting, LocalBusiness, Organization, Person, BreadcrumbList, VideoObject, Service, Book. Unknown @types pass without field-level checks (you can still get errors for missing @type, missing @context, or @graph wrapping). Tool count: 72 → 73.
+
 ## 🚀 Version 1.5.1 (May 9, 2026)
 
 Patch release responding to v1.5.0 test feedback. Fixes the JSON-RPC corruption class of bug structurally and unblocks editing legitimately user-editable locked plugins via `set_plugin_params`.

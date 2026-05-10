@@ -2,6 +2,16 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.6.0</span>
+		<span class="date">2026-05-09</span>
+	</h2>
+
+	<h3><span class="section-icon">📦</span>New Features</h3>
+	<ul>
+		<li><strong><code>validate_jsonld(jsonld, expected_type?)</code></strong> &mdash; pre-flight JSON-LD shape validator. Returns <code>errors</code>, <code>warnings</code>, <code>info</code>. Designed to be called <em>before</em> <code>set_article_custom_jsonld_bulk</code> so a typo doesn't produce 500 silently-broken schema rows. Knows required + strongly-recommended fields for 19 common Schema.org types. Tool count: 72 &rarr; 73.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.5.1</span>
 		<span class="date">2026-05-09</span>
 	</h2>
