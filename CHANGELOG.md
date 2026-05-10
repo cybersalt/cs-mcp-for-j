@@ -1,5 +1,21 @@
 # Changelog
 
+## 🚀 Version 1.1.0 (May 9, 2026)
+
+### 📦 New Features
+- **Schema.org / SEO tool domain** (6 tools) wrapping Joomla's CORE `plg_system_schemaorg` system:
+    - `list_schema_types` — canonical type list with typical fields per type
+    - `list_articles_with_schema` — audit which articles have/lack structured data, with summary by type
+    - `get_article_schema` — read the stored schemaorg row for a content item
+    - `set_article_schema` — set/replace any of Article, BlogPosting, Book, Event, JobPosting, Organization, Person, Recipe, Custom
+    - `set_article_custom_jsonld` — convenience for Custom type: pass a JSON-LD object directly, no need to stringify
+    - `clear_article_schema` — remove the row (matches Joomla's `schemaType=None` behaviour)
+- Writes go directly to `#__schemaorg` in the same shape Joomla's `Schemaorg::onContentAfterSave` hook produces. The rendered `<script type="application/ld+json">` blocks pick up changes on the next page load with no cache invalidation needed.
+
+### 🔧 Improvements
+- Tool count: 51 → 57. Domain count: 11 → 12.
+- Server protocol identifier bumped to `cs-mcp-for-j 1.1.0`.
+
 ## 🚀 Version 1.0.0 (April 25, 2026)
 
 Initial release.

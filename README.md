@@ -2,7 +2,7 @@
 
 Turns a Joomla 5/6 site into its own MCP server. Connect Claude (Desktop, Code, claude.ai) directly to your site using a Joomla API token — no local Node/Python/WSL install, no MCP server process to babysit.
 
-> **Status:** v1.0.0 — 51 built-in tools across 11 Joomla admin domains.
+> **Status:** v1.1.0 — 57 built-in tools across 12 Joomla admin domains (now including Schema.org / SEO).
 
 ## What it ships
 
@@ -138,6 +138,19 @@ All three are bundled in `pkg_csmcpforj` and enabled automatically on install.
 | `list_scheduled_tasks` | read |
 | `check_for_updates` | read |
 | `clear_cache` | write |
+
+### Schema.org / SEO
+
+Wraps Joomla's CORE Schema.org system (the `plg_system_schemaorg` plugin family — Article, BlogPosting, Book, Custom, Event, JobPosting, Organization, Person, Recipe). Writes go directly to `#__schemaorg` in the same shape Joomla's `onContentAfterSave` hook produces, so the rendered `<script type="application/ld+json">` blocks pick them up on the next page load. For schema types Joomla does not ship a form for (FAQPage, Service, LocalBusiness, Product, Review, BreadcrumbList, etc.), use `set_article_custom_jsonld` to attach arbitrary JSON-LD as the `Custom` type.
+
+| Tool | Access |
+|---|---|
+| `list_schema_types` | read |
+| `list_articles_with_schema` | read |
+| `get_article_schema` | read |
+| `set_article_schema` | write |
+| `set_article_custom_jsonld` | write |
+| `clear_article_schema` | write |
 
 ## Extending — custom tools
 

@@ -106,6 +106,14 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\System\CheckForUpdatesTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\System\ListScheduledTasksTool::class,
 		],
+		'Schema.org (SEO)' => [
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\ListSchemaTypesTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\ListArticlesWithSchemaTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\GetArticleSchemaTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\SetArticleSchemaTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\SetArticleCustomJsonldTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\ClearArticleSchemaTool::class,
+		],
 	];
 
 	public static function getSubscribedEvents(): array

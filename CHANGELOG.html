@@ -2,6 +2,25 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.1.0</span>
+		<span class="date">2026-05-09</span>
+	</h2>
+
+	<p>Adds a Schema.org / SEO tool domain wrapping Joomla's CORE <code>plg_system_schemaorg</code> system. Tool count: 51 &rarr; 57; domain count: 11 &rarr; 12.</p>
+
+	<h3><span class="section-icon">📦</span>New Features</h3>
+	<ul>
+		<li><strong>Schema.org / SEO tool domain (6 tools)</strong>: <code>list_schema_types</code>, <code>list_articles_with_schema</code>, <code>get_article_schema</code>, <code>set_article_schema</code>, <code>set_article_custom_jsonld</code>, <code>clear_article_schema</code>.</li>
+		<li>Supports all 9 CORE Schema types (Article, BlogPosting, Book, Custom, Event, JobPosting, Organization, Person, Recipe). Use <code>Custom</code> + <code>set_article_custom_jsonld</code> for FAQPage, Service, LocalBusiness, Product, Review, BreadcrumbList, or any other schema.org type Joomla does not ship a form for.</li>
+		<li>Writes go directly to <code>#__schemaorg</code> in the same shape Joomla's <code>onContentAfterSave</code> hook produces — the rendered JSON-LD blocks pick up changes on the next page load.</li>
+	</ul>
+
+	<h3><span class="section-icon">🔧</span>Improvements</h3>
+	<ul>
+		<li>Server protocol identifier bumped to <code>cs-mcp-for-j 1.1.0</code>.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.0.0</span>
 		<span class="date">2026-04-25</span>
 	</h2>
