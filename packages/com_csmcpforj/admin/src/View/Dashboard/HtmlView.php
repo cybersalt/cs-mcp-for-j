@@ -7,7 +7,6 @@ namespace Cybersalt\Component\Csmcpforj\Administrator\View\Dashboard;
 \defined('_JEXEC') or die;
 
 use Joomla\CMS\Factory;
-use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
 use Joomla\CMS\Toolbar\ToolbarHelper;
@@ -59,6 +58,12 @@ final class HtmlView extends BaseHtmlView
 		$this->buildToolGroups();
 		$this->mcpConfigJson = $this->buildMcpConfigJson();
 		$this->claudePrompt  = $this->buildClaudePrompt();
+
+		// Bootstrap tab JS isn't auto-loaded in Joomla admin — without this,
+		// clicking a tab just changes the URL hash and the panel never
+		// activates. Same situation as bootstrap.modal / bootstrap.collapse
+		// per JOOMLA5-PLUGIN-GUIDE.md — opt in via the WebAssetManager.
+		Factory::getApplication()->getDocument()->getWebAssetManager()->useScript('bootstrap.tab');
 
 		ToolbarHelper::title(Text::_('COM_CSMCPFORJ'), 'cog');
 
@@ -139,9 +144,10 @@ final class HtmlView extends BaseHtmlView
 	 */
 	private function buildClaudePrompt(): string
 	{
-		$site     = $this->siteUrl;
-		$endpoint = $this->endpointUrl;
-		$tokenLine = 'Joomla API token: <PASTE YOUR JOOMLA API TOKEN HERE>';
+		$site         = $this->siteUrl;
+		$endpoint     = $this->endpointUrl;
+		$serverName   = 'joomla-' . $this->host;
+		$tokenPlaceholder = '<PASTE YOUR JOOMLA API TOKEN HERE>';
 
 		$domainSummary = '';
 		foreach ($this->toolsByDomain as $domain => $tools) {
@@ -149,13 +155,13 @@ final class HtmlView extends BaseHtmlView
 		}
 
 		return <<<PROMPT
-		I want you to help me manage my Joomla site by calling its MCP endpoint
-		directly. The endpoint speaks JSON-RPC 2.0 over HTTPS — you can hit it
-		with curl from your bash tool, no MCP client setup needed.
+		I want you to help me manage my Joomla site. Here are the details for
+		connecting to it — you can hit the MCP endpoint with curl from your
+		bash tool right now, no MCP client setup needed.
 
 		Site:        {$site}
 		MCP endpoint: {$endpoint}
-		{$tokenLine}
+		Joomla API token: {$tokenPlaceholder}
 
 		Authentication: every request needs the header
 		    Authorization: Bearer <token>
@@ -207,8 +213,36 @@ final class HtmlView extends BaseHtmlView
 		         -H "Authorization: Bearer <token>" \\
 		         -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 
-		Report back the tool count and the per-domain breakdown. Then ask me
-		what I'd like to do.
+		Report back the tool count and the per-domain breakdown.
+
+		----
+
+		**MAKING THIS PERMANENT** (Claude Code only — skip if I'm using
+		Claude Desktop or claude.ai):
+
+		After you confirm the connection works, end your reply by offering to
+		install this site as a permanent MCP connector in my Claude Code
+		config. If I say yes ("make it permanent", "install it", "yes please"
+		or anything in that direction), run:
+
+		    claude mcp add {$serverName} {$endpoint} --transport http \\
+		        --header "Authorization: Bearer <my-token-from-above>"
+
+		Substitute the actual token I pasted at the top of this prompt. I'll
+		see an approval dialog before the command runs — no surprise execution.
+
+		Once that succeeds, tell me to restart Claude Code (or just exit and
+		re-open this session). The next conversation will see this site's
+		tools as native MCP tools — no prompt needed, no curl, just direct
+		tool calls. After that I'll never paste this prompt again.
+
+		If I say I'm using Claude Desktop or claude.ai, tell me to grab the
+		JSON snippet from the "MCP Connector" tab of the dashboard and paste
+		it into Claude Desktop's claude_desktop_config.json or claude.ai's
+		Settings → Connectors page. There's no `claude mcp add`-style command
+		for those clients yet — manual config is the path.
+
+		Then ask me what I'd like to do with the site.
 		PROMPT;
 	}
 }

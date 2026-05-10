@@ -40,27 +40,54 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 
 					<ul class="nav nav-tabs" id="csmcpforj-method-tabs" role="tablist">
 						<li class="nav-item" role="presentation">
-							<button class="nav-link active" id="method-1-tab" data-bs-toggle="tab" data-bs-target="#method-1" type="button" role="tab">
-								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_TAB'); ?>
+							<button class="nav-link active" id="method-prompt-tab" data-bs-toggle="tab" data-bs-target="#method-prompt" type="button" role="tab" aria-controls="method-prompt" aria-selected="true">
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_TAB'); ?>
 							</button>
 						</li>
 						<li class="nav-item" role="presentation">
-							<button class="nav-link" id="method-2-tab" data-bs-toggle="tab" data-bs-target="#method-2" type="button" role="tab">
-								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_TAB'); ?>
+							<button class="nav-link" id="method-connector-tab" data-bs-toggle="tab" data-bs-target="#method-connector" type="button" role="tab" aria-controls="method-connector" aria-selected="false">
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_TAB'); ?>
 							</button>
 						</li>
 					</ul>
 
 					<div class="tab-content pt-3" id="csmcpforj-method-tab-content">
-						<div class="tab-pane fade show active" id="method-1" role="tabpanel">
-							<h4 class="h5"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_HEADING'); ?></h4>
-							<p><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_INTRO'); ?></p>
+						<div class="tab-pane fade show active" id="method-prompt" role="tabpanel" aria-labelledby="method-prompt-tab">
+							<h4 class="h5"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_HEADING'); ?></h4>
+							<p><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_INTRO'); ?></p>
+
+							<div class="alert alert-success mb-3">
+								<strong><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_BONUS_LABEL'); ?></strong>
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_BONUS_BODY'); ?>
+							</div>
 
 							<ol class="mb-3">
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_STEP1'); ?></li>
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_STEP2'); ?></li>
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_STEP3'); ?></li>
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_STEP4'); ?></li>
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP1'); ?></li>
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP2'); ?></li>
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP3'); ?></li>
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP4'); ?></li>
+							</ol>
+
+							<pre class="p-2 mb-2" style="white-space: pre-wrap; max-height: 400px; overflow: auto;"><code id="csmcpforj-prompt"><?php echo htmlspecialchars($this->claudePrompt, ENT_QUOTES, 'UTF-8'); ?></code></pre>
+							<button type="button" class="btn btn-primary btn-lg" data-csmcpforj-copy="csmcpforj-prompt" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_PROMPT_BUTTON')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED')); ?>">
+								<span class="icon-copy" aria-hidden="true"></span>
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_PROMPT_BUTTON'); ?>
+							</button>
+
+							<div class="alert alert-info mt-3 mb-0">
+								<small><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_HINT'); ?></small>
+							</div>
+						</div>
+
+						<div class="tab-pane fade" id="method-connector" role="tabpanel" aria-labelledby="method-connector-tab">
+							<h4 class="h5"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_HEADING'); ?></h4>
+							<p><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_INTRO'); ?></p>
+
+							<ol class="mb-3">
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_STEP1'); ?></li>
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_STEP2'); ?></li>
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_STEP3'); ?></li>
+								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_STEP4'); ?></li>
 							</ol>
 
 							<pre class="p-2 mb-2" style="white-space: pre-wrap;"><code id="csmcpforj-config"><?php echo htmlspecialchars($this->mcpConfigJson, ENT_QUOTES, 'UTF-8'); ?></code></pre>
@@ -70,31 +97,9 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 							</button>
 
 							<p class="mt-3 mb-0"><small class="text-body-secondary">
-								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD1_XHEADER_NOTE'); ?>
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_XHEADER_NOTE'); ?>
 								<code>"headers": { "X-Joomla-Token": "YOUR_JOOMLA_API_TOKEN" }</code>
 							</small></p>
-						</div>
-
-						<div class="tab-pane fade" id="method-2" role="tabpanel">
-							<h4 class="h5"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_HEADING'); ?></h4>
-							<p><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_INTRO'); ?></p>
-
-							<ol class="mb-3">
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_STEP1'); ?></li>
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_STEP2'); ?></li>
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_STEP3'); ?></li>
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_STEP4'); ?></li>
-							</ol>
-
-							<pre class="p-2 mb-2" style="white-space: pre-wrap; max-height: 400px; overflow: auto;"><code id="csmcpforj-prompt"><?php echo htmlspecialchars($this->claudePrompt, ENT_QUOTES, 'UTF-8'); ?></code></pre>
-							<button type="button" class="btn btn-primary" data-csmcpforj-copy="csmcpforj-prompt" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_PROMPT_BUTTON')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED')); ?>">
-								<span class="icon-copy" aria-hidden="true"></span>
-								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_PROMPT_BUTTON'); ?>
-							</button>
-
-							<div class="alert alert-info mt-3 mb-0">
-								<small><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD2_HINT'); ?></small>
-							</div>
 						</div>
 					</div>
 				</div>

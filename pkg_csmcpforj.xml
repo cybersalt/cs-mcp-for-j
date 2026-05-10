@@ -7,7 +7,7 @@
 	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
 	<authorEmail>support@cybersalt.com</authorEmail>
 	<authorUrl>https://cybersalt.com</authorUrl>
-	<version>1.3.0</version>
+	<version>1.4.0</version>
 	<description>PKG_CSMCPFORJ_XML_DESCRIPTION</description>
 	<packagename>csmcpforj</packagename>
 	<scriptfile>script.php</scriptfile>

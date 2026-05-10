@@ -2,6 +2,25 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.4.0</span>
+		<span class="date">2026-05-09</span>
+	</h2>
+
+	<p>Fixes broken tab switching on the dashboard, swaps the setup tab order so the easier path (copy-paste prompt) is the default, and adds a self-install offer to the prompt so Claude Code users can convert a one-off prompt into a permanent MCP connector with one follow-up sentence.</p>
+
+	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
+	<ul>
+		<li><strong>Tabs not switching on dashboard.</strong> Bootstrap's <code>bootstrap.tab</code> JavaScript module isn't auto-loaded in Joomla admin views. Without an explicit <code>WebAssetManager::useScript('bootstrap.tab')</code> opt-in, clicking a tab only changed the URL hash; the panel never activated. Fixed.</li>
+	</ul>
+
+	<h3><span class="section-icon">🔧</span>Improvements</h3>
+	<ul>
+		<li><strong>Tab order swapped.</strong> The copy-paste prompt is now the <strong>default tab</strong> (renamed "Copy a prompt into Claude (recommended)") because it's the easier path for non-technical users. The JSON snippet path moves to the second tab ("MCP Connector (manual config)").</li>
+		<li><strong>Self-installing prompt.</strong> The copy-paste prompt now includes a closing instruction telling Claude: after confirming the connection, offer to install this site as a permanent MCP connector via <code>claude mcp add</code> (Claude Code only). The user says "make it permanent" and Claude runs the install command (with Claude Code's standard approval dialog before any shell command runs). After restarting Claude, this site appears as native MCP tools in every conversation &mdash; no prompt needed ever again. One paste = either one-off use OR permanent install, user's choice via a single follow-up sentence.</li>
+		<li><strong>Setup card framing</strong> rewritten so the recommended path is obvious and the bonus self-install behaviour is explained up front.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.3.0</span>
 		<span class="date">2026-05-09</span>
 	</h2>
