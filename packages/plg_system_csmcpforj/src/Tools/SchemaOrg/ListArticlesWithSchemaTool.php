@@ -15,6 +15,10 @@ use Joomla\CMS\User\User;
  * #__content against #__schemaorg. Articles with no schema row are returned
  * with schema_type=null, so the agent can spot which articles still need
  * structured data attached.
+ *
+ * Summary block reports across the WHOLE filtered set (not just the current
+ * page), and the response includes a `total` so the agent knows when it has
+ * paginated to the end without poll-till-empty.
  */
 final class ListArticlesWithSchemaTool extends AbstractTool
 {
@@ -24,7 +28,9 @@ final class ListArticlesWithSchemaTool extends AbstractTool
 	{
 		return 'List articles with their current Schema.org type assignment. Useful for '
 			. 'auditing which articles already have structured data and which are missing it. '
-			. 'schema_type is null for articles without a schemaorg row.';
+			. 'schema_type is null for articles without a schemaorg row. The summary block '
+			. 'reflects the entire filtered set, not just the current page; `total` tells you '
+			. 'how many rows match the filter overall.';
 	}
 
 	public function getInputSchema(): array
@@ -48,67 +54,98 @@ final class ListArticlesWithSchemaTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		$query = $this->db->getQuery(true)
-			->select([
-				$this->db->quoteName('a.id'),
-				$this->db->quoteName('a.title'),
-				$this->db->quoteName('a.alias'),
-				$this->db->quoteName('a.catid'),
-				$this->db->quoteName('a.state'),
-				$this->db->quoteName('s.schemaType', 'schema_type'),
-				$this->db->quoteName('s.id', 'schema_row_id'),
-			])
+		$baseQuery = $this->db->getQuery(true)
 			->from($this->db->quoteName('#__content', 'a'))
 			->leftJoin(
 				$this->db->quoteName('#__schemaorg', 's')
 				. ' ON ' . $this->db->quoteName('s.itemId') . ' = ' . $this->db->quoteName('a.id')
 				. ' AND ' . $this->db->quoteName('s.context') . ' = ' . $this->db->quote('com_content.article')
-			)
-			->order($this->db->quoteName('a.id') . ' DESC');
+			);
 
-		if (isset($arguments['has_schema'])) {
-			if ($arguments['has_schema']) {
-				$query->where($this->db->quoteName('s.id') . ' IS NOT NULL');
-			} else {
-				$query->where($this->db->quoteName('s.id') . ' IS NULL');
+		$applyFilters = function ($query) use ($arguments): void {
+			if (isset($arguments['has_schema'])) {
+				if ($arguments['has_schema']) {
+					$query->where($this->db->quoteName('s.id') . ' IS NOT NULL');
+				} else {
+					$query->where($this->db->quoteName('s.id') . ' IS NULL');
+				}
 			}
-		}
-		if (!empty($arguments['schema_type'])) {
-			$query->where($this->db->quoteName('s.schemaType') . ' = ' . $this->db->quote((string) $arguments['schema_type']));
-		}
-		if (isset($arguments['catid'])) {
-			$query->where($this->db->quoteName('a.catid') . ' = ' . (int) $arguments['catid']);
-		}
-		if (isset($arguments['state'])) {
-			$query->where($this->db->quoteName('a.state') . ' = ' . (int) $arguments['state']);
-		}
-		if (!empty($arguments['search'])) {
-			$like = '%' . $this->db->escape((string) $arguments['search'], true) . '%';
-			$query->where($this->db->quoteName('a.title') . ' LIKE ' . $this->db->quote($like, false));
-		}
+			if (!empty($arguments['schema_type'])) {
+				$query->where($this->db->quoteName('s.schemaType') . ' = ' . $this->db->quote((string) $arguments['schema_type']));
+			}
+			if (isset($arguments['catid'])) {
+				$query->where($this->db->quoteName('a.catid') . ' = ' . (int) $arguments['catid']);
+			}
+			if (isset($arguments['state'])) {
+				$query->where($this->db->quoteName('a.state') . ' = ' . (int) $arguments['state']);
+			}
+			if (!empty($arguments['search'])) {
+				$like = '%' . $this->db->escape((string) $arguments['search'], true) . '%';
+				$query->where($this->db->quoteName('a.title') . ' LIKE ' . $this->db->quote($like, false));
+			}
+		};
+
+		// Page query — what the agent gets back as `articles`.
+		$pageQuery = clone $baseQuery;
+		$pageQuery->select([
+			$this->db->quoteName('a.id'),
+			$this->db->quoteName('a.title'),
+			$this->db->quoteName('a.alias'),
+			$this->db->quoteName('a.catid'),
+			$this->db->quoteName('a.state'),
+			$this->db->quoteName('s.schemaType', 'schema_type'),
+			$this->db->quoteName('s.id', 'schema_row_id'),
+		])->order($this->db->quoteName('a.id') . ' DESC');
+		$applyFilters($pageQuery);
 
 		$limit  = isset($arguments['limit']) ? max(1, min(500, (int) $arguments['limit'])) : 100;
 		$offset = isset($arguments['offset']) ? max(0, (int) $arguments['offset']) : 0;
-		$query->setLimit($limit, $offset);
+		$pageQuery->setLimit($limit, $offset);
 
-		$rows = $this->db->setQuery($query)->loadAssocList() ?: [];
+		$rows = $this->db->setQuery($pageQuery)->loadAssocList() ?: [];
 
-		$summary = ['with_schema' => 0, 'without_schema' => 0, 'by_type' => []];
-		foreach ($rows as $row) {
-			if ($row['schema_type'] === null) {
-				$summary['without_schema']++;
-			} else {
-				$summary['with_schema']++;
-				$type = (string) $row['schema_type'];
-				$summary['by_type'][$type] = ($summary['by_type'][$type] ?? 0) + 1;
-			}
+		// Total count across the WHOLE filtered set (not just the page).
+		$totalQuery = clone $baseQuery;
+		$totalQuery->select('COUNT(*)');
+		$applyFilters($totalQuery);
+		$total = (int) $this->db->setQuery($totalQuery)->loadResult();
+
+		// Summary across the filtered set, also not page-bound. Two more
+		// scalar queries; cheap and the answer means something this time.
+		$withQuery = clone $baseQuery;
+		$withQuery->select('COUNT(*)');
+		$applyFiltersWith = $applyFilters;
+		$applyFiltersWith($withQuery);
+		$withQuery->where($this->db->quoteName('s.id') . ' IS NOT NULL');
+		$withSchema = (int) $this->db->setQuery($withQuery)->loadResult();
+
+		$withoutSchema = $total - $withSchema;
+
+		// by_type breakdown across the filtered set.
+		$typeQuery = clone $baseQuery;
+		$typeQuery->select([
+			$this->db->quoteName('s.schemaType', 'schema_type'),
+			'COUNT(*) AS n',
+		]);
+		$applyFilters($typeQuery);
+		$typeQuery->where($this->db->quoteName('s.id') . ' IS NOT NULL')
+			->group($this->db->quoteName('s.schemaType'));
+		$typeRows = $this->db->setQuery($typeQuery)->loadAssocList() ?: [];
+		$byType   = [];
+		foreach ($typeRows as $row) {
+			$byType[(string) $row['schema_type']] = (int) $row['n'];
 		}
 
 		return ToolResult::json([
+			'total'    => $total,
 			'count'    => count($rows),
 			'limit'    => $limit,
 			'offset'   => $offset,
-			'summary'  => $summary,
+			'summary'  => [
+				'with_schema'    => $withSchema,
+				'without_schema' => $withoutSchema,
+				'by_type'        => $byType,
+			],
 			'articles' => $rows,
 		]);
 	}

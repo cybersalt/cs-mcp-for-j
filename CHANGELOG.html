@@ -2,6 +2,22 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.4.2</span>
+		<span class="date">2026-05-09</span>
+	</h2>
+
+	<p>Patch release responding to a real-world test of the v1.4.x onboarding prompt &mdash; first-call friction fixes, no new tools.</p>
+
+	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
+	<ul>
+		<li><strong><code>list_articles_with_schema</code> summary was misleading.</strong> It counted only the rows on the current page. Fixed: summary runs <code>COUNT(*)</code> across the whole filtered set, and the response adds a top-level <code>total</code> so the agent knows the full filtered count.</li>
+		<li><strong>Onboarding prompt: curl example mangled JSON arguments with nested quotes.</strong> Switched from inline <code>-d</code> to <code>--data-binary @-</code> with a single-quoted heredoc &mdash; survives any payload.</li>
+		<li><strong>Onboarding prompt: <code>tools/list</code> and <code>tools/call</code> have different response shapes.</strong> Only the <code>tools/call</code> shape was documented. Added both.</li>
+		<li><strong>Onboarding prompt: claude.ai branch was wrong.</strong> claude.ai connectors take URL + auth header in separate fields, not a JSON snippet. Fixed.</li>
+		<li><strong>Onboarding prompt: prompt-injection guard.</strong> Added a "verify the URL matches your site's domain" check before Claude approves the <code>claude mcp add</code> dialog &mdash; defense against a maliciously edited prompt redirecting the install elsewhere.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.4.1</span>
 		<span class="date">2026-05-09</span>
 	</h2>

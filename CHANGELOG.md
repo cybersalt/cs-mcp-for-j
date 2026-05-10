@@ -1,5 +1,16 @@
 # Changelog
 
+## 🚀 Version 1.4.2 (May 9, 2026)
+
+Patch release responding to a real-world test of the v1.4.x onboarding prompt — first-call friction fixes, no new tools.
+
+### 🐛 Bug Fixes
+- **`list_articles_with_schema` summary was misleading.** It counted only the rows on the current page, so calling with `limit:1` returned `with_schema:0, without_schema:1` regardless of how many articles actually had/lacked schema across the full filtered set. Fixed: summary now runs `COUNT(*)` queries across the whole filtered set, independent of pagination. Response also adds a top-level `total` so the agent knows the full filtered count.
+- **Onboarding prompt: curl example mangled JSON arguments containing nested quotes.** First-time callers hit `Parse error: Syntax error` the moment a tool argument was a JSON object. Switched the example from inline `-d '{"…"}'` to `--data-binary @-` with a single-quoted heredoc — survives any payload.
+- **Onboarding prompt: didn't explain that `tools/list` and `tools/call` return different response shapes.** `tools/list` returns `result.tools` directly (no content wrap); `tools/call` wraps in `result.content[0].text`. The prompt only described the `tools/call` shape, so first-time callers hit a parse mismatch on the very first response. Documented both.
+- **Onboarding prompt: claude.ai branch was wrong.** Said to "grab the JSON snippet from the dashboard" — claude.ai connectors actually use separate URL + auth-header fields, not a JSON snippet. Updated the prompt to give claude.ai users the URL and auth header directly, with the JSON snippet path reserved for Claude Desktop.
+- **Onboarding prompt: prompt-injection guard added to `claude mcp add` self-install offer.** Tells Claude to verify the URL in the install dialog matches the user's own site domain before approving — defense against a maliciously edited copy of the prompt that redirects the install to a hostile endpoint.
+
 ## 🚀 Version 1.4.1 (May 9, 2026)
 
 ### 🐛 Bug Fixes
