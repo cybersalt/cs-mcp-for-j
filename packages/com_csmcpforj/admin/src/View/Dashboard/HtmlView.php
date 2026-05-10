@@ -6,37 +6,73 @@ namespace Cybersalt\Component\Csmcpforj\Administrator\View\Dashboard;
 
 \defined('_JEXEC') or die;
 
-use Cybersalt\Component\Csmcpforj\Administrator\MCP\Event\RegisterToolsEvent;
-use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolRegistry;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
 use Joomla\CMS\Toolbar\ToolbarHelper;
 use Joomla\CMS\Uri\Uri;
 
+/**
+ * Dashboard view. Reads tool metadata STATICALLY from the bundled plugin
+ * classes — does NOT dispatch RegisterToolsEvent. Dispatching the event
+ * here once caused a 512MB OOM (see RegisterToolsEvent for the postmortem),
+ * and dispatch isn't necessary anyway: the dashboard only needs to show
+ * what the bundled plugins ship, not what every event subscriber on the
+ * site might want to register.
+ */
 final class HtmlView extends BaseHtmlView
 {
 	public string $endpointUrl = '';
 
-	/**
-	 * Tools grouped by domain.
-	 *
-	 * @var array<string, array<int, array{name:string, description:string}>>
-	 */
+	/** @var array<string, array<int, array{name:string, description:string, permission:string}>> */
 	public array $toolsByDomain = [];
 
 	public int $toolCount = 0;
+
+	private const PLUGIN_TOOL_MAPS = [
+		// Each entry: domain label => [pluginClass, methodReturningToolClasses]
+		// The core system plugin returns a {domain => [classes]} map already.
+		'__core' => [
+			'\\Cybersalt\\Plugin\\System\\Csmcpforj\\Extension\\Csmcpforj',
+			'getBuiltinTools',
+		],
+		// Add-ons each return a flat list of tool classes under one domain.
+		'4SEO' => [
+			'\\Cybersalt\\Plugin\\System\\Csmcpforj4seo\\Extension\\Csmcpforj4seo',
+			'getToolClasses',
+		],
+	];
 
 	public function display($tpl = null): void
 	{
 		$this->endpointUrl = rtrim(Uri::root(), '/') . '/api/index.php/v1/mcp';
 
-		$registry   = new ToolRegistry();
-		$dispatcher = Factory::getApplication()->getDispatcher();
-		$dispatcher->dispatch(RegisterToolsEvent::EVENT_NAME, new RegisterToolsEvent($registry));
+		$grouped = [];
 
-		$this->toolsByDomain = $this->groupTools($registry);
-		$this->toolCount     = count($registry->all());
+		foreach (self::PLUGIN_TOOL_MAPS as $domainHint => [$pluginClass, $method]) {
+			if (!class_exists($pluginClass) || !method_exists($pluginClass, $method)) {
+				continue;
+			}
+
+			$result = $pluginClass::$method();
+
+			// Core plugin: returns ['Domain' => [class, ...], ...].
+			// Add-ons: return [class, ...] keyed numerically.
+			$isMap = is_array($result) && !empty($result) && !array_is_list($result);
+
+			if ($isMap) {
+				foreach ($result as $domain => $toolClasses) {
+					$grouped[$domain] = array_merge($grouped[$domain] ?? [], $this->extractToolMeta($toolClasses));
+				}
+			} else {
+				$domain = $domainHint;
+				$grouped[$domain] = array_merge($grouped[$domain] ?? [], $this->extractToolMeta($result));
+			}
+		}
+
+		ksort($grouped);
+		$this->toolsByDomain = $grouped;
+		$this->toolCount     = array_sum(array_map('count', $grouped));
 
 		ToolbarHelper::title(Text::_('COM_CSMCPFORJ'), 'cog');
 
@@ -44,42 +80,31 @@ final class HtmlView extends BaseHtmlView
 	}
 
 	/**
-	 * Try to get the BUILTIN_TOOLS map from the system plugin so tools can be
-	 * shown grouped by domain. Falls back to a single "Other" group if the
-	 * system plugin isn't loaded for some reason.
+	 * Instantiate each tool class once to read its name/description/permission.
+	 * Tools are constructed with the database service. Lightweight — no event
+	 * dispatch, no registry, just N lazy reads.
+	 *
+	 * @param array<int, class-string> $toolClasses
 	 */
-	private function groupTools(ToolRegistry $registry): array
+	private function extractToolMeta(array $toolClasses): array
 	{
-		$pluginClass = '\\Cybersalt\\Plugin\\System\\Csmcpforj\\Extension\\Csmcpforj';
-		$nameToDomain = [];
-
-		if (class_exists($pluginClass) && method_exists($pluginClass, 'getBuiltinTools')) {
-			foreach ($pluginClass::getBuiltinTools() as $domain => $toolClasses) {
-				foreach ($toolClasses as $toolClass) {
-					if (class_exists($toolClass)) {
-						$instance = new $toolClass($this->getDb());
-						$nameToDomain[$instance->getName()] = $domain;
-					}
-				}
+		$db   = Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class);
+		$out  = [];
+		foreach ($toolClasses as $toolClass) {
+			if (!class_exists($toolClass)) {
+				continue;
+			}
+			try {
+				$instance = new $toolClass($db);
+				$out[] = [
+					'name'        => $instance->getName(),
+					'description' => $instance->getDescription(),
+					'permission'  => $instance->getRequiredPermission(),
+				];
+			} catch (\Throwable $e) {
+				// Skip tools that fail to instantiate — don't blow up the dashboard.
 			}
 		}
-
-		$grouped = [];
-		foreach ($registry->all() as $tool) {
-			$domain = $nameToDomain[$tool->getName()] ?? 'Other';
-			$grouped[$domain][] = [
-				'name'        => $tool->getName(),
-				'description' => $tool->getDescription(),
-				'permission'  => $tool->getRequiredPermission(),
-			];
-		}
-
-		ksort($grouped);
-		return $grouped;
-	}
-
-	private function getDb(): \Joomla\Database\DatabaseInterface
-	{
-		return Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class);
+		return $out;
 	}
 }

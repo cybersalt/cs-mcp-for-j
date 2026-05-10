@@ -2,7 +2,7 @@
 
 Turns a Joomla 5/6 site into its own MCP server. Connect Claude (Desktop, Code, claude.ai) directly to your site using a Joomla API token — no local Node/Python/WSL install, no MCP server process to babysit.
 
-> **Status:** v1.1.0 — 57 built-in tools across 12 Joomla admin domains (now including Schema.org / SEO).
+> **Status:** v1.2.0 — 67 built-in tools across 13 domains. Includes a 4SEO add-on for sites running the Weeblr 4SEO extension.
 
 ## What it ships
 
@@ -151,6 +151,25 @@ Wraps Joomla's CORE Schema.org system (the `plg_system_schemaorg` plugin family 
 | `set_article_schema` | write |
 | `set_article_custom_jsonld` | write |
 | `clear_article_schema` | write |
+
+### 4SEO (`plg_system_csmcpforj4seo` add-on)
+
+Tools for sites running the Weeblr **4SEO** commercial extension (`com_forseo`). 4SEO ships no public Web Services API, so these tools work directly against `#__forseo_*` tables. Every write tool refuses any table not starting with `forseo_`. UPDATE / DELETE refuse if the WHERE clause would touch more than one row. Run `list_4seo_tables` and `describe_4seo_table` first so the agent learns the schema before constructing reads/writes.
+
+| Tool | Access |
+|---|---|
+| `list_4seo_tables` | read |
+| `describe_4seo_table` | read |
+| `count_4seo_rows` | read |
+| `get_4seo_component_info` | read |
+| `get_4seo_component_params` | read |
+| `set_4seo_component_params` | write |
+| `query_4seo_table` | read |
+| `insert_4seo_row` | write |
+| `update_4seo_row` | write |
+| `delete_4seo_row` | write |
+
+This add-on is **bundled with the package for testing right now** but is structured as a separate plugin (`plg_system_csmcpforj4seo`) so it can split out into its own paid SKU later. The free core (`com_csmcpforj` + `plg_system_csmcpforj` + `plg_webservices_csmcpforj`) doesn't depend on it — uninstall the 4SEO add-on plugin and the rest still works.
 
 ## Extending — custom tools
 

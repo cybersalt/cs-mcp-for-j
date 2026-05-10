@@ -2,6 +2,30 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.2.0</span>
+		<span class="date">2026-05-09</span>
+	</h2>
+
+	<p>Adds the 4SEO add-on (10 tools wrapping the Weeblr <code>com_forseo</code> extension) and fixes a critical memory-exhaustion bug in dashboard load. Tool count: 57 &rarr; 67; domain count: 12 &rarr; 13.</p>
+
+	<h3><span class="section-icon">📦</span>New Features</h3>
+	<ul>
+		<li><strong>4SEO add-on</strong> (<code>plg_system_csmcpforj4seo</code>) &mdash; first paid-add-on-shaped sub-plugin. Bundled in the package for testing; structured so it can be split into its own SKU later.</li>
+		<li>Adds 10 tools: <code>list_4seo_tables</code>, <code>describe_4seo_table</code>, <code>count_4seo_rows</code>, <code>get_4seo_component_info</code>, <code>get_4seo_component_params</code>, <code>set_4seo_component_params</code>, <code>query_4seo_table</code>, <code>insert_4seo_row</code>, <code>update_4seo_row</code>, <code>delete_4seo_row</code>.</li>
+		<li>Works directly against <code>#__forseo_*</code> tables (4SEO has no public Web Services API). All write tools refuse any table not prefixed with <code>forseo_</code>; UPDATE / DELETE refuse if the WHERE clause would touch more than one row.</li>
+	</ul>
+
+	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
+	<ul>
+		<li><strong>Memory exhaustion on dashboard load (CRITICAL).</strong> <code>RegisterToolsEvent</code> extended <code>Joomla\CMS\Event\AbstractEvent</code>, whose argument processor walked argument values via reflection and recursed catastrophically once the <code>registry</code> argument carried 50+ tool instances each holding a <code>DatabaseInterface</code> reference. Switched to the simpler <code>Joomla\Event\Event</code> base class and refactored the dashboard to read tool metadata statically from the plugin classes (no event dispatch from the dashboard).</li>
+	</ul>
+
+	<h3><span class="section-icon">🔧</span>Improvements</h3>
+	<ul>
+		<li>Server protocol identifier bumped to <code>cs-mcp-for-j 1.2.0</code>.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.1.0</span>
 		<span class="date">2026-05-09</span>
 	</h2>

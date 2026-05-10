@@ -92,6 +92,20 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 
 			$db->setQuery($query)->execute();
 		}
+
+		// Add-on plugins shipped in this package — enable on install/update.
+		// Each add-on is a separate plugin so it can later be split into its
+		// own paid SKU without restructuring the core.
+		$addons = ['csmcpforj4seo'];
+		foreach ($addons as $element) {
+			$query = $db->getQuery(true)
+				->update($db->quoteName('#__extensions'))
+				->set($db->quoteName('enabled') . ' = 1')
+				->where($db->quoteName('type') . ' = ' . $db->quote('plugin'))
+				->where($db->quoteName('folder') . ' = ' . $db->quote('system'))
+				->where($db->quoteName('element') . ' = ' . $db->quote($element));
+			$db->setQuery($query)->execute();
+		}
 	}
 
 	private function showPostInstallMessage(string $type): void

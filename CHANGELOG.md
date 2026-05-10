@@ -1,5 +1,28 @@
 # Changelog
 
+## 🚀 Version 1.2.0 (May 9, 2026)
+
+### 📦 New Features
+- **4SEO add-on** (`plg_system_csmcpforj4seo`) — first paid-add-on-shaped sub-plugin (bundled with the package for testing; structured so it can be split into its own SKU later). Adds 10 tools that introspect and modify the Weeblr 4SEO extension (`com_forseo`) directly against `#__forseo_*` since 4SEO ships no public Web Services API:
+    - `list_4seo_tables` — every #__forseo_* table on the site
+    - `describe_4seo_table` — column schema for one table
+    - `count_4seo_rows` — row counts across all 4SEO tables (health snapshot)
+    - `get_4seo_component_info` — is com_forseo installed/enabled, which Weeblr siblings are alongside
+    - `get_4seo_component_params` — read com_forseo Options screen settings
+    - `set_4seo_component_params` — merge-update com_forseo Options screen settings
+    - `query_4seo_table` — safe parameterised SELECT (structured WHERE clauses, no raw SQL, restricted to `forseo_*`)
+    - `insert_4seo_row` — safe single-row INSERT
+    - `update_4seo_row` — safe single-row UPDATE (refuses if WHERE matches >1 row)
+    - `delete_4seo_row` — safe single-row DELETE (refuses if WHERE matches >1 row)
+- All 4SEO write tools refuse any table not starting with `forseo_`, so misuse can't reach #__users / #__content / etc.
+
+### 🐛 Bug Fixes
+- **Memory exhaustion in dashboard load (CRITICAL).** `RegisterToolsEvent` extended `Joomla\CMS\Event\AbstractEvent`, whose argument processor walks argument values and recursed catastrophically when the `registry` argument carried 50+ tool instances each holding a `DatabaseInterface` reference. Fixed by switching to the simpler `Joomla\Event\Event` base class and refactoring the dashboard to read tool metadata statically from the bundled plugin classes (no event dispatch from the dashboard at all).
+
+### 🔧 Improvements
+- Tool count: 57 → 67. Domain count: 12 → 13.
+- Server protocol identifier bumped to `cs-mcp-for-j 1.2.0`.
+
 ## 🚀 Version 1.1.0 (May 9, 2026)
 
 ### 📦 New Features
