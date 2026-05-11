@@ -5,7 +5,6 @@ declare(strict_types=1);
 \defined('_JEXEC') or die;
 
 use Joomla\CMS\Factory;
-use Joomla\CMS\Filesystem\File;
 use Joomla\CMS\Installer\InstallerAdapter;
 use Joomla\CMS\Installer\InstallerScriptInterface;
 use Joomla\CMS\Language\Text;
@@ -71,10 +70,14 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 
 	private function clearAutoloadCache(): void
 	{
+		// Plain @unlink rather than Joomla\CMS\Filesystem\File::delete():
+		// the latter class was deprecated in J4, removed in J6, and bombs
+		// the postflight on Joomla 6 sites with "Class not found". @unlink
+		// works on every PHP version regardless of Joomla.
 		$cacheFile = JPATH_ADMINISTRATOR . '/cache/autoload_psr4.php';
 
 		if (is_file($cacheFile)) {
-			File::delete($cacheFile);
+			@unlink($cacheFile);
 		}
 	}
 

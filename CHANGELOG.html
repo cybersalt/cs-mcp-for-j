@@ -2,6 +2,16 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.7.3</span>
+		<span class="date">2026-05-11</span>
+	</h2>
+
+	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
+	<ul>
+		<li><strong>CRITICAL: Postflight failed on Joomla 6</strong> with <code>Class "Joomla\CMS\Filesystem\File" not found</code>. That class was removed in J6 (deprecated in J4). On J6 sites, the autoload-cache clear AND the plugin-enabling step were both silently skipped, leaving the Web Services plugin disabled and the MCP route 404'ing. Fixed by replacing the one <code>File::delete()</code> call with plain <code>@unlink()</code> — no Joomla classes involved. <strong>If you installed v1.6.x–v1.7.2 on a Joomla 6 site, install v1.7.3 over top and the plugins will get re-enabled automatically.</strong></li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.7.2</span>
 		<span class="date">2026-05-11</span>
 	</h2>

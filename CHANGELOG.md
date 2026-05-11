@@ -1,5 +1,10 @@
 # Changelog
 
+## 🚀 Version 1.7.3 (May 11, 2026)
+
+### 🐛 Bug Fixes
+- **CRITICAL: Postflight failed on Joomla 6 with `Class "Joomla\CMS\Filesystem\File" not found`.** That class was deprecated in J4 and removed in J6 — installs on J5 worked (shim still present) but J6 sites (e.g. goatsatwork.ca, notesatwork.ca) hit the not-found error in the postflight try/catch, which surfaced as a yellow warning "cs-mcp-for-j postflight setup failed: …" and silently skipped the autoload-cache clear AND the plugin-enabling step. So on J6, the bundled `plg_webservices_csmcpforj` plugin stayed *disabled* after install, the MCP route 404'd, and the install looked broken. Fixed by replacing the one `File::delete()` call with plain `@unlink()` — no Joomla classes involved, works on every Joomla version. **If you installed v1.6.x–v1.7.2 on a Joomla 6 site, install v1.7.3 over top and the plugins will get re-enabled automatically.**
+
 ## 🚀 Version 1.7.2 (May 11, 2026)
 
 ### 📝 Documentation
