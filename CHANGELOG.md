@@ -1,5 +1,28 @@
 # Changelog
 
+## 🚀 Version 1.7.0 (May 11, 2026)
+
+Refactor of the 4SEO add-on now that we have 4SEO v6.12.0's full source available locally for design reference. Adds **5 typed tools** that wrap the highest-traffic 4SEO database tables, so an agent can manage per-page meta and 4SEO config without having to know about the three-layer envelope (`platform` / `auto` / `custom`) or the size-based column routing in `#__forseo_config`. The generic `query_4seo_table` / `insert_4seo_row` / `update_4seo_row` / `delete_4seo_row` escape hatches stay — they're how the agent can still reach the tables we haven't typed yet (rules, sitemaps, perf data, GSC, referrers, errors, links, images).
+
+Tool count: 73 → 78. 4SEO domain count: 11 → 16.
+
+### 📦 New Features
+
+- **`list_4seo_meta_overrides`** — typed audit query over `#__forseo_custom_meta`. Returns each row's `content_id`, `url`, status flags, and the decoded `custom_title` / `custom_description` / `custom_robots` / `custom_canonical` so a query like "which articles have a custom SEO title?" is one call. Filters: `content_id_like`, `has_custom_title`, `has_custom_description`, `enabled`. Includes `total` for pagination.
+- **`get_4seo_meta_override`** — read a single row. Accepts `content_id` (raw), `joomla_params` (object — tool alphabetises and concatenates), or `article_id` (shorthand for a `com_content` article). Surfaces all three layers (`platform`, `auto`, `custom`) separately so the agent doesn't have to walk the `data` JSON envelope.
+- **`set_4seo_meta_override`** — the headline tool. Three-layer-aware upsert: supply `title` / `description` / `robots` / `canonical` and the tool sets them in the `custom` layer, bumps the corresponding `status_title` / `status_description` to `2` (custom), and leaves `platform` and `auto` layers untouched. Creates the row if missing (with empty `platform`/`auto` — 4SEO repopulates on next crawl), updates in place otherwise. The agent never has to know about the JSON envelope or hash columns.
+- **`clear_4seo_meta_override`** — two modes: `reset_to_auto` (keeps row, wipes `custom` layer, resets statuses to `0` so 4SEO falls back to auto-detection) or `delete_row` (hard-removes the row entirely; 4SEO recreates on next crawl if the page is encountered again).
+- **`set_4seo_config(key, value | value_object, scope?)`** — typed counterpart to `get_4seo_config`. Auto-encodes `value_object` to JSON; routes large payloads to the `large_value` mediumtext column when the string exceeds 16000 bytes; auto-detects `format="json"` when given a `value_object`. Upserts by `(scope, key)`.
+
+### 🔧 Improvements
+
+- All five new tools share a `ContentIdTrait` for parsing/building 4SEO's canonical `content_id` format (alphabetised `key=value` pairs joined with `&`, case-sensitive ASCII key sort to match 4SEO's `ksort` behaviour). Verified live against stage data on 2026-05-11: 1494 rows in `#__forseo_custom_meta` all match this format, and confirmed at `plugins/system/forseo/platform/components/content.php` line 225 in the 4SEO source.
+
+### 🛡️ Design notes
+
+- Why typed tools alongside generic CRUD instead of replacing the generic tools: the generic ones are still the safe path for any 4SEO table we haven't yet typed (about 20 of the 25 tables: rules, sitemaps, perf data, GSC daily aggregates, referrers, errors, links, images, etc.). Replacing them would lock the agent out of those tables. They're now placed last in the registration so the agent reaches for typed tools first.
+- 4SEO does NOT use standard Joomla `Model` classes — there are none anywhere in the 4SEO PHP source. The "Option B" path from the original discovery (call into Weeblr's models via `bootComponent('com_forseo')->getMVCFactory()`) is unavailable. The path we took is Option A (DB-direct) but with typed wrappers built from the canonical `install.sql` schema, so the agent gets the ergonomics of Option B without needing the models.
+
 ## 🚀 Version 1.6.0 (May 9, 2026)
 
 ### 📦 New Features

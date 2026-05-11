@@ -28,13 +28,29 @@ final class Csmcpforj4seo extends CMSPlugin implements SubscriberInterface
 	protected $autoloadLanguage = true;
 
 	private const TOOLS = [
+		// Introspection (read)
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\List4seoTablesTool::class,
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Describe4seoTableTool::class,
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Count4seoRowsTool::class,
+
+		// Component-level (read + merge-write)
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Get4seoComponentInfoTool::class,
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Get4seoComponentParamsTool::class,
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Set4seoComponentParamsTool::class,
+
+		// 4SEO config table (#__forseo_config)
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Get4seoConfigTool::class,
+		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Config\Set4seoConfigTool::class,
+
+		// Per-page meta overrides (#__forseo_custom_meta) — typed wrappers
+		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Meta\ListMetaOverridesTool::class,
+		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Meta\GetMetaOverrideTool::class,
+		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Meta\SetMetaOverrideTool::class,
+		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Meta\ClearMetaOverrideTool::class,
+
+		// Generic CRUD escape hatches — refused outside forseo_* tables;
+		// kept for tables we don't yet have typed wrappers for (rules,
+		// sitemaps, perf data, GSC, referrers, errors, links, images).
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Query4seoTableTool::class,
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Insert4seoRowTool::class,
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Update4seoRowTool::class,

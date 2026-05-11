@@ -2,6 +2,28 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.7.0</span>
+		<span class="date">2026-05-11</span>
+	</h2>
+
+	<p>Refactor of the 4SEO add-on now that we have 4SEO v6.12.0's full source available locally for design reference. Adds 5 typed tools so an agent can manage per-page meta and 4SEO config without knowing about the three-layer envelope or size-based column routing. The generic CRUD escape hatches stay. Tool count 73 &rarr; 78.</p>
+
+	<h3><span class="section-icon">📦</span>New Features</h3>
+	<ul>
+		<li><strong><code>list_4seo_meta_overrides</code></strong> &mdash; typed audit query over <code>#__forseo_custom_meta</code>. Decodes the data JSON for you and surfaces custom_title / custom_description / custom_robots / custom_canonical alongside the row.</li>
+		<li><strong><code>get_4seo_meta_override</code></strong> &mdash; read one row by content_id, joomla_params, or article_id. Returns all three layers (platform / auto / custom) separately.</li>
+		<li><strong><code>set_4seo_meta_override</code></strong> &mdash; three-layer-aware upsert. Just supply title / description / robots / canonical; the tool sets them in the custom layer and bumps status flags to 2 (custom). Preserves platform &amp; auto layers untouched. Creates the row if missing.</li>
+		<li><strong><code>clear_4seo_meta_override</code></strong> &mdash; reset_to_auto (default; wipes custom layer, status flags back to 0) or delete_row (hard remove).</li>
+		<li><strong><code>set_4seo_config</code></strong> &mdash; typed counterpart to get_4seo_config. Auto-encodes value_object to JSON; auto-routes &gt;16000-byte payloads to the large_value column. Upserts by (scope, key).</li>
+	</ul>
+
+	<h3><span class="section-icon">🛡️</span>Design notes</h3>
+	<ul>
+		<li>4SEO has no standard Joomla Model classes &mdash; the "Option B" path (call into Weeblr's PHP models) is unavailable. We're on Option A (DB-direct) but with typed wrappers built from the canonical <code>install.sql</code> schema, giving the agent the ergonomics of B without the models.</li>
+		<li>Generic <code>query_4seo_table</code> / <code>insert_4seo_row</code> / <code>update_4seo_row</code> / <code>delete_4seo_row</code> escape hatches retained for the 20+ tables that still need typed wrappers (rules, sitemaps, perf data, GSC, referrers, errors, links, images). They're now last in the registration so the agent reaches for typed tools first.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.6.0</span>
 		<span class="date">2026-05-09</span>
 	</h2>
