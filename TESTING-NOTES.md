@@ -56,20 +56,53 @@ All read-only tools that don't have known v1.5.0 bugs:
 
 ---
 
-## Pending install — get to v1.6.0
+## Update 2026-05-11 afternoon — v1.6.0 installed, all fixes verified live
 
-Install `pkg_csmcpforj_v1.6.0_20260509_2203.zip` on stage to get:
-- ob_start guard (fetch_rendered_url stops corrupting responses)
-- `allow_locked: true` flag (set_plugin_params can finally edit schemaorg image)
-- `jsonld_types` flat array on fetch_rendered_url
-- `validate_jsonld` tool (pre-flight shape checker before bulk writes)
-- @graph wrapping warnings in JSON-LD writer descriptions
-- list_articles_with_schema summary fix (counts across full set)
+Tim installed v1.6.0 on stage. Re-ran the test sequence:
 
-Once installed, the immediate actions:
-1. **Set the publisher logo.** `set_plugin_params(folder:"system", element:"schemaorg", params:{"image":"<chosen-logo-url>"}, allow_locked: true)`. The reviewer flagged this as the top SEO gap — site-wide Organization schema is missing the logo image.
-2. **Verify the schema renders.** `fetch_rendered_url(path:"/", extract_jsonld:true)` on the homepage; the Organization node in the @graph should now have an image property.
-3. **Decide on the test data.** Articles 771, 769, 755, 754 have leftover schema (now VideoObject for 771 and 755 after my test, BlogPosting on 769, Custom on 754). If you want a clean slate, `clear_article_schema` for each. If you want to keep iterating with them, leave them.
+1. `initialize` returns `serverInfo: cs-mcp-for-j 1.6.0`. Confirmed.
+2. **`fetch_rendered_url` now returns clean JSON** — no PHP warning prefix. `content_type: "text/html; charset=utf-8"` (was "Array" in v1.5.0). The `ob_start` controller guard works.
+3. **`validate_jsonld` works** — on a deliberately broken `{"@type":"VideoObject","name":"test"}` payload, returned 3 errors (missing required description/thumbnailUrl/uploadDate) and 5 warnings (missing @context, missing recommended fields). Exactly the pre-flight check the design intended.
+4. **`list_articles_with_schema` summary now correct** — with no filter: `total: 803, with_schema: 4, without_schema: 799, by_type: {Article: 1, Custom: 3}`. Cross-table fix landed.
+5. **`set_plugin_params` with `allow_locked: true` works** — fixed the headline SEO gap. Set the Organization logo on plg_system_schemaorg via MCP, verified the change persisted via `get_plugin_params`, verified the rendered page now includes the logo + image properties in the Organization node of the JSON-LD `@graph`. Full SEO loop closed end-to-end.
+
+### Publisher-logo workflow (the actual proof)
+
+This is the workflow the reviewer flagged as the highest-impact gap. Did it through MCP only:
+
+```
+1. fetch_rendered_url path:"index.php" include_html:true
+   → regex'd HTML for logo references
+   → found /stageit/images/cybersalt/cybersalt-logo-tr.png
+
+2. set_plugin_params
+     folder: "system"
+     element: "schemaorg"
+     allow_locked: true
+     params: { image: "https://www.cybersalt.com/stageit/images/cybersalt/cybersalt-logo-tr.png" }
+   → ok: true, changed_keys: ["image"], mode: "merge"
+
+3. get_plugin_params → confirms image stored in params
+
+4. fetch_rendered_url path:"index.php" extract_jsonld:true
+   → Organization node now has:
+       logo: {@type:"ImageObject", url:"...", contentUrl:"..."}
+       image: {@id:".../ImageObject/logo"}
+```
+
+Wall-clock time: under 30 seconds. Without MCP this would have been: log into admin → System → Plugins → search → open schemaorg plugin → click into params → paste URL → save → flip to a public page → view source → grep for ld+json → eyeball the Organization node. Easily 5+ minutes if you're unfamiliar with the admin path.
+
+### Minor finding for next patch
+
+`get_joomla_version` returns `mcp_extension: "cs-mcp-for-j 1.0.0"` — hardcoded string in `GetJoomlaVersionTool.php` that never got updated. One-line fix. Defer to next patch.
+
+### `fetch_rendered_url` path semantics
+
+When I passed `path: "/stageit/"` the tool concatenated it onto `Uri::root()` (which is `https://www.cybersalt.com/stageit/`) yielding `https://www.cybersalt.com/stageit/stageit/` and a 404. Path is treated as relative-to-site-root, not absolute server path. Updated description text would help — "path is relative to the Joomla install root, e.g. `index.php` or `images/foo.jpg`, not the server's webroot." Tiny doc-only fix, also defer.
+
+---
+
+## Done — v1.6.0 installed and the publisher-logo workflow run live (see above)
 
 ---
 
