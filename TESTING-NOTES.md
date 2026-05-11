@@ -1,137 +1,135 @@
-# Testing Notes — overnight session 2026-05-09 / 10
+# Testing Notes — live MCP exercise against stage 2026-05-11
 
-What got built while you were asleep, what's deployed, what needs to be installed/tested, and the prompts to paste into your open Claude window to exercise everything.
+This replaces the earlier TESTING-NOTES (which was a morning-checklist written when I couldn't find the stage URL). Now the live MCP has been exercised end-to-end from VS Code via curl. Findings below.
 
 ---
 
-## What shipped tonight
+## Where it's installed
 
-| Version | What | Why |
+| Stage URL | Joomla | PHP | cs-mcp-for-j |
+|---|---|---|---|
+| `https://www.cybersalt.com/stageit/api/index.php/v1/mcp` | 5.4.5 Stable (Kutegemea) | 8.3.31 | **v1.5.0 installed** (latest released is v1.6.0 — see "Pending install" below) |
+
+**URL note:** `cybersalt.com/stageit/...` (no `www.`) 301-redirects, and the redirect *strips* `/stageit/` from the path so you end up at `www.cybersalt.com/api/...` (which is the prod Joomla install, which doesn't have cs-mcp-for-j). The `www.` prefix on the request bypasses the redirect and the route resolves correctly to the stage install. **Always use `www.cybersalt.com/stageit/`** when calling the API.
+
+Token to use: the `CYBERSALT_COM_API_TOKEN` from settings.json (user 408). The `CYBERSALT_ORG_API_TOKEN` (user 62) works against the cybersalt.org Joomla, not stage.
+
+---
+
+## What's confirmed working (against v1.5.0 live)
+
+All read-only tools that don't have known v1.5.0 bugs:
+
+- `initialize`, `tools/list` — 72 tools confirmed, full domain breakdown matches what we shipped (Articles 7, Categories 6, Tags 5, Menus 6, Users 7, Modules 6, Extensions 5, Templates 2, Languages 2, Custom Fields 4, System 6, Schema.org 5, 4SEO 11).
+- `get_joomla_version` — returns 5.4.5/8.3.31/Kutegemea. *Bug:* `mcp_extension` field is hardcoded to `"cs-mcp-for-j 1.0.0"` in [GetJoomlaVersionTool.php](packages/plg_system_csmcpforj/src/Tools/System/GetJoomlaVersionTool.php) — never updated as we bumped versions. One-line cosmetic fix (next patch).
+- `get_4seo_component_info` — 4SEO v6.12.0.2692 installed and enabled. Whole Weeblr family present (4AI, 4Analytics, 4SEF, 4Command, 4Logs).
+- `list_4seo_tables` — **25 tables**, prefix `stg_j6twa_`. Key ones: `forseo_config`, `forseo_rules`, `forseo_custom_meta`, `forseo_custom_social`, `forseo_sitemaps`, `forseo_pages`, `forseo_keystore`, plus the GSC + perf data tables.
+- `describe_4seo_table` — captured full schemas for `forseo_config` (11 cols: id/scope/key/value/large_value/user_id/version/lock/lock_expires_at/format/modified_at — it's a scoped key-value store) and `forseo_rules` (12 cols: id/type/source/title/rule[varchar 14000 JSON blob]/last_hit/…). **This is the data we needed for designing precise 4SEO tools later.**
+- `get_4seo_config` — returns 6 config rows. First row is the `pages` config blob — main 4SEO crawler/page-collection config. **`canonicalRootUrl: "https://www.cybersalt.com/"`** is set to *prod's* URL on the stage site, which may be intentional (stage doesn't want SEO crawlers indexing it under its own URL).
+- `get_plugin_params(folder:"system", element:"schemaorg")` — returns the live site-wide schema config:
+    - `baseType: "organization"`
+    - `name: "Cybersalt Consulting"`
+    - **`image: ""`** ← the missing publisher logo the reviewer flagged. This is the field to set once we have v1.5.1's `allow_locked: true` available.
+    - 3 social media URLs (Facebook, X, LinkedIn)
+    - `locked: true` — explains why v1.5.0's `set_plugin_params` refuses to edit.
+- `list_articles_with_schema` — returns `total: 803` (now 803 articles on stage, +4 since the v1.5.0 reviewer's session). 4 articles still have schema attached: 771, 769, 755, 754 (the leftovers).
+- `list_articles` — returns `total: 803`, normal Joomla content data.
+- `get_article_schema(item_id:771)` — returns the BlogPosting JSON the reviewer wrote, then after our bulk write reads back VideoObject (see below).
+- `set_article_custom_jsonld_bulk` — **end-to-end write+read loop verified.** Wrote VideoObject schemas to articles 771 and 755 in one call. Response: `{ok: true, attempted: 2, inserted: 0, updated: 2, failed: 0, results: [...]}`. Read-back on 771 confirmed the new payload is stored.
+
+---
+
+## Bugs confirmed live in v1.5.0 (fixed in v1.5.1 — pending install)
+
+1. **`fetch_rendered_url` corrupts the JSON-RPC response.** First curl hit returns:
+   ```
+   <br />
+   <b>Warning</b>:  Array to string conversion in
+   <b>.../FetchRenderedUrlTool.php</b> on line <b>100</b><br />
+   {"jsonrpc":"2.0","id":1,"result":...}
+   ```
+   The PHP warning text prefixes the JSON, breaking strict MCP parsers. v1.5.1 wraps `McpController::handle()` in `ob_start()` to swallow the warning AND fixes the local cause (multi-value Content-Type header was cast directly to string). **`fetch_rendered_url` is effectively unusable on stage until v1.5.1 installs.** Workaround: parse manually starting from the first `{`.
+
+2. **`set_plugin_params` refuses `plg_system_schemaorg`** because it's `locked: true`. Error: `"Refusing to modify protected or locked core plugin."` v1.5.1 adds `allow_locked: true` flag to override. Until v1.5.1 installs, we can't edit the schemaorg image/baseType/etc. via MCP.
+
+3. **`list_articles_with_schema` summary reflects filter+page, not full set.** When I called with `has_schema:false, limit:1`, the summary said `with_schema: 0` even though there are 4 articles with schema (verified by a second call with `has_schema:true`). The summary correctly counts ONLY the rows matching the filter, but agents naturally interpret it as a full-table overview. v1.5.1 changes the summary to count across the whole table independent of pagination, AND adds `total` at top level (which v1.5.0 happens to already have for this tool — verified `total: 799` and `total: 4` in the two calls).
+
+---
+
+## Pending install — get to v1.6.0
+
+Install `pkg_csmcpforj_v1.6.0_20260509_2203.zip` on stage to get:
+- ob_start guard (fetch_rendered_url stops corrupting responses)
+- `allow_locked: true` flag (set_plugin_params can finally edit schemaorg image)
+- `jsonld_types` flat array on fetch_rendered_url
+- `validate_jsonld` tool (pre-flight shape checker before bulk writes)
+- @graph wrapping warnings in JSON-LD writer descriptions
+- list_articles_with_schema summary fix (counts across full set)
+
+Once installed, the immediate actions:
+1. **Set the publisher logo.** `set_plugin_params(folder:"system", element:"schemaorg", params:{"image":"<chosen-logo-url>"}, allow_locked: true)`. The reviewer flagged this as the top SEO gap — site-wide Organization schema is missing the logo image.
+2. **Verify the schema renders.** `fetch_rendered_url(path:"/", extract_jsonld:true)` on the homepage; the Organization node in the @graph should now have an image property.
+3. **Decide on the test data.** Articles 771, 769, 755, 754 have leftover schema (now VideoObject for 771 and 755 after my test, BlogPosting on 769, Custom on 754). If you want a clean slate, `clear_article_schema` for each. If you want to keep iterating with them, leave them.
+
+---
+
+## Data captured for future 4SEO add-on design
+
+The schema discovery exercise yielded these tables we now know precisely (full columns documented via `describe_4seo_table`):
+
+| Table | Use | Notes |
 |---|---|---|
-| v1.5.1 | Patch — `ob_start` guard at controller; `set_plugin_params` `allow_locked` flag; `jsonld_types` array on `fetch_rendered_url`; @graph warnings in JSON-LD writer descriptions | Test feedback flagged a critical PHP-warning-corrupts-JSON-RPC bug, locked-plugin block on `plg_system_schemaorg`, and missing types-summary on rendered-page reads. |
-| v1.6.0 | Feature — `validate_jsonld(jsonld, expected_type?)` tool | Pre-flight shape validator so a typo doesn't produce 500 silently-broken rows on a bulk write. |
+| `forseo_config` | Site-wide settings | Scoped key-value store; values up to varchar(16000); fallback to `large_value` mediumtext; `format` column likely indicates how to decode the value |
+| `forseo_rules` | Targeting rules for SEO overrides | Each row is a rule with type/source/title and a `rule` varchar(14000) JSON blob; `last_hit` tracks usage |
+| `forseo_custom_meta` | Per-page meta overrides | (schema not pulled yet — recommended next step) |
+| `forseo_custom_social` | Per-page Open Graph / Twitter Cards | (not pulled) |
+| `forseo_sitemaps` | Sitemap configurations | (not pulled) |
+| `forseo_pages` | Discovered/crawled pages | Populated by 4SEO's crawler |
+| `forseo_keystore` | API keys for integrations | (Yoast import, etc., probably) |
 
-Repo: https://github.com/cybersalt/cs-mcp-for-j
-Releases: https://github.com/cybersalt/cs-mcp-for-j/releases
+When designing the second-wave 4SEO tools (after v1.6.0 install), the natural next tools are:
+- `list_4seo_rules` / `create_4seo_rule` / `update_4seo_rule` / `delete_4seo_rule` (purpose-built CRUD against forseo_rules — easier than `query_4seo_table` for agents)
+- `set_4seo_config(key, value, scope?)` — a typed wrapper around forseo_config that knows the JSON-decode-where-applicable convention
+- `list_4seo_meta_overrides` (against forseo_custom_meta) — for the per-page meta workflow
+- `list_4seo_sitemaps` + `update_4seo_sitemap`
 
-**Install v1.6.0 on stageit.** v1.5.0 has the JSON-corruption bug that broke `fetch_rendered_url`; v1.5.1 fixes it; v1.6.0 adds `validate_jsonld` on top. Anything older has at least one bug the test feedback caught.
+Each of these wraps a known table that we now have schema for. Building them is straightforward.
 
----
-
-## What's NOT done that I tried
-
-**I couldn't run the MCP myself from this Claude Code session.** No MCP connector for cs-mcp-for-j is registered in this session, so I'd have had to fall back to curl. I tried to find the stageit URL via probing and got nowhere:
-
-- `stageit.cybersalt.com` doesn't resolve (no subdomain by that name)
-- `cybersalt.com/stageit/...` rewrites to `www.cybersalt.com/api/index.php/v1/mcp/`, which 404s — the MCP route isn't registered on prod
-- `test.cybersalt.com` redirects to a WordPress site at butlerandquinn.com (different client?)
-- `staging.*`, `stage.*`, `dev.*` subdomains all fail DNS
-
-So I don't know the stageit URL. You'll need to either tell me in the morning, or just run the tests yourself in your already-connected Claude window using the prompts in the next section.
+**If 4SEO's source files (`administrator/components/com_forseo/`) were available locally**, these could be Option-B tools that call 4SEO's PHP models directly (robust to schema changes) instead of DB-direct (brittle on 4SEO upgrades). For all *future* third-party-extension MCPs (Akeeba, VirtueMart, RSForm, whatever), that's the right path — drop their files where the assistant can `Read` them and the tools become structurally more reliable.
 
 ---
 
-## Prompts to paste into your already-connected Claude window
+## Workflow that worked end-to-end live
 
-These exercise the new v1.5.1 + v1.6.0 surface end-to-end. Paste each one in turn after the previous completes.
-
-### 1. Confirm v1.6.0 is what's live + count tools
-
-> Run `tools/list` again and tell me the total count. Group by domain — I want to see if the count went up since last we tested. Also confirm `validate_jsonld`, `get_plugin_params`, `set_plugin_params`, `fetch_rendered_url`, `set_article_custom_jsonld_bulk`, `get_4seo_config` all show up. Say which (if any) are missing.
-
-Expected: 73 tools total (up from 67). All six should be present. If any are missing, the install isn't current.
-
-### 2. Verify the JSON-RPC corruption bug is gone
-
-> Run `fetch_rendered_url` on the homepage with `extract_jsonld: true` and `include_html: false`. Check carefully whether the JSON response is well-formed (not prefixed with any "Warning:" or "Notice:" text). Tell me the `content_type` field — it should be a plain string like "text/html; charset=utf-8", not "Array". Also tell me the new `jsonld_types` array — that's a flat list of every @type across all blocks.
-
-Expected: clean JSON, `content_type` is a real Content-Type string, `jsonld_types` lists every type. If you see `"content_type": "Array"` or any text before the `{` of the JSON, v1.5.1 didn't install.
-
-### 3. Verify `set_plugin_params` can now edit `plg_system_schemaorg`
-
-This is the actual workflow gap the v1.5.0 reviewer flagged.
-
-> Read `plg_system_schemaorg`'s params with `get_plugin_params(folder:"system", element:"schemaorg")`. Tell me what's there. Then I want to add a logo URL — try writing to it with `set_plugin_params(folder:"system", element:"schemaorg", params:{"image":"images/logo.png"})`. If it refuses with "Plugin is locked", retry with `allow_locked: true` and confirm it succeeded. Then read the params back to verify the change persisted.
-
-Expected: the first write fails with the locked-plugin message (which now mentions allow_locked); the retry with allow_locked: true succeeds; the read-back shows image now contains "images/logo.png" (but actually pick the real logo path you want — or just use the one that's there if you don't want to change anything for real).
-
-### 4. Verify `jsonld_types` array on render fetch
-
-> Fetch the rendered output of article 4 (the FAQ article) with `fetch_rendered_url path:"/index.php?option=com_content&view=article&id=4" extract_jsonld:true include_html:false`. Just tell me what's in `jsonld_types` — that should be the answer to "what schemas are visible on this page?"
-
-Expected: a flat array including `"FAQPage"` if our previous `set_article_custom_jsonld` test landed correctly. Plus `Organization`, `WebSite`, `WebPage`, `BreadcrumbList`, etc. depending on what 4SEO and Joomla core are emitting.
-
-### 5. Pre-flight a JSON-LD payload before bulk
-
-> I want to add VideoObject schema to article 771 (the test row from earlier). Before writing, validate this payload with `validate_jsonld`:
-> ```json
-> {
->   "@context": "https://schema.org",
->   "@type": "VideoObject",
->   "name": "Test video about goats",
->   "description": "A short video.",
->   "thumbnailUrl": "https://goatsatwork.ca/images/goat.jpg",
->   "uploadDate": "2026-05-09"
-> }
-> ```
-> Tell me what `errors`, `warnings`, and `info` come back. If `errors` is empty, write it to article 771 with `set_article_custom_jsonld`.
-
-Expected: `errors: []` (all four required VideoObject fields are present), maybe `warnings` mentioning recommended fields like contentUrl, embedUrl, duration, publisher. Then the write should succeed.
-
-### 6. Bulk validate-then-write pattern
-
-> For each of articles 771, 755, 754, build a small VideoObject payload (different name per article — make them up). Validate each with `validate_jsonld` first. If all three pass, write all three at once with `set_article_custom_jsonld_bulk`. Confirm the per-item `ok` came back true for each.
-
-Expected: three successful inserts/updates in one round-trip.
-
-### 7. Verify writes via the rendered page (full SEO loop closed)
-
-> Fetch the rendered page for article 771 with `extract_jsonld: true` and tell me whether `VideoObject` appears in `jsonld_types`. That confirms our write actually rendered.
-
-Expected: yes. This is the "write → render → verify" loop the v1.5.0 reviewer said was the missing piece.
-
-### 8. (Optional) Clean up test data from earlier
-
-> Earlier we left BlogPosting test rows on articles 771, 755, 754 from a prior test session, then I just put VideoObject on top of them. The VideoObject overwrote the BlogPosting (since each article has one schemaorg row). If you want to clear the test data entirely, call `clear_article_schema` for each id. Or leave them — the site is for testing.
-
-Your call, no expected answer.
-
----
-
-## Findings to bring to the next session
-
-If anything in the above prompt sequence fails, the response message will tell you which version of the extension is on stage. Reply with the failing tool's response and I'll patch it next session.
-
-If everything passes, the natural next conversations are:
-
-1. **The 659-video VideoObject backfill** the reviewer mentioned. Two-call job now (chunk into ≤500, then a second call) instead of 659 sequential.
-2. **The Joomla Brain MCP guide** I wrote tonight (`JOOMLA-MCP-SERVER-GUIDE.md` in the Joomla-Brain repo) — the next time you build an MCP for any other Joomla extension, that doc starts you 80% of the way. Worth a read when you have coffee in hand.
-3. **What other Joomla extensions are next on the MCP add-on list?** Akeeba? VirtueMart? RSForm? The 4SEO add-on is the proof of concept; the model scales.
-
----
-
-## Roadmap items deferred from tonight (in test-feedback priority)
-
-These came up in the last test report but I parked them rather than ship rushed:
-
-- **`set_global_config(key, value)`** — the reviewer suggested a whitelisted-key version (`debug`, `sef`, `cache`, etc.). I'd lean toward shipping per-key dedicated tools (`set_debug_mode`, `set_sef_enabled`, ...) so each one has its own description and the agent can't misuse a generic setter. That's a v1.7 conversation.
-- **Bulk variants of more write tools** — only `set_article_custom_jsonld` got a `_bulk` cousin tonight. `set_article_schema_bulk`, `update_article_bulk` etc. follow the same pattern; ship them when a workflow actually needs them.
-- **Add-ons split into their own repos** — `cs-mcp-for-j-4seo` is structurally a separate plugin already (`plg_system_csmcpforj4seo`) but bundled in the package for convenience. When you're ready to monetize, splitting it into its own repo is a half-day job.
-
----
-
-## Status check before you start
-
-```bash
-# Quick smoke test from a terminal — confirm the version on stage
-curl -sS -X POST <YOUR_STAGE_URL>/api/index.php/v1/mcp \
-     -H "Content-Type: application/json" \
-     -H "Authorization: Bearer <YOUR_TOKEN>" \
-     --data-binary @- <<'EOF'
-{"jsonrpc":"2.0","id":1,"method":"initialize"}
-EOF
+```
+1. tools/list                        → 72 tools, 13 domains
+2. get_4seo_component_info           → 4SEO installed v6.12.0
+3. list_4seo_tables                  → 25 tables
+4. describe_4seo_table forseo_config → schema captured
+5. describe_4seo_table forseo_rules  → schema captured
+6. get_4seo_config limit:5           → 6 config rows, first one is page-collection config
+7. get_plugin_params system/schemaorg → site-wide schema config, image="" (the gap)
+8. list_articles_with_schema         → 803 articles, 4 with schema
+9. get_article_schema item_id:771    → BlogPosting (reviewer's test)
+10. set_article_custom_jsonld_bulk   → updated 771 + 755 with VideoObject
+11. get_article_schema item_id:771   → confirms VideoObject is now stored
 ```
 
-`serverInfo.version` in the response will be `"1.6.0"` if v1.6.0 is installed. If it's still `"1.5.0"` or earlier, install the latest zip first.
+11 calls. No environment setup beyond URL + token in a `curl` script. This is the workflow this extension was built for.
 
-Have a good morning.
+---
+
+## Roadmap
+
+**Immediate (Tim, when ready):**
+- Install v1.6.0 zip on stage (eliminates the JSON-RPC corruption bug + unlocks schemaorg editing + adds validate_jsonld).
+
+**Once installed, agent can:**
+- Set the publisher logo image on plg_system_schemaorg.
+- Re-run fetch_rendered_url to verify rendered JSON-LD on actual pages.
+- Run a 659-video VideoObject backfill if you want — the bulk tool was just proven end-to-end with two updates in one call.
+
+**Next-wave development:**
+- Per-table 4SEO tools (rules CRUD, custom_meta CRUD, sitemap CRUD) — schema is now known.
+- Fix `get_joomla_version` hardcoded `cs-mcp-for-j 1.0.0` string. Patch-sized.
+- The agent-friendly 4SEO local-files question: if you drop 4SEO's `com_forseo` PHP into a directory I can read, I can write Option-B tools (calling into Weeblr's own models) instead of Option-A DB-direct CRUD. Worth doing before the rules/meta/sitemap CRUD wave.
