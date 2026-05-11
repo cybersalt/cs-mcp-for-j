@@ -2,6 +2,16 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.7.1</span>
+		<span class="date">2026-05-11</span>
+	</h2>
+
+	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
+	<ul>
+		<li><strong><code>set_4seo_config</code> failed with "Incorrect integer value: 'json' for column format"</strong> on first live use. The <code>format</code> column is <code>TINYINT NOT NULL DEFAULT 1</code>, not VARCHAR &mdash; I was writing the string "json" into it. Fixed: <code>format</code> is now an integer enum (1=raw, 2=JSON), auto-set based on which of value/value_object you pass. Bonus: <code>lock_expires_at</code> column is nullable so the insert now uses NULL instead of '1970-01-01'.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.7.0</span>
 		<span class="date">2026-05-11</span>
 	</h2>

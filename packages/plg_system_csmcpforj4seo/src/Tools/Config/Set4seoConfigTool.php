@@ -37,8 +37,9 @@ final class Set4seoConfigTool extends AbstractTool
 		return 'Set one 4SEO config key (#__forseo_config). Required: key. Optional: scope '
 			. '(defaults to "default"), value (string), or value_object (anything JSON-encodable). '
 			. 'Pass value OR value_object, not both. Strings ≤16000 bytes go in the `value` '
-			. 'column; anything larger spills into `large_value` automatically. Upserts: '
-			. 'creates the row if (scope,key) is new, updates in place otherwise.';
+			. 'column; anything larger spills into `large_value` automatically. The integer '
+			. 'format column is set to 2 (JSON) when value_object is given, otherwise 1 (raw). '
+			. 'Upserts: creates the row if (scope,key) is new, updates in place otherwise.';
 	}
 
 	public function getInputSchema(): array
@@ -50,8 +51,8 @@ final class Set4seoConfigTool extends AbstractTool
 				'key'          => ['type' => 'string', 'description' => 'Config key, e.g. "pages", "sitemaps". Use get_4seo_config to see what keys exist.'],
 				'scope'        => ['type' => 'string', 'description' => 'Default "default". 4SEO uses scopes for per-user/per-site partitioning.'],
 				'value'        => ['type' => 'string', 'description' => 'Raw string value. Pass this OR value_object, not both.'],
-				'value_object' => ['description' => 'JSON-encodable value (object/array/scalar). Will be json_encode\'d automatically.'],
-				'format'       => ['type' => 'string', 'description' => 'Optional value-format hint stored in the format column (e.g. "json"). Auto-detected if omitted.'],
+				'value_object' => ['description' => 'JSON-encodable value (object/array/scalar). Will be json_encode\'d automatically and stored with format=2.'],
+				'format'       => ['type' => 'integer', 'enum' => [1, 2], 'description' => 'Optional override of the integer format column: 1=raw, 2=JSON. Auto-set based on which of value/value_object you pass; only specify if you need to force a different value.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -74,15 +75,19 @@ final class Set4seoConfigTool extends AbstractTool
 		}
 
 		// Encode the supplied value to a string. Object/array → JSON; scalar → cast.
+		// 4SEO's format column is TINYINT: 1 = raw string, 2 = JSON.
 		if ($hasValueObject) {
 			$encoded = json_encode($arguments['value_object'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 			if ($encoded === false) {
 				return ToolResult::error('Failed to JSON-encode value_object: ' . json_last_error_msg());
 			}
-			$format = (string) ($arguments['format'] ?? 'json');
+			$format = isset($arguments['format']) ? (int) $arguments['format'] : 2;
 		} else {
 			$encoded = (string) $arguments['value'];
-			$format  = (string) ($arguments['format'] ?? '');
+			$format  = isset($arguments['format']) ? (int) $arguments['format'] : 1;
+		}
+		if (!in_array($format, [1, 2], true)) {
+			return ToolResult::error('format must be 1 (raw) or 2 (JSON).');
 		}
 
 		// Size-based column routing — 4SEO stores small values in `value`
@@ -108,7 +113,7 @@ final class Set4seoConfigTool extends AbstractTool
 				->update($this->db->quoteName($fullTable))
 				->set($this->db->quoteName('value') . ' = ' . $this->db->quote($valueColVal))
 				->set($this->db->quoteName('large_value') . ' = ' . $this->db->quote($largeValueColVal))
-				->set($this->db->quoteName('format') . ' = ' . $this->db->quote($format))
+				->set($this->db->quoteName('format') . ' = ' . (int) $format)
 				->set($this->db->quoteName('modified_at') . ' = ' . $this->db->quote($now))
 				->where($this->db->quoteName('id') . ' = ' . $existingId);
 			$this->db->setQuery($update)->execute();
@@ -136,8 +141,8 @@ final class Set4seoConfigTool extends AbstractTool
 				. (int) $actor->id . ', '
 				. '0, '
 				. $this->db->quote('') . ', '
-				. $this->db->quote('1970-01-01 00:00:00') . ', '
-				. $this->db->quote($format) . ', '
+				. 'NULL, '
+				. (int) $format . ', '
 				. $this->db->quote($now)
 			);
 		$this->db->setQuery($insert)->execute();

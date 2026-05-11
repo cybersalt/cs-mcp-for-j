@@ -1,5 +1,10 @@
 # Changelog
 
+## 🚀 Version 1.7.1 (May 11, 2026)
+
+### 🐛 Bug Fixes
+- **`set_4seo_config` failed with "Incorrect integer value: 'json' for column format"** on first live use. The `format` column in `#__forseo_config` is `TINYINT NOT NULL DEFAULT 1`, not a VARCHAR — I'd been writing the string `"json"` into it. Fixed: `format` is now an integer enum (`1` = raw string, `2` = JSON). Auto-set to `2` when `value_object` is passed, `1` when `value` is passed. Explicit `format` override accepted as `{1, 2}` only. Also fixed the SQL: `format` is now written as a bare integer, not a quoted string. Bonus fix: the unrelated `lock_expires_at` column is nullable so we now insert `NULL` there instead of `'1970-01-01 00:00:00'`.
+
 ## 🚀 Version 1.7.0 (May 11, 2026)
 
 Refactor of the 4SEO add-on now that we have 4SEO v6.12.0's full source available locally for design reference. Adds **5 typed tools** that wrap the highest-traffic 4SEO database tables, so an agent can manage per-page meta and 4SEO config without having to know about the three-layer envelope (`platform` / `auto` / `custom`) or the size-based column routing in `#__forseo_config`. The generic `query_4seo_table` / `insert_4seo_row` / `update_4seo_row` / `delete_4seo_row` escape hatches stay — they're how the agent can still reach the tables we haven't typed yet (rules, sitemaps, perf data, GSC, referrers, errors, links, images).
