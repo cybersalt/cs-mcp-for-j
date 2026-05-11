@@ -82,8 +82,14 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 										<button type="button" class="btn btn-outline-secondary" data-csmcpforj-token-toggle title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_TOGGLE_SHOW')); ?>">
 											<span class="icon-eye" aria-hidden="true"></span>
 										</button>
+										<button type="button" class="btn btn-outline-danger d-none" data-csmcpforj-token-clear title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_CLEAR')); ?>">
+											<span class="icon-trash" aria-hidden="true"></span>
+										</button>
 									</div>
-									<small class="text-body-secondary d-block mt-2"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_HINT'); ?></small>
+									<small class="text-body-secondary d-block mt-2">
+										<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_HINT'); ?>
+										<span class="d-block mt-1" data-csmcpforj-token-status></span>
+									</small>
 								</div>
 							</div>
 
@@ -246,12 +252,76 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-	// Token-show toggle for the prompt-tab token input.
+	// Token field — persistence + show/hide + clear-button wiring.
+	// The token is held in this browser's localStorage only. It never leaves
+	// the browser, the dashboard never sends it back to the server. Per-origin
+	// storage means a separate token can be remembered for every Joomla site
+	// you load this dashboard on.
+	var STORAGE_KEY  = 'csmcpforj.api_token';
+	var STATUS_SAVED = <?php echo json_encode(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_STATUS_SAVED')); ?>;
+	var STATUS_EMPTY = <?php echo json_encode(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_STATUS_EMPTY')); ?>;
+
 	var tokenToggle = document.querySelector('[data-csmcpforj-token-toggle]');
 	var tokenInput  = document.querySelector('[data-csmcpforj-token-input]');
+	var tokenClear  = document.querySelector('[data-csmcpforj-token-clear]');
+	var tokenStatus = document.querySelector('[data-csmcpforj-token-status]');
+
+	function setStatus(text) {
+		if (tokenStatus) tokenStatus.textContent = text || '';
+	}
+	function showClearButton(show) {
+		if (tokenClear) tokenClear.classList.toggle('d-none', !show);
+	}
+
+	if (tokenInput) {
+		// Restore on page load
+		try {
+			var saved = window.localStorage.getItem(STORAGE_KEY);
+			if (saved) {
+				tokenInput.value = saved;
+				setStatus(STATUS_SAVED);
+				showClearButton(true);
+			} else {
+				setStatus(STATUS_EMPTY);
+			}
+		} catch (e) {
+			// localStorage may be unavailable (private mode, etc.) — silent fallback
+		}
+
+		// Save on every change/blur — both events because some browsers don't fire
+		// change reliably after paste-then-tab. The handler is cheap.
+		var saveToken = function() {
+			try {
+				var v = (tokenInput.value || '').trim();
+				if (v === '') {
+					window.localStorage.removeItem(STORAGE_KEY);
+					setStatus(STATUS_EMPTY);
+					showClearButton(false);
+				} else {
+					window.localStorage.setItem(STORAGE_KEY, v);
+					setStatus(STATUS_SAVED);
+					showClearButton(true);
+				}
+			} catch (e) {}
+		};
+		tokenInput.addEventListener('change', saveToken);
+		tokenInput.addEventListener('blur', saveToken);
+		tokenInput.addEventListener('input', saveToken);
+	}
+
 	if (tokenToggle && tokenInput) {
 		tokenToggle.addEventListener('click', function() {
 			tokenInput.type = tokenInput.type === 'password' ? 'text' : 'password';
+		});
+	}
+
+	if (tokenClear && tokenInput) {
+		tokenClear.addEventListener('click', function() {
+			tokenInput.value = '';
+			try { window.localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+			setStatus(STATUS_EMPTY);
+			showClearButton(false);
+			tokenInput.focus();
 		});
 	}
 

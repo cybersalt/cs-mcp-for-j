@@ -2,6 +2,21 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.7.4</span>
+		<span class="date">2026-05-11</span>
+	</h2>
+
+	<h3><span class="section-icon">📦</span>New Features</h3>
+	<ul>
+		<li><strong>Dashboard token field now persists across page refreshes</strong> via <code>localStorage</code>. Previously the "paste your token here for one-click setup" field was ephemeral &mdash; paste, tab out, refresh, gone. Now the field saves on input/change/blur, restores on load, and a new trash-icon button next to the eye-toggle clears it. A status line under the field reports whether anything is saved. Stored per-browser/per-origin only &mdash; the token never leaves the device.</li>
+	</ul>
+
+	<h3><span class="section-icon">🔧</span>Improvements</h3>
+	<ul>
+		<li><strong>Token field UX confirmed as the Cybersalt house pattern</strong>: <code>&lt;input type="password"&gt;</code> rendering as asterisks plus an eye-icon reveal button (no CSS blur). The same trio &mdash; masked-by-default + eye reveal + localStorage persistence with trash to clear &mdash; will land on any future Cybersalt Joomla extension that takes a secret.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.7.3</span>
 		<span class="date">2026-05-11</span>
 	</h2>

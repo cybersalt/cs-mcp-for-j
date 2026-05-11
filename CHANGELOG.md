@@ -1,5 +1,15 @@
 # Changelog
 
+## 🚀 Version 1.7.4 (May 11, 2026)
+
+### 📦 New Features
+
+- **Dashboard token field now persists across page refreshes** via `localStorage`. Previously the "paste your token here for one-click setup" field was ephemeral — paste, tab out, refresh to get the updated copy-paste prompt, and the token was gone. Now the field saves on input/change/blur, restores on load, and a new trash-icon button next to the eye-toggle clears it. A status line under the field tells you whether anything is currently saved ("Saved in this browser. The trash button clears it." / "No token saved. Paste one above — it stays in this browser only."). Stored per-browser/per-origin only — token never leaves the device, never hits the server.
+
+### 🔧 Improvements
+
+- **Token field UX confirmed as the Cybersalt house pattern**: `<input type="password">` rendering as asterisks plus an eye-icon reveal button (no CSS blur). Same trio — masked-by-default + eye reveal + localStorage persistence with trash to clear — will land on any future Cybersalt Joomla extension that asks for a secret.
+
 ## 🚀 Version 1.7.3 (May 11, 2026)
 
 ### 🐛 Bug Fixes
