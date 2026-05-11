@@ -1,5 +1,11 @@
 # Changelog
 
+## 🚀 Version 1.7.2 (May 11, 2026)
+
+### 📝 Documentation
+- **`fetch_rendered_url` description** — added explicit guidance on path semantics (relative to Joomla install root, not server filesystem) and the 4SEO verification tip: fetch the SEF URL when checking whether a custom meta override landed, not the `index.php?option=...` form. 4SEO matches custom meta by SEF URL; on the option= form the override won't apply. Discovered during v1.7.1 live testing — burned 15 minutes on this confusion, the agent will too without the hint.
+- **`set_4seo_meta_override` description** — added the same SEF-URL verification tip directly into the write tool's description so the agent reads it BEFORE the verify step, not after.
+
 ## 🚀 Version 1.7.1 (May 11, 2026)
 
 ### 🐛 Bug Fixes

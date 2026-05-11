@@ -43,7 +43,11 @@ final class SetMetaOverrideTool extends AbstractTool
 			. 'content_id, joomla_params, or article_id. Then supply any of: title, description, '
 			. 'robots, canonical. Each field supplied flips its 4SEO status to "custom" (2). '
 			. 'Other fields and 4SEO\'s platform/auto layers are preserved untouched. Upserts: '
-			. 'creates the row if missing, updates in place if present.';
+			. 'creates the row if missing, updates in place if present. VERIFICATION TIP: to '
+			. 'confirm the override landed on the rendered page, use fetch_rendered_url with the '
+			. 'page\'s SEF URL (e.g. "my-category/my-article-alias"), NOT the raw '
+			. '"index.php?option=com_content&view=article&id=N" form. 4SEO matches custom meta '
+			. 'by SEF URL and won\'t apply the override on the non-SEF form.';
 	}
 
 	public function getInputSchema(): array

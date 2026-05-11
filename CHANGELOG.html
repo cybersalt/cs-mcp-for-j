@@ -2,6 +2,17 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.7.2</span>
+		<span class="date">2026-05-11</span>
+	</h2>
+
+	<h3><span class="section-icon">📝</span>Documentation</h3>
+	<ul>
+		<li><strong><code>fetch_rendered_url</code> description</strong> — added path-semantics guidance (relative to Joomla install root, not server filesystem) and the 4SEO verification tip: <em>fetch the SEF URL when checking a custom meta override, not <code>index.php?option=...</code></em>. 4SEO matches custom meta by SEF URL; on the option= form the override won't apply. Caught during v1.7.1 live testing.</li>
+		<li><strong><code>set_4seo_meta_override</code> description</strong> — added the same SEF-URL verification tip so the agent reads it before the verify step, not after.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.7.1</span>
 		<span class="date">2026-05-11</span>
 	</h2>

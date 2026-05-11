@@ -30,9 +30,16 @@ final class FetchRenderedUrlTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'Fetch a rendered page from this same Joomla site (same-origin only — no SSRF). '
-			. 'Required: path (relative path or full URL on this site). Optional: extract_jsonld=true '
-			. 'returns parsed JSON-LD blocks from <script type="application/ld+json"> tags so the agent '
-			. 'can verify Schema.org writes landed without re-grepping the HTML. Response cap ~1.5 MB.';
+			. 'Required: path (relative path or full URL on this site). Path is relative to the '
+			. 'Joomla install root (e.g. "index.php?option=...", "my-article-alias", "images/foo.jpg") — '
+			. 'do NOT include the install\'s subdirectory or the full server path. Optional: '
+			. 'extract_jsonld=true returns parsed JSON-LD blocks from <script type="application/ld+json"> '
+			. 'tags so the agent can verify Schema.org writes landed without re-grepping the HTML. '
+			. 'Response cap ~1.5 MB. NOTE for 4SEO verification: when checking that a custom meta '
+			. 'title/description landed (via set_4seo_meta_override), fetch the page\'s SEF URL '
+			. '(e.g. "my-category/my-article"), NOT "index.php?option=com_content&view=article&id=N" — '
+			. '4SEO matches custom meta by SEF URL and won\'t serve the override on the raw '
+			. 'option= form.';
 	}
 
 	public function getInputSchema(): array
