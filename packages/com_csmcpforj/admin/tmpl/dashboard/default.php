@@ -17,6 +17,39 @@ $tokenUrl = htmlspecialchars($this->tokenProfileUrl, ENT_QUOTES, 'UTF-8');
 $permsUrl = Route::_('index.php?option=com_config&view=component&component=com_csmcpforj');
 $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 ?>
+<style>
+	/* Highlight the placeholder / substituted token inside the copy-paste
+	   prompt so the user can see exactly where their token will land. The
+	   <mark> element is browser-styled but we override for higher contrast
+	   in both Atum light and dark. */
+	.csmcpforj-token-mark {
+		background-color: #fff3cd;
+		color: #664d03;
+		padding: 0.05rem 0.35rem;
+		border-radius: 0.25rem;
+		font-weight: 600;
+		border: 1px solid #ffe69c;
+	}
+	.csmcpforj-token-mark-empty {
+		background-color: #e2e3e5;
+		color: #41464b;
+		border-color: #c4c6c9;
+		font-style: italic;
+	}
+	/* Atum dark mode */
+	[data-bs-theme="dark"] .csmcpforj-token-mark,
+	.atum-dark .csmcpforj-token-mark {
+		background-color: #664d03;
+		color: #ffecb5;
+		border-color: #997404;
+	}
+	[data-bs-theme="dark"] .csmcpforj-token-mark-empty,
+	.atum-dark .csmcpforj-token-mark-empty {
+		background-color: #343a40;
+		color: #adb5bd;
+		border-color: #495057;
+	}
+</style>
 <div class="container-fluid">
 	<div class="row">
 		<div class="col-12 col-lg-8">
@@ -266,6 +299,35 @@ document.addEventListener('DOMContentLoaded', function() {
 	var tokenClear  = document.querySelector('[data-csmcpforj-token-clear]');
 	var tokenStatus = document.querySelector('[data-csmcpforj-token-status]');
 
+	// Snapshot the prompt template BEFORE any substitution so we can re-render
+	// it whenever the token state changes (paste, clear, refresh-with-saved).
+	var promptEl       = document.getElementById('csmcpforj-prompt');
+	var promptTemplate = promptEl ? promptEl.textContent : '';
+	var TOKEN_PLACEHOLDER_RE = /<PASTE YOUR JOOMLA API TOKEN HERE>/g;
+	var PLACEHOLDER_TEXT     = '<PASTE YOUR JOOMLA API TOKEN HERE>';
+
+	function escapeHtml(s) {
+		return s.replace(/[&<>"']/g, function(c) {
+			return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+		});
+	}
+
+	// Render the prompt. When a token is set, wrap the substituted value in
+	// <mark> so the user can see at a glance where their token landed. The
+	// copy handler reads textContent which strips the <mark> tags, so the
+	// clipboard gets clean text. When no token is set, the placeholder gets
+	// the same highlight so the user can see WHICH part of the prompt will
+	// be replaced once they paste a token in.
+	function renderPrompt() {
+		if (!promptEl) return;
+		var token = tokenInput ? (tokenInput.value || '').trim() : '';
+		var parts = promptTemplate.split(PLACEHOLDER_TEXT);
+		var marker = token !== ''
+			? '<mark class="csmcpforj-token-mark">' + escapeHtml(token) + '</mark>'
+			: '<mark class="csmcpforj-token-mark csmcpforj-token-mark-empty">' + escapeHtml(PLACEHOLDER_TEXT) + '</mark>';
+		promptEl.innerHTML = parts.map(escapeHtml).join(marker);
+	}
+
 	function setStatus(text) {
 		if (tokenStatus) tokenStatus.textContent = text || '';
 	}
@@ -287,6 +349,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		} catch (e) {
 			// localStorage may be unavailable (private mode, etc.) — silent fallback
 		}
+		renderPrompt();
 
 		// Save on every change/blur — both events because some browsers don't fire
 		// change reliably after paste-then-tab. The handler is cheap.
@@ -303,6 +366,7 @@ document.addEventListener('DOMContentLoaded', function() {
 					showClearButton(true);
 				}
 			} catch (e) {}
+			renderPrompt();
 		};
 		tokenInput.addEventListener('change', saveToken);
 		tokenInput.addEventListener('blur', saveToken);
@@ -321,6 +385,7 @@ document.addEventListener('DOMContentLoaded', function() {
 			try { window.localStorage.removeItem(STORAGE_KEY); } catch (e) {}
 			setStatus(STATUS_EMPTY);
 			showClearButton(false);
+			renderPrompt();
 			tokenInput.focus();
 		});
 	}

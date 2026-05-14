@@ -22,7 +22,7 @@ final class Server
 {
 	public const PROTOCOL_VERSION_DEFAULT = '2025-06-18';
 	public const SERVER_NAME              = 'cs-mcp-for-j';
-	public const SERVER_VERSION           = '1.7.4';
+	public const SERVER_VERSION           = '1.7.5';
 
 	public function __construct(
 		private readonly ToolRegistry $registry,

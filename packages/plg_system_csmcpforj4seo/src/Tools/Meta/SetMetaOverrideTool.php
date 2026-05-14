@@ -35,19 +35,37 @@ final class SetMetaOverrideTool extends AbstractTool
 {
 	use ContentIdTrait;
 
+	/**
+	 * Map of public arg name → key inside `data` that 4SEO's renderer checks
+	 * at request time. Writing a custom value WITHOUT flipping the matching
+	 * use-flag is a silent no-op — 4SEO will keep rendering platform/auto.
+	 */
+	private const USE_FLAG_MAP = [
+		'title'       => 'useTitle',
+		'description' => 'useDescription',
+		'robots'      => 'useRobots',
+		'canonical'   => 'useCanonical',
+	];
+
 	public function getName(): string { return 'set_4seo_meta_override'; }
 
 	public function getDescription(): string
 	{
 		return 'Set per-page meta overrides on 4SEO for one Joomla page. Provide ONE of: '
 			. 'content_id, joomla_params, or article_id. Then supply any of: title, description, '
-			. 'robots, canonical. Each field supplied flips its 4SEO status to "custom" (2). '
-			. 'Other fields and 4SEO\'s platform/auto layers are preserved untouched. Upserts: '
-			. 'creates the row if missing, updates in place if present. VERIFICATION TIP: to '
-			. 'confirm the override landed on the rendered page, use fetch_rendered_url with the '
-			. 'page\'s SEF URL (e.g. "my-category/my-article-alias"), NOT the raw '
+			. 'robots, canonical. Each field supplied flips its 4SEO status to "custom" (2) AND '
+			. 'sets the matching data.useTitle / useDescription / useRobots / useCanonical flag '
+			. 'to 1 (without these flags 4SEO ignores the custom values at render time). Other '
+			. 'fields and 4SEO\'s platform/auto layers are preserved untouched. Upserts: creates '
+			. 'the row if missing, updates in place if present. VERIFICATION TIP: to confirm the '
+			. 'override landed on the rendered page, use fetch_rendered_url with the page\'s SEF '
+			. 'URL (e.g. "my-category/my-article-alias"), NOT the raw '
 			. '"index.php?option=com_content&view=article&id=N" form. 4SEO matches custom meta '
-			. 'by SEF URL and won\'t apply the override on the non-SEF form.';
+			. 'by SEF URL and won\'t apply the override on the non-SEF form. NOTE: per-page '
+			. 'custom meta appears to require 4SEO Pro — on 4SEO Free the row writes but never '
+			. 'renders. If you see clean DB writes but no change on the page, check that the '
+			. 'site has a 4SEO Pro download id configured in forseo_config (system scope, key '
+			. '"dlid").';
 	}
 
 	public function getInputSchema(): array
@@ -104,6 +122,12 @@ final class SetMetaOverrideTool extends AbstractTool
 
 			foreach ($customFields as $f => $v) {
 				$data['custom'][$f] = $v;
+				// Flip the matching use-flag so 4SEO actually renders the custom
+				// value. Only touched for args supplied on THIS call — preserves
+				// existing flags for fields the caller didn't mention.
+				if (isset(self::USE_FLAG_MAP[$f])) {
+					$data[self::USE_FLAG_MAP[$f]] = 1;
+				}
 			}
 
 			$statusTitle = isset($customFields['title'])
@@ -129,12 +153,20 @@ final class SetMetaOverrideTool extends AbstractTool
 				->where($this->db->quoteName('id') . ' = ' . (int) $existing['id']);
 			$this->db->setQuery($update)->execute();
 
+			$flagsFlipped = [];
+			foreach (array_keys($customFields) as $f) {
+				if (isset(self::USE_FLAG_MAP[$f])) {
+					$flagsFlipped[] = self::USE_FLAG_MAP[$f];
+				}
+			}
+
 			return ToolResult::json([
 				'ok'         => true,
 				'action'     => 'updated',
 				'row_id'     => (int) $existing['id'],
 				'content_id' => $contentId,
 				'custom_set' => array_keys($customFields),
+				'use_flags_set' => $flagsFlipped,
 				'status_title'       => $statusTitle,
 				'status_description' => $statusDesc,
 				'enabled'    => $enabled === 1,
@@ -143,14 +175,16 @@ final class SetMetaOverrideTool extends AbstractTool
 
 		// Insert path — build a fresh data envelope with empty platform / auto
 		// and the supplied custom fields. 4SEO repopulates platform & auto
-		// on its next crawl of the page.
+		// on its next crawl of the page. use-flags default to 0 but flip to
+		// 1 for each custom field the caller actually supplied — without that
+		// flip 4SEO ignores the custom values at render time.
 		$data = [
 			'crawled_at'    => $now,
 			'enabled'       => 1,
-			'useTitle'      => 0,
-			'useCanonical'  => 0,
-			'useDescription' => 0,
-			'useRobots'     => 0,
+			'useTitle'      => isset($customFields['title']) ? 1 : 0,
+			'useCanonical'  => isset($customFields['canonical']) ? 1 : 0,
+			'useDescription' => isset($customFields['description']) ? 1 : 0,
+			'useRobots'     => isset($customFields['robots']) ? 1 : 0,
 			'useImage'      => 0,
 			'platform'      => [
 				'title' => '', 'description' => '', 'robots' => '',

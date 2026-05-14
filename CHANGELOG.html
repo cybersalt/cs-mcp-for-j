@@ -2,6 +2,26 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.7.5</span>
+		<span class="date">2026-05-13</span>
+	</h2>
+
+	<p>Three field-discovery fixes from the Westshore Eye Care SEO audit. Tool count 78 &rarr; 80.</p>
+
+	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
+	<ul>
+		<li><strong><code>set_4seo_meta_override</code> wasn't flipping the <code>data.use*</code> flags.</strong> The tool was writing <code>custom.title</code> / <code>description</code> / etc. correctly and setting <code>status_title</code>/<code>status_description</code> to 2, but 4SEO's renderer also checks <code>data.useTitle</code> / <code>useDescription</code> / <code>useRobots</code> / <code>useCanonical</code> at request time — and those were stuck at 0 since v1.7.0. So overrides were silently inert despite looking right in the DB. Both insert and update branches now flip the matching flag whenever a custom value is supplied. Response includes <code>use_flags_set: [...]</code>. <strong>4SEO Free sites:</strong> per-page custom meta appears to be Pro-only — if writes look clean but pages don't change, that's almost certainly the cause.</li>
+		<li><strong>Dashboard token preview now shows the substituted token live</strong>, not just at copy-click time. The <code>&lt;code&gt;</code> block re-renders on paste / clear / refresh-with-saved so the user can actually see that the substitution has happened.</li>
+		<li><strong>Substitution target is visually highlighted</strong> in the prompt preview — yellow <code>&lt;mark&gt;</code> on the substituted token, muted grey on the empty placeholder. Atum dark-mode styles included.</li>
+	</ul>
+
+	<h3><span class="section-icon">📦</span>New Features</h3>
+	<ul>
+		<li><strong><code>update_menu_item</code> now writes to the menu item's <code>params</code> blob.</strong> Named SEO args (<code>browser_page_title</code>, <code>meta_description</code>, <code>meta_keywords</code>, <code>robots</code>, <code>page_heading</code>, <code>show_page_heading</code>, <code>page_class_sfx</code>, <code>menu_anchor_title</code>, <code>secure</code>) plus generic <code>params_set</code> / <code>params_unset</code> escape hatches. Merges into existing params — keys you don't touch are preserved byte-for-byte. <code>robots</code> enum-validated. Closes the home-page-meta-description gap.</li>
+		<li><strong><code>get_schemaorg_site_profile</code> and <code>set_schemaorg_site_profile</code></strong> — typed wrappers for <code>plg_system_schemaorg</code>'s site-wide Organization/Person profile. Knows the actual four-key shape the plugin reads (<code>baseType</code>, <code>name</code>, <code>image</code>, <code>socialmedia</code>) — not the wrong <code>Organization_*</code> flat keys. Hard-enforces <code>base_type</code> lowercase — capital-O <code>Organization</code> silently kills the plugin's entire <code>@graph</code> including per-article schemas. Tool descriptions point at 4SEO's Business Profile for full LocalBusiness coverage since this plugin doesn't support telephone/address/geo.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.7.4</span>
 		<span class="date">2026-05-11</span>
 	</h2>

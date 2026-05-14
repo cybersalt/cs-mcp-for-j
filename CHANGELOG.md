@@ -1,5 +1,25 @@
 # Changelog
 
+## 🚀 Version 1.7.5 (May 13, 2026)
+
+Three field-discovery fixes from the Westshore Eye Care SEO audit session on 2026-05-12. All three blocked different parts of getting a single site to a clean, fully-MCP-driven schema/meta state.
+
+### 🐛 Bug Fixes
+
+- **`set_4seo_meta_override` was writing custom values but never flipping `data.useTitle` / `useDescription` / `useRobots` / `useCanonical`.** 4SEO's renderer checks those `use*` flags at request time and skips the override if they're `0`, so every override written through this tool since v1.7.0 was a silent no-op even though the row looked correct (`status_title=2`, `data.custom.title="..."`, etc.). Both the insert and update branches now flip the matching flag whenever a custom value is supplied. Existing rows can be repaired by re-calling the tool with the same args — it'll preserve the custom value and now also set the flag. Response payload now includes `use_flags_set: ["useTitle", ...]` so callers can see exactly which flags landed. **Note for 4SEO Free sites:** per-page custom meta appears to be a 4SEO Pro feature — clean DB writes with no visible change on the page suggest the site has no `dlid` configured. Tool description now warns of this.
+
+- **Dashboard token field's prompt preview now shows the substituted token live**, not just on copy. Previously the token field would correctly substitute on click, but the visible `<code>` block still showed the `<PASTE YOUR JOOMLA API TOKEN HERE>` placeholder — confusing because the user couldn't see that the substitution had actually happened. Now the preview re-renders on paste / clear / refresh-with-saved.
+
+- **Substitution target is now visually highlighted** in the prompt preview — yellow `<mark>` on the substituted token (so the user can see "yes, this is what's about to be copied") and a muted grey highlight on the placeholder when no token is set yet (so the user can see "this is the spot that will be replaced"). Dedicated Atum dark-mode styles so the contrast stays readable.
+
+### 📦 New Features
+
+- **`update_menu_item` now exposes the menu item's `params` blob** — the JSON column on `#__menu` where Joomla stores every per-menu-item SEO setting (Browser Page Title, Meta Description, Meta Keywords, Robots, Page Heading, Show Page Heading, Page Class Suffix, Anchor Title, Force HTTPS). Two paths: **named args** (`browser_page_title`, `meta_description`, `meta_keywords`, `robots`, `page_heading`, `show_page_heading`, `page_class_sfx`, `menu_anchor_title`, `secure`) map to the right Joomla keys so the agent can't typo `menu-meta_description` as `meta_description`; **escape hatches** `params_set: object` and `params_unset: string[]` reach any other key. Named args take precedence on collision. Merge-by-default — existing keys not in the call are preserved byte-for-byte. `robots` enum-validated against Joomla's five valid values. Closes the home-page-meta-description gap on every Cybersalt client site.
+
+- **`set_schemaorg_site_profile`** and **`get_schemaorg_site_profile`** — typed wrappers for the `plg_system_schemaorg` plugin's site-wide Organization/Person profile. Knows the *actual* four-key shape the plugin reads (`baseType`, `name`, `image`, `socialmedia`) — not the wrong `Organization_*` flat keys that look plausible but go nowhere. Hard-enforces `base_type` lowercase (`organization` / `person`); capital-O `Organization` silently kills the plugin's entire `@graph` output including per-article schemas — that case-sensitivity bug was the regression caught in last week's audit. Honours locked-plugin status the same way Joomla's admin UI does. Tool descriptions explicitly say the plugin does NOT support telephone/address/geo/email and point callers at 4SEO's Business Profile for full LocalBusiness coverage.
+
+Tool count: 78 → 80. SchemaOrg domain count: 8 → 10.
+
 ## 🚀 Version 1.7.4 (May 11, 2026)
 
 ### 📦 New Features

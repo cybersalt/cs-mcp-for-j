@@ -118,6 +118,8 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\SetArticleCustomJsonldBulkTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\ClearArticleSchemaTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\ValidateJsonldTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\GetSchemaorgSiteProfileTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\SetSchemaorgSiteProfileTool::class,
 		],
 	];
 

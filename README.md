@@ -2,7 +2,7 @@
 
 Turns a Joomla 5/6 site into its own MCP server. Connect Claude (Desktop, Code, claude.ai) directly to your site using a Joomla API token — no local Node/Python/WSL install, no MCP server process to babysit.
 
-> **Status:** v1.7.4 — 78 built-in tools across 13 domains. Self-installing copy-paste prompt with token-substitute UI + manual MCP connector setup. Includes a 4SEO add-on (16 tools) for sites running the Weeblr 4SEO extension — typed wrappers for per-page meta overrides and config, plus generic CRUD escape hatches for the rest of 4SEO's tables.
+> **Status:** v1.7.5 — 80 built-in tools across 13 domains. Self-installing copy-paste prompt with token-substitute UI + manual MCP connector setup. Includes a 4SEO add-on (16 tools) for sites running the Weeblr 4SEO extension — typed wrappers for per-page meta overrides and config, plus generic CRUD escape hatches for the rest of 4SEO's tables.
 
 ## What it ships
 
@@ -151,6 +151,8 @@ Wraps Joomla's CORE Schema.org system (the `plg_system_schemaorg` plugin family 
 | `set_article_schema` | write |
 | `set_article_custom_jsonld` | write |
 | `clear_article_schema` | write |
+| `get_schemaorg_site_profile` | read |
+| `set_schemaorg_site_profile` | write |
 
 ### 4SEO (`plg_system_csmcpforj4seo` add-on)
 
