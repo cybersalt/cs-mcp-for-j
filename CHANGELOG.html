@@ -2,6 +2,41 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.8.0</span>
+		<span class="date">2026-05-23</span>
+	</h2>
+
+	<p>cs-mcp-for-j now manages a second Joomla extension end-to-end. The new <strong>RSTicketsPro MCP add-on</strong> adds 20 typed tools for RSJoomla!'s helpdesk extension, alongside three new <strong>4SEO Business Profile</strong> tools that complete the LocalBusiness JSON-LD picture for sites running 4SEO. Tool count 80 &rarr; 103. Domain count 13 &rarr; 14.</p>
+
+	<h3><span class="section-icon">📦</span>New Features</h3>
+	<ul>
+		<li><strong>RSTicketsPro MCP add-on (<code>plg_system_csmcpforjrst</code>)</strong> — a new bundled-but-separable plugin that brings the RSJoomla! RSTicketsPro 3.x helpdesk extension under MCP control. 20 tools: 6 ticket reads (<code>list_rst_tickets</code> with JOIN'd labels and rich filters, <code>get_rst_ticket</code> with autoclose ETA, <code>get_rst_ticket_messages</code> with decoded system events, plus history/notes/files), 6 lookups (departments / statuses / priorities / staff / groups / custom_fields), and 8 writes (<code>add_rst_ticket_reply</code>, <code>add_rst_ticket_note</code>, <code>update_rst_ticket</code> with from/to diff, <code>close_rst_ticket</code> (also stops time tracking), <code>reopen_rst_ticket</code>, <code>flag_rst_ticket</code>, <code>notify_rst_ticket</code>, <code>delete_rst_ticket</code> requires <code>confirm:true</code>). Write tools call into RST's own AdminModel so every email notification, ticket_history audit, dept-change code regeneration, and staff-access validation happens automatically.</li>
+		<li><strong>4SEO Business Profile typed wrappers</strong> (<code>get_4seo_business_profile</code>, <code>set_4seo_business_profile</code>, <code>clear_4seo_business_profile</code>) — site-wide LocalBusiness JSON-LD profile (the <code>#defaultBusiness</code> node 4SEO emits on every page). Handles the structural gotchas (single-element array for type + country, logo normalised, 28-field hours grid from a clean <code>[{day, opens, closes}]</code>), and creates the row from scratch when the human hasn't saved the admin form yet. The previously-only working LocalBusiness path on Cybersalt client sites.</li>
+	</ul>
+
+	<h3><span class="section-icon">🔧</span>Improvements</h3>
+	<ul>
+		<li><strong><code>get_rst_ticket_messages</code> decodes system messages</strong> from RST's <code>serialize()</code>'d PHP blobs into clean <code>system_event {type, from, to, user_id}</code> objects. Uses <code>allowed_classes =&gt; false</code> on the <code>unserialize()</code> call so no PHP gadget chain can ever instantiate. New <code>include_system_messages</code> arg to hide them when you want just the conversation thread.</li>
+		<li><strong><code>get_rst_ticket</code> includes an <code>autoclose</code> block</strong> — answers "when will this ticket autoclose?" with computed warning/close ETAs + a <code>blocked_by</code> field when conditions short-circuit the flow.</li>
+		<li><strong>Shared <code>withSiteAppContext()</code> trait helper</strong> — extracted SiteApplication-swap pattern reused across every RST write tool that fires emails (Reply / Update / Close / Reopen / Notify).</li>
+	</ul>
+
+	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
+	<ul>
+		<li><strong><code>add_rst_ticket_reply</code> failed with "Error loading menu: api"</strong> in API context. RST's reply flow assumes a SiteApplication; the api app has no menu/router. Fix bypasses <code>reply()</code> and calls <code>saveMessage()</code> directly, wrapped in <code>withSiteAppContext()</code> swap. Validated end-to-end on virtuemarttemplates.net TECH-0000000202. Full investigation at <code>resolved-issues/ISSUE-5-add_rst_ticket_reply-site-app-context.md</code>.</li>
+		<li><strong><code>list_rst_tickets</code> / <code>get_rst_ticket</code> returned <code>staff_name=null</code></strong> — JOIN went through <code>_rsticketspro_staff.id</code> but <code>tickets.staff_id</code> is actually a Joomla <code>user_id</code> (confirmed in <code>models/fields/staff.php</code>). Direct <code>users.id</code> JOIN now resolves correctly.</li>
+		<li><strong>Update / Close / Reopen / AddReply returned stale post-write state</strong> — RST's <code>getTicket()</code> caches statically and write methods don't invalidate the cache. New <code>fetchTicketRow()</code> trait helper reads fresh via direct SQL.</li>
+		<li><strong><code>update_rst_ticket</code> <code>changes</code> array was always empty</strong> for staff/dept changes — <code>updateInfo()</code> calls <code>$original-&gt;bind($data)</code> mid-flight which mutates the snapshot. Fix: snapshot scalar values BEFORE the update call, not the JTable reference.</li>
+		<li><strong><code>notify_rst_ticket</code> always returned <code>notified:true</code></strong> regardless of whether RST actually sent the email. Now captures the model return value + emits an explanatory <code>note</code>.</li>
+	</ul>
+
+	<h3><span class="section-icon">⚠️</span>Known limitations carried forward</h3>
+	<ul>
+		<li>File attachments still not supported via <code>add_rst_ticket_reply</code> — use the admin reply box for replies that need attachments.</li>
+		<li><strong><code>tickets.staff_id</code> naming trap</strong> — column stores a Joomla <code>user_id</code> despite the name. <code>list_rst_staff</code> output disambiguates with both <code>user_id</code> (use this for assignments) and <code>staff_id</code> (the <code>_staff</code> table PK).</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.7.5</span>
 		<span class="date">2026-05-13</span>
 	</h2>

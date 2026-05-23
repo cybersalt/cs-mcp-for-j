@@ -17,9 +17,12 @@ use Joomla\CMS\User\User;
  * know who can be assigned to which tickets, and which Joomla user_ids
  * are the "is_staff" set used in get_rst_ticket_messages.
  *
- * Important: `staff.id` (the RSTicketsPro staff PK) is what goes into
- * `tickets.staff_id` — NOT the Joomla user_id. The two are different
- * lookups. This tool returns both.
+ * NAMING TRAP — RSTicketsPro's `tickets.staff_id` column actually stores
+ * a Joomla USER_ID, not the `_rsticketspro_staff` PK (verified in
+ * models/fields/staff.php which emits $user->id as the dropdown's option
+ * value). So when assigning a ticket via update_rst_ticket, pass the
+ * `user_id` from this tool's output, NOT the `staff_id` (which is the
+ * _rsticketspro_staff row PK and is mostly internal bookkeeping).
  */
 final class ListStaffTool extends AbstractTool
 {
@@ -30,10 +33,11 @@ final class ListStaffTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'List RSTicketsPro staff members (#__rsticketspro_staff). Returns staff_id (the '
-			. 'PK used in tickets.staff_id), user_id (the Joomla user), user_name, user_email, '
-			. 'group_id, group_name, signature, and departments[] (the dept ids this staff '
-			. 'member has access to). Use staff_id to filter list_rst_tickets or to assign '
-			. 'via update_rst_ticket.';
+			. 'PK of the _staff table — mostly internal), user_id (the JOOMLA USER ID — THIS is '
+			. 'what tickets.staff_id stores despite its name, so use this for assignments), '
+			. 'user_name, user_email, group_id, group_name, signature, and departments[] (the '
+			. 'dept ids this staff member has access to). For update_rst_ticket(staff_id=...) '
+			. 'or list_rst_tickets(staff_id=...) filters, pass the `user_id` field, NOT `staff_id`.';
 	}
 
 	public function getInputSchema(): array

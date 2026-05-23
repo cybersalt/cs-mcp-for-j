@@ -39,13 +39,14 @@ final class UpdateTicketTool extends AbstractTool
 	{
 		return 'Update one RSTicketsPro ticket\'s top-level fields via the same code path as the '
 			. 'admin UI. Required: id. Any of: status_id, department_id (changes the ticket code '
-			. 'too), priority_id, staff_id (the RSTicketsPro staff PK — 0 to unassign), subject, '
-			. 'customer_id, alternative_email. Fires all the usual side effects: department '
-			. 'change regenerates the code + migrates matching custom fields + can unassign '
-			. 'staff who lack access to the new dept; staff change validates dept access; system '
-			. 'messages written to the ticket_messages thread; standard email notifications sent. '
-			. 'Use list_rst_staff to find the right staff_id for an assign (note: staff.id, NOT '
-			. 'the Joomla user id).';
+			. 'too), priority_id, staff_id (a JOOMLA USER ID — 0 to unassign), subject, '
+			. 'customer_id, alternative_email. NOTE on staff_id: despite the column name, '
+			. 'tickets.staff_id stores a Joomla user_id, NOT the _rsticketspro_staff PK. Use '
+			. 'list_rst_staff and read the user_id field for the value to pass here. Fires the '
+			. 'usual side effects: department change regenerates the code + migrates matching '
+			. 'custom fields + can unassign staff who lack access to the new dept; staff change '
+			. 'validates dept access; system messages written to the ticket_messages thread; '
+			. 'standard email notifications sent.';
 	}
 
 	public function getInputSchema(): array
@@ -58,7 +59,7 @@ final class UpdateTicketTool extends AbstractTool
 				'status_id'         => ['type' => 'integer'],
 				'department_id'     => ['type' => 'integer'],
 				'priority_id'       => ['type' => 'integer'],
-				'staff_id'          => ['type' => 'integer', 'description' => 'RSTicketsPro staff PK (#__rsticketspro_staff.id). 0 = unassigned. Use list_rst_staff to find ids.'],
+				'staff_id'          => ['type' => 'integer', 'description' => 'JOOMLA USER ID of the assignee (NOT the _rsticketspro_staff PK — despite the column name). 0 = unassigned. Use list_rst_staff and read the user_id field of the staff member you want to assign.'],
 				'subject'           => ['type' => 'string'],
 				'customer_id'       => ['type' => 'integer', 'description' => 'Joomla user id of the customer.'],
 				'alternative_email' => ['type' => 'string'],
@@ -106,18 +107,32 @@ final class UpdateTicketTool extends AbstractTool
 			return ToolResult::error('Nothing to update — supply at least one of the optional fields.');
 		}
 
-		$model->updateInfo($id, $data);
+		// IMPORTANT — snapshot the pre-update values BEFORE the write. We can't compare
+		// against $original after updateInfo() runs because the model calls
+		// $original->bind($data) at model line 1189 to set up the email payload, which
+		// mutates the JTable in place. Holding a reference to $original means our "from"
+		// values silently become the new "to" values, and the changes diff comes back empty.
+		$beforeSnapshot = [];
+		foreach (array_keys($data) as $k) {
+			$beforeSnapshot[$k] = $original->$k ?? null;
+		}
 
-		// Re-fetch to report current state.
-		$updated = $model->getTicket($id);
+		// updateInfo() fires emails on department change (notification_department_change)
+		// and staff-assignment change (add_ticket_staff). Both build URLs with
+		// Route::link('site', ...) which requires a SiteApplication. Wrap unconditionally
+		// — the wrap is cheap when no email fires. See ISSUE-5 + RSTicketsProBootTrait.
+		$this->withSiteAppContext(fn() => $model->updateInfo($id, $data));
+
+		// IMPORTANT: cannot use $model->getTicket($id) here — RsticketsproModelTicket::getTicket()
+		// caches statically per-id and updateInfo() does not invalidate the cache, so the next
+		// call returns the stale pre-write row. Read fresh via direct SQL through the trait helper.
+		$updated = $this->fetchTicketRow($id) ?? [];
 
 		$changed = [];
-		foreach (array_keys($data) as $k) {
-			if ((string) ($original->$k ?? '') !== (string) ($updated->$k ?? '')) {
-				$changed[$k] = [
-					'from' => $original->$k ?? null,
-					'to'   => $updated->$k ?? null,
-				];
+		foreach ($beforeSnapshot as $k => $before) {
+			$after = $updated[$k] ?? null;
+			if ((string) $before !== (string) $after) {
+				$changed[$k] = ['from' => $before, 'to' => $after];
 			}
 		}
 
@@ -125,11 +140,12 @@ final class UpdateTicketTool extends AbstractTool
 			'ok'            => true,
 			'id'            => $id,
 			'changes'       => $changed,
-			'code'          => (string) ($updated->code ?? ''),
-			'status_id'     => (int) ($updated->status_id ?? 0),
-			'department_id' => (int) ($updated->department_id ?? 0),
-			'priority_id'   => (int) ($updated->priority_id ?? 0),
-			'staff_id'      => (int) ($updated->staff_id ?? 0),
+			'code'          => (string) ($updated['code'] ?? ''),
+			'status_id'     => (int) ($updated['status_id'] ?? 0),
+			'department_id' => (int) ($updated['department_id'] ?? 0),
+			'priority_id'   => (int) ($updated['priority_id'] ?? 0),
+			'staff_id'      => (int) ($updated['staff_id'] ?? 0),
+			'staff_name'    => $updated['staff_name'] ?? null,
 		]);
 	}
 }

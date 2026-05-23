@@ -64,17 +64,26 @@ final class CloseTicketTool extends AbstractTool
 		}
 
 		$closedStatus = defined('RST_STATUS_CLOSED') ? (int) RST_STATUS_CLOSED : 2;
-		$model->updateInfo($id, ['status_id' => $closedStatus]);
-		// Match the controller — stop time tracking on close.
-		$model->toggleTime($id, 0);
+		// Wrap in withSiteAppContext: updateInfo() may fire emails when the
+		// status change is part of a wider edit, and the followup-close email
+		// template (if enabled) builds URLs with Route::link('site', ...).
+		// See RSTicketsProBootTrait::withSiteAppContext() docblock + ISSUE-5.
+		$this->withSiteAppContext(function () use ($model, $id, $closedStatus) {
+			$model->updateInfo($id, ['status_id' => $closedStatus]);
+			// Match the controller — stop time tracking on close.
+			$model->toggleTime($id, 0);
+		});
 
-		$updated = $model->getTicket($id);
+		// Direct SQL re-read — RST's getTicket() static cache isn't invalidated by
+		// updateInfo() so $model->getTicket($id) would return the pre-write status.
+		$updated = $this->fetchTicketRow($id) ?? [];
 		return ToolResult::json([
 			'ok'         => true,
 			'id'         => $id,
-			'status_id'  => (int) ($updated->status_id ?? 0),
-			'closed'     => (string) ($updated->closed ?? ''),
-			'time_spent' => (string) ($updated->time_spent ?? '0.00'),
+			'status_id'  => (int) ($updated['status_id'] ?? 0),
+			'status'     => (string) ($updated['status'] ?? ''),
+			'closed'     => (string) ($updated['closed'] ?? ''),
+			'time_spent' => (string) ($updated['time_spent'] ?? '0.00'),
 		]);
 	}
 }

@@ -25,7 +25,7 @@ Returns a row where:
 - **`data.useTitle = 0`** ✗
 - **`data.useDescription = 0`** ✗
 
-Fetching the live page shows Joomla's original `<title>` and 4SEO's auto-generated description, not the custom values.
+Fetching the live page (once the page has been crawled — see the note below) shows Joomla's original `<title>` and 4SEO's auto-generated description, not the custom values.
 
 ## Expected
 
@@ -53,9 +53,13 @@ update_4seo_row(table="forseo_custom_meta", pk_value=<row_id>, set={"data": "<ne
 
 Cumbersome and bypasses any future schema changes 4SEO might make to the `data` shape.
 
-## Important caveat for the test plan
+## Update — the "didn't render" caveat was a red herring
 
-Even with all flags correctly flipped on the Westshore Eye Care site, the override **still didn't render** at request time. This appears to be a separate issue — likely that **4SEO Free** doesn't apply per-page custom meta at all (it may be a Pro-only feature; the system config has no `dlid` set). Worth verifying this fix on a 4SEO Pro–licensed site before declaring the issue fully closed. If per-page meta turns out to be Pro-only, the tool should ideally detect a missing `dlid` and either warn the caller or refuse the call with a clear error.
+An earlier draft of this issue speculated that 4SEO Free might not apply per-page custom meta at all (a suspected Pro gate). **That was wrong.** Confirmed on westshoreeyecare.ca 2026-05-13: 4SEO Free *does* apply per-page custom title/description — but only once the page has been crawled into `#__forseo_pages`. During the original session the home page simply hadn't been crawled yet, so the override (correct flags and all) sat inert; once the crawler reached it, the custom title and description rendered correctly with no further intervention.
+
+So the `use*`-flags bug above is the *whole* issue here — there is no separate Pro gate to worry about for basic per-page title/description meta. (4SEO's **rules engine** and **per-page raw content injection** *are* Pro-gated, but those are different features and unrelated to this bug.) No `dlid` detection is needed — the fix is simply to flip the flags.
+
+One practical implication for the fix: because the override only takes visible effect after the page is in `#__forseo_pages`, a good `set_4seo_meta_override` could optionally note in its response whether the target URL is already crawled, so the caller knows whether to expect an immediate change or wait for the crawler.
 
 ## Files likely involved
 
@@ -64,4 +68,4 @@ Even with all flags correctly flipped on the Westshore Eye Care site, the overri
 
 ## Discovered on
 
-Joomla 6.1.0, 4SEO 6.10.1.2660 Free, cs-mcp-for-j 1.7.4, during westshoreeyecare.ca SEO audit session 2026-05-12.
+Joomla 6.1.0, 4SEO 6.12.0.2692 (free build), cs-mcp-for-j 1.7.4. Originally found during the westshoreeyecare.ca SEO audit session 2026-05-12; the "didn't render" caveat corrected 2026-05-13 after confirming the crawl-state dependency on cs-mcp-for-j 1.7.5.

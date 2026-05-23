@@ -29,12 +29,14 @@ final class ListTicketsTool extends AbstractTool
 	{
 		return 'List RSTicketsPro tickets (#__rsticketspro_tickets). Filters: status_id (1=open, '
 			. '2=closed, 3=on-hold — can be array), department_id (array), priority_id (array), '
-			. 'staff_id (single, 0=unassigned), customer_id, last_reply_customer (1=customer was '
-			. 'last to reply, 0=we were), flagged, search (matches code/subject), date_from / '
-			. 'date_to (last_reply window, YYYY-MM-DD). Default limit 50, max 200. Ordering '
-			. 'defaults to last_reply DESC. Returns id, code, subject, status, department, '
-			. 'priority, staff, customer, last_reply, last_reply_customer, replies, flagged, '
-			. 'date, closed. Use get_rst_ticket for full details of one row.';
+			. 'staff_id (single, 0=unassigned — JOOMLA USER ID, NOT _staff PK), customer_id, '
+			. 'last_reply_customer (1=customer was last to reply, 0=we were), flagged, search '
+			. '(matches code/subject), date_from / date_to (last_reply window, YYYY-MM-DD). '
+			. 'Default limit 50, max 200. Ordering defaults to last_reply DESC. Returns id, code, '
+			. 'subject, status, department, priority, staff (the joined user_name/_email — '
+			. 'tickets.staff_id is a Joomla user_id despite the column name), customer, '
+			. 'last_reply, last_reply_customer, replies, flagged, date, closed. Use get_rst_ticket '
+			. 'for full details of one row.';
 	}
 
 	public function getInputSchema(): array
@@ -108,9 +110,10 @@ final class ListTicketsTool extends AbstractTool
 			->join('LEFT', $this->db->quoteName($tSt, 's') . ' ON ' . $this->db->quoteName('s.id') . ' = ' . $this->db->quoteName('t.status_id'))
 			->join('LEFT', $this->db->quoteName($tP, 'p') . ' ON ' . $this->db->quoteName('p.id') . ' = ' . $this->db->quoteName('t.priority_id'))
 			->join('LEFT', $this->db->quoteName($tU, 'cu') . ' ON ' . $this->db->quoteName('cu.id') . ' = ' . $this->db->quoteName('t.customer_id'))
-			// staff_id on the tickets row is the RSTicketsPro staff PK, NOT a Joomla user id — need a hop through _staff.
-			->join('LEFT', $this->db->quoteName($prefix . 'rsticketspro_staff', 'stf') . ' ON ' . $this->db->quoteName('stf.id') . ' = ' . $this->db->quoteName('t.staff_id'))
-			->join('LEFT', $this->db->quoteName($tU, 'su') . ' ON ' . $this->db->quoteName('su.id') . ' = ' . $this->db->quoteName('stf.user_id'));
+			// tickets.staff_id is actually a Joomla user_id, NOT a _rsticketspro_staff PK — confirmed
+			// by models/fields/staff.php emitting $user->id as the option value, and by the model's
+			// staffHasAccessToDepartment($user_id, ...) treating it as user_id. JOIN direct to users.
+			->join('LEFT', $this->db->quoteName($tU, 'su') . ' ON ' . $this->db->quoteName('su.id') . ' = ' . $this->db->quoteName('t.staff_id'));
 
 		// Status filter — accept scalar or array.
 		if (array_key_exists('status_id', $arguments)) {

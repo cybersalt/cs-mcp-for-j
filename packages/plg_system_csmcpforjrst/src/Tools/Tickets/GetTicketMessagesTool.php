@@ -31,9 +31,14 @@ final class GetTicketMessagesTool extends AbstractTool
 	{
 		return 'Return the conversation thread for one RSTicketsPro ticket — one row per message '
 			. '(customer or staff). Required: ticket_id. Optional: order_dir (default ASC = '
-			. 'oldest-first, chronological), limit (default 200), offset. Each row includes id, '
-			. 'user_id, user_name, user_email, is_staff (resolved against the RSTicketsPro staff '
-			. 'list), message, html (1 if rich HTML, 0 if plaintext), date.';
+			. 'oldest-first, chronological), limit (default 200), offset, include_system_messages '
+			. '(default true). Each row includes id, user_id, user_name, user_email, is_staff '
+			. '(resolved against the RSTicketsPro staff list), message, html (1 if rich HTML, 0 '
+			. 'if plaintext), date. SYSTEM MESSAGES (status/dept/priority/staff changes — '
+			. 'user_id=-1) are decoded from RST\'s serialized PHP into a system_event {type, '
+			. 'from, to, user_id} object and the message body is replaced with a human-readable '
+			. 'summary. Pass include_system_messages=false to hide them and see only the actual '
+			. 'conversation.';
 	}
 
 	public function getInputSchema(): array
@@ -42,10 +47,11 @@ final class GetTicketMessagesTool extends AbstractTool
 			'type' => 'object',
 			'required' => ['ticket_id'],
 			'properties' => [
-				'ticket_id' => ['type' => 'integer'],
-				'order_dir' => ['type' => 'string', 'enum' => ['ASC', 'DESC']],
-				'limit'     => ['type' => 'integer'],
-				'offset'    => ['type' => 'integer'],
+				'ticket_id'               => ['type' => 'integer'],
+				'order_dir'               => ['type' => 'string', 'enum' => ['ASC', 'DESC']],
+				'limit'                   => ['type' => 'integer'],
+				'offset'                  => ['type' => 'integer'],
+				'include_system_messages' => ['type' => 'boolean', 'description' => 'Default true. Set false to filter out the synthetic status/dept/priority/staff-change marker rows (user_id=-1) and return only actual customer/staff conversation messages.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -67,6 +73,8 @@ final class GetTicketMessagesTool extends AbstractTool
 		}
 		$limit  = max(1, min(500, (int) ($arguments['limit'] ?? 200)));
 		$offset = max(0, (int) ($arguments['offset'] ?? 0));
+		$includeSystem = !array_key_exists('include_system_messages', $arguments)
+			|| (bool) $arguments['include_system_messages'];
 
 		// Build the staff-user-id set so we can flag each message's author.
 		$staffIds = $this->db->setQuery(
@@ -96,15 +104,47 @@ final class GetTicketMessagesTool extends AbstractTool
 		$this->db->setQuery($query, $offset, $limit);
 		$rows = $this->db->loadAssocList() ?: [];
 
-		foreach ($rows as &$r) {
+		$filtered = [];
+		foreach ($rows as $r) {
 			$r['id']                 = (int) $r['id'];
 			$r['ticket_id']          = (int) $r['ticket_id'];
 			$r['user_id']            = (int) $r['user_id'];
 			$r['html']               = (int) $r['html'];
 			$r['submitted_by_staff'] = (int) $r['submitted_by_staff'];
 			$r['is_staff']           = in_array($r['user_id'], $staffIds, true);
+			$r['is_system']          = $r['user_id'] === -1;
+
+			// Decode RST's system-message blobs. saveSystemMessage() inserts these
+			// as user_id=-1, html=0, message=serialize([type=>..., from=>..., to=>...,
+			// user_id=>...]). We unserialize with allowed_classes=false so an attacker-
+			// crafted serialized object (gadget chain) can't instantiate anything —
+			// RST only ever serializes a flat associative array of scalars here, so
+			// the restriction is safe.
+			if ($r['is_system']) {
+				if (!$includeSystem) {
+					continue;
+				}
+				$decoded = @unserialize((string) $r['message'], ['allowed_classes' => false]);
+				if (is_array($decoded) && isset($decoded['type'])) {
+					$r['system_event'] = [
+						'type'    => (string) $decoded['type'],
+						'from'    => $decoded['from'] ?? null,
+						'to'      => $decoded['to'] ?? null,
+						'user_id' => isset($decoded['user_id']) ? (int) $decoded['user_id'] : null,
+					];
+					$r['message'] = sprintf(
+						'[system: %s changed from %s to %s by user %s]',
+						$decoded['type'],
+						$decoded['from'] ?? '?',
+						$decoded['to'] ?? '?',
+						$decoded['user_id'] ?? '?'
+					);
+				}
+			}
+
+			$filtered[] = $r;
 		}
-		unset($r);
+		$rows = $filtered;
 
 		return ToolResult::json([
 			'ok'        => true,

@@ -2,7 +2,7 @@
 
 Turns a Joomla 5/6 site into its own MCP server. Connect Claude (Desktop, Code, claude.ai) directly to your site using a Joomla API token — no local Node/Python/WSL install, no MCP server process to babysit.
 
-> **Status:** v1.7.5 — 80 built-in tools across 13 domains. Self-installing copy-paste prompt with token-substitute UI + manual MCP connector setup. Includes a 4SEO add-on (16 tools) for sites running the Weeblr 4SEO extension — typed wrappers for per-page meta overrides and config, plus generic CRUD escape hatches for the rest of 4SEO's tables.
+> **Status:** v1.8.0 — 103 built-in tools across 14 domains. Self-installing copy-paste prompt with token-substitute UI + manual MCP connector setup. Includes a **4SEO add-on (19 tools)** for sites running the Weeblr 4SEO extension — typed wrappers for per-page meta overrides, site-wide LocalBusiness profile, and config, plus generic CRUD escape hatches. New in v1.8.0: a **RSTicketsPro add-on (20 tools)** for sites running RSJoomla!'s helpdesk extension — full ticket workflow (list / get / reply / note / update / close / reopen / flag / notify / delete) calling into RST's own AdminModel so every email notification, ticket_history audit entry, dept-change code regeneration, and staff-access validation happens automatically.
 
 ## What it ships
 
@@ -170,8 +170,40 @@ Tools for sites running the Weeblr **4SEO** commercial extension (`com_forseo`).
 | `insert_4seo_row` | write |
 | `update_4seo_row` | write |
 | `delete_4seo_row` | write |
+| `get_4seo_business_profile` | read |
+| `set_4seo_business_profile` | write |
+| `clear_4seo_business_profile` | write |
 
 This add-on is **bundled with the package for testing right now** but is structured as a separate plugin (`plg_system_csmcpforj4seo`) so it can split out into its own paid SKU later. The free core (`com_csmcpforj` + `plg_system_csmcpforj` + `plg_webservices_csmcpforj`) doesn't depend on it — uninstall the 4SEO add-on plugin and the rest still works.
+
+### RSTicketsPro (`plg_system_csmcpforjrst` add-on)
+
+Tools for sites running the RSJoomla! **RSTicketsPro** commercial helpdesk extension (`com_rsticketspro`). Calls into RSTicketsPro's own `AdminModel` write methods (`$model->reply()`, `$model->updateInfo()`, `$model->notify()`, etc.) so every email notification, ticket_history audit entry, dept-change ticket-code regeneration, and staff-access validation fires the same way it would when a human clicks through the admin UI. Includes a shared `withSiteAppContext()` trait helper that bootstraps a SiteApplication for RST calls that need site routing (`Route::link('site', ...)` in notification email bodies) — without this, the api app the MCP endpoint runs under hits "Error loading menu: api" on every email-firing write.
+
+| Tool | Access |
+|---|---|
+| `list_rst_tickets` | read |
+| `get_rst_ticket` | read |
+| `get_rst_ticket_messages` | read |
+| `get_rst_ticket_history` | read |
+| `get_rst_ticket_notes` | read |
+| `get_rst_ticket_files` | read |
+| `list_rst_departments` | read |
+| `list_rst_statuses` | read |
+| `list_rst_priorities` | read |
+| `list_rst_staff` | read |
+| `list_rst_groups` | read |
+| `list_rst_custom_fields` | read |
+| `add_rst_ticket_reply` | write |
+| `add_rst_ticket_note` | write |
+| `update_rst_ticket` | write |
+| `close_rst_ticket` | write |
+| `reopen_rst_ticket` | write |
+| `flag_rst_ticket` | write |
+| `notify_rst_ticket` | write |
+| `delete_rst_ticket` | write |
+
+Same separable-bundled-plugin pattern as the 4SEO add-on — uninstall `plg_system_csmcpforjrst` and the rest of cs-mcp-for-j keeps working. **NOTE:** the API token's Joomla user must be an RSTicketsPro staff member (with permissions matching the operation) for write tools to succeed; RST's own permission gates run inside the model and reject calls from non-staff users with a "permission denied" error.
 
 ## Extending — custom tools
 

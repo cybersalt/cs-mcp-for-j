@@ -58,13 +58,18 @@ final class ReopenTicketTool extends AbstractTool
 		}
 
 		$openStatus = defined('RST_STATUS_OPEN') ? (int) RST_STATUS_OPEN : 1;
-		$model->updateInfo($id, ['status_id' => $openStatus]);
+		// Wrap in withSiteAppContext — updateInfo()'s downstream paths build site
+		// URLs via Route::link('site', ...) when any notification fires, which
+		// requires a SiteApplication. See ISSUE-5 + RSTicketsProBootTrait.
+		$this->withSiteAppContext(fn() => $model->updateInfo($id, ['status_id' => $openStatus]));
 
-		$updated = $model->getTicket($id);
+		// Direct SQL re-read — RST's getTicket() static cache isn't invalidated by updateInfo().
+		$updated = $this->fetchTicketRow($id) ?? [];
 		return ToolResult::json([
 			'ok'        => true,
 			'id'        => $id,
-			'status_id' => (int) ($updated->status_id ?? 0),
+			'status_id' => (int) ($updated['status_id'] ?? 0),
+			'status'    => (string) ($updated['status'] ?? ''),
 		]);
 	}
 }
