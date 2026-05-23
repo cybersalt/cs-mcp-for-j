@@ -48,6 +48,11 @@ final class Csmcpforj4seo extends CMSPlugin implements SubscriberInterface
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Meta\SetMetaOverrideTool::class,
 		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\Meta\ClearMetaOverrideTool::class,
 
+		// Site-wide Business Profile / LocalBusiness (#__forseo_config row default,sd)
+		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\BusinessProfile\GetBusinessProfileTool::class,
+		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\BusinessProfile\SetBusinessProfileTool::class,
+		\Cybersalt\Plugin\System\Csmcpforj4seo\Tools\BusinessProfile\ClearBusinessProfileTool::class,
+
 		// Generic CRUD escape hatches — refused outside forseo_* tables;
 		// kept for tables we don't yet have typed wrappers for (rules,
 		// sitemaps, perf data, GSC, referrers, errors, links, images).
