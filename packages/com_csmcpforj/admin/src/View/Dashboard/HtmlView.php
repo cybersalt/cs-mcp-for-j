@@ -55,6 +55,10 @@ final class HtmlView extends BaseHtmlView
 			'\\Cybersalt\\Plugin\\System\\Csmcpforj4seo\\Extension\\Csmcpforj4seo',
 			'getToolClasses',
 		],
+		'RSTicketsPro' => [
+			'\\Cybersalt\\Plugin\\System\\Csmcpforjrst\\Extension\\Csmcpforjrst',
+			'getToolClasses',
+		],
 	];
 
 	public function display($tpl = null): void
