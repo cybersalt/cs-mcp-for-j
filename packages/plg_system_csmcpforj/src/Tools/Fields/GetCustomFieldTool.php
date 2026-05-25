@@ -14,7 +14,14 @@ final class GetCustomFieldTool extends AbstractTool
 {
 	public function getName(): string { return 'get_custom_field'; }
 
-	public function getDescription(): string { return 'Fetch a single custom field by id, including its fieldparams.'; }
+	public function getDescription(): string
+	{
+		return 'Fetch a single custom field by id. Returns every column on #__fields with '
+			. 'fieldparams + params decoded from JSON, plus the M:N-joined assigned_cat_ids '
+			. '(category ids from #__fields_categories — restricts which articles the field '
+			. 'shows on; empty array means "all categories"; [-1] means "no categories" — see '
+			. 'update_custom_field for the semantics).';
+	}
 
 	public function getInputSchema(): array
 	{
@@ -41,6 +48,19 @@ final class GetCustomFieldTool extends AbstractTool
 		}
 		$row['params']      = $row['params'] ? json_decode((string) $row['params'], true) : null;
 		$row['fieldparams'] = $row['fieldparams'] ? json_decode((string) $row['fieldparams'], true) : null;
+
+		// assigned_cat_ids lives in the M:N join table #__fields_categories, not on
+		// the field row itself. An empty list here means "all categories" (the default
+		// — no restrictions). [-1] is Joomla's "no categories" sentinel that the admin
+		// UI writes when a user picks "None" in the category multi-select.
+		$catQuery = $this->db->getQuery(true)
+			->select($this->db->quoteName('category_id'))
+			->from($this->db->quoteName('#__fields_categories'))
+			->where($this->db->quoteName('field_id') . ' = ' . $id)
+			->order($this->db->quoteName('category_id'));
+		$catIds = $this->db->setQuery($catQuery)->loadColumn() ?: [];
+		$row['assigned_cat_ids'] = array_map('intval', $catIds);
+
 		return ToolResult::json($row);
 	}
 }
