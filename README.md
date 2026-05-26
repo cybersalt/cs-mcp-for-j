@@ -2,7 +2,7 @@
 
 Turns a Joomla 5/6 site into its own MCP server. Connect Claude (Desktop, Code, claude.ai) directly to your site using a Joomla API token — no local Node/Python/WSL install, no MCP server process to babysit.
 
-> **Status:** v1.8.0 — 103 built-in tools across 14 domains. Self-installing copy-paste prompt with token-substitute UI + manual MCP connector setup. Includes a **4SEO add-on (19 tools)** for sites running the Weeblr 4SEO extension — typed wrappers for per-page meta overrides, site-wide LocalBusiness profile, and config, plus generic CRUD escape hatches. New in v1.8.0: a **RSTicketsPro add-on (20 tools)** for sites running RSJoomla!'s helpdesk extension — full ticket workflow (list / get / reply / note / update / close / reopen / flag / notify / delete) calling into RST's own AdminModel so every email notification, ticket_history audit entry, dept-change code regeneration, and staff-access validation happens automatically.
+> **Status:** v1.8.1 — 110 built-in tools across 14 domains. Self-installing copy-paste prompt with token-substitute UI + manual MCP connector setup. Includes a **4SEO add-on (19 tools)** for sites running the Weeblr 4SEO extension — typed wrappers for per-page meta overrides, site-wide LocalBusiness profile, and config, plus generic CRUD escape hatches. v1.8.0 added a **RSTicketsPro add-on (20 tools)** for sites running RSJoomla!'s helpdesk extension — full ticket workflow (list / get / reply / note / update / close / reopen / flag / notify / delete) calling into RST's own AdminModel so every email notification, ticket_history audit entry, dept-change code regeneration, and staff-access validation happens automatically. v1.8.1 fills out the **Custom Fields domain** with full CRUD over both fields (incl. `update_custom_field` / `delete_custom_field`) and a new field-groups sub-domain (5 tools) so programmatic setup of a clean field group on an article context is one call rather than 6+ admin clicks.
 
 ## What it ships
 
@@ -128,7 +128,14 @@ All three are bundled in `pkg_csmcpforj` and enabled automatically on install.
 | `list_custom_fields` | read |
 | `get_custom_field` | read |
 | `create_custom_field` | write |
+| `update_custom_field` | write |
+| `delete_custom_field` | write |
 | `set_custom_field_value` | write |
+| `list_field_groups` | read |
+| `get_field_group` | read |
+| `create_field_group` | write |
+| `update_field_group` | write |
+| `delete_field_group` | write |
 
 ### System
 | Tool | Access |

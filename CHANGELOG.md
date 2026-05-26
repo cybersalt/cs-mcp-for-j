@@ -1,5 +1,32 @@
 # Changelog
 
+## 🚀 Version 1.8.1 (May 25, 2026)
+
+Fills out the **Custom Fields** domain so programmatic setup of a clean field group on an article context is one MCP call rather than 6+ admin clicks. Closes issue [#1](https://github.com/cybersalt/cs-mcp-for-j/issues/1) — VMT template change-log Subform field-group setup on 2026-05-25 needed it.
+
+Tool count: 103 → 110. No new domains; Custom Fields just goes from 4 tools to 11.
+
+### 📦 New Features
+
+- **5 new field-group tools** — full CRUD over `#__fields_groups` (the tabs that custom fields appear under in the article editor):
+  - `list_field_groups(context?, state?)` — returns id, title, context, state, access, ordering, language, description, note
+  - `get_field_group(id)` — full row with decoded params blob
+  - `create_field_group(title, context, state?, access?, language?, description?, note?)` — calls `com_fields`' `GroupModel`, all save hooks fire
+  - `update_field_group(id, title?, state?, access?, language?, description?, note?, ordering?)` — PATCH semantics; context intentionally NOT updatable (changing a group's context orphans every field assigned to it — create a new group in the new context instead)
+  - `delete_field_group(id, confirm:true)` — requires explicit `confirm:true`; fields previously assigned to the group get their `group_id` reset to 0 (unassigned, appear under the generic "Fields" tab); the fields themselves are NOT deleted (use `delete_custom_field` for that)
+
+- **2 new custom-field write tools** — fills the create/update/delete trio:
+  - `update_custom_field(id, title?, label?, description?, required?, state?, group_id?, access?, language?, default_value?, note?, ordering?, only_use_in_subform?, assigned_cat_ids?, fieldparams?, params?)` — PATCH semantics; surfaces the three properties that previously required admin clicks: `group_id` (assign to a field-group tab), `assigned_cat_ids` (M:N to `#__fields_categories` — pass `[-1]` for "no categories", `[]` for "all categories"), and `only_use_in_subform` (1 hides the field from the standard editor — required when building Subform children via the API). Context intentionally NOT updatable.
+  - `delete_custom_field(id, confirm:true)` — calls `FieldModel::delete()` which also removes the field's values from `#__fields_values` across every article in the context. Destructive and not reversible — `update_custom_field(state=0)` is the non-destructive alternative.
+
+### 🔧 Improvements
+
+- **`get_custom_field` now returns `assigned_cat_ids`** — queried from `#__fields_categories` (the M:N join table, NOT a column on the field row). Empty list = "all categories" (no restrictions); `[-1]` = "no categories" (Joomla's sentinel value for explicit none). Description rewritten to surface the semantics so the agent reads-before-decides instead of guessing. The `params` field was already in the response but unmentioned in the description; description now covers it explicitly.
+
+### 🐛 Bug Fixes
+
+- **`delete_custom_field` + `delete_field_group` initially failed with empty error messages** on first live test — `com_fields`' `FieldModel::canDelete()` refuses unless `state=-2` (trashed). Joomla's admin UI does this as two phases (set State → Trashed, then "Empty Trash"); both delete tools now trash via `$model->publish([$id], -2)` before calling `$model->delete($ids)`, so one MCP call = gone, matching user expectation of a "delete" verb. Verified in `administrator/components/com_fields/src/Model/FieldModel.php` line 831 (`if (empty($record->id) || $record->state != -2) { return false; }`).
+
 ## 🚀 Version 1.8.0 (May 23, 2026)
 
 Headline: cs-mcp-for-j now manages a second Joomla extension end-to-end. The new **RSTicketsPro MCP add-on** adds 20 typed tools for RSJoomla!'s helpdesk extension, alongside three new **4SEO Business Profile** tools that complete the LocalBusiness JSON-LD picture for sites running 4SEO. The version bump from 1.7.x → 1.8.0 reflects that "entire new Joomla extension domain" jump rather than a feature increment within the existing surface area.

@@ -2,6 +2,29 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v1.8.1</span>
+		<span class="date">2026-05-25</span>
+	</h2>
+
+	<p>Fills out the <strong>Custom Fields</strong> domain so programmatic setup of a clean field group on an article context is one MCP call rather than 6+ admin clicks. Closes <a href="https://github.com/cybersalt/cs-mcp-for-j/issues/1">issue #1</a>. Tool count 103 &rarr; 110.</p>
+
+	<h3><span class="section-icon">📦</span>New Features</h3>
+	<ul>
+		<li><strong>5 new field-group tools</strong> — full CRUD over <code>#__fields_groups</code> (the tabs that custom fields appear under in the article editor): <code>list_field_groups</code>, <code>get_field_group</code>, <code>create_field_group</code>, <code>update_field_group</code> (PATCH semantics; context intentionally not updatable), <code>delete_field_group</code> (requires <code>confirm:true</code>; assigned fields\'s <code>group_id</code> reset to 0, fields themselves not deleted).</li>
+		<li><strong>2 new custom-field write tools</strong> — <code>update_custom_field</code> (PATCH semantics; surfaces <code>group_id</code>, <code>assigned_cat_ids</code> with the [-1] = no-categories sentinel, and <code>only_use_in_subform</code> for Subform children built via the API) + <code>delete_custom_field</code> (also removes values from <code>#__fields_values</code>).</li>
+	</ul>
+
+	<h3><span class="section-icon">🔧</span>Improvements</h3>
+	<ul>
+		<li><strong><code>get_custom_field</code> now returns <code>assigned_cat_ids</code></strong> — queried from <code>#__fields_categories</code> (M:N join table). Empty list = "all categories"; <code>[-1]</code> = "no categories" sentinel. Description rewritten to surface the semantics so the agent reads-before-decides.</li>
+	</ul>
+
+	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
+	<ul>
+		<li><strong>Both delete tools initially failed with empty error messages</strong> — <code>com_fields</code>' <code>FieldModel::canDelete()</code> requires <code>state=-2</code> (trashed) before allowing hard-delete (Joomla\'s admin UI does this as two phases: trash, then "Empty Trash"). Both delete tools now <code>publish([$id], -2)</code> first, then call <code>delete()</code> — one MCP call = gone.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.8.0</span>
 		<span class="date">2026-05-23</span>
 	</h2>
