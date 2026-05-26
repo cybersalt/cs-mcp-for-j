@@ -51,10 +51,23 @@ final class DeleteCustomFieldTool extends AbstractTool
 			return ToolResult::error('Custom field ' . $id . ' not found.');
 		}
 
+		// com_fields' FieldModel::canDelete() refuses unless state=-2 (trashed) —
+		// verified in administrator/components/com_fields/src/Model/FieldModel.php ~line 831.
+		// Joomla's UI is a two-phase delete: trash first ("State → Trashed"), then
+		// "Empty Trash" hard-deletes. Replicate that here so the tool's "delete" verb
+		// behaves like the user expects (one call = gone) instead of leaving the field
+		// in a half-trashed state.
+		if ((int) $existing->state !== -2) {
+			$trashIds = [$id];
+			if (!$model->publish($trashIds, -2)) {
+				return ToolResult::error('com_fields refused to trash the field before hard-delete: ' . ($model->getError() ?: 'unknown error from publish'));
+			}
+		}
+
 		// FieldModel::delete() takes ids by reference and returns bool.
 		$ids = [$id];
 		if (!$model->delete($ids)) {
-			return ToolResult::error('com_fields rejected the field delete: ' . $model->getError());
+			return ToolResult::error('com_fields rejected the field delete: ' . ($model->getError() ?: 'unknown error (model returned false without setting an error message)'));
 		}
 
 		return ToolResult::json(['ok' => true, 'id' => $id, 'deleted' => true]);

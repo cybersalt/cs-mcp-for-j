@@ -50,10 +50,21 @@ final class DeleteFieldGroupTool extends AbstractTool
 			return ToolResult::error('Field group ' . $id . ' not found.');
 		}
 
+		// com_fields' GroupModel inherits AdminModel::canDelete() which refuses
+		// unless state=-2 (trashed). Joomla's UI does this as two phases (trash,
+		// then Empty Trash); we wrap both phases here so the tool's "delete" verb
+		// matches user expectation (one call = gone).
+		if ((int) $existing->state !== -2) {
+			$trashIds = [$id];
+			if (!$model->publish($trashIds, -2)) {
+				return ToolResult::error('com_fields refused to trash the field group before hard-delete: ' . ($model->getError() ?: 'unknown error from publish'));
+			}
+		}
+
 		// GroupModel::delete() takes ids by reference and returns bool.
 		$ids = [$id];
 		if (!$model->delete($ids)) {
-			return ToolResult::error('com_fields rejected the field group delete: ' . $model->getError());
+			return ToolResult::error('com_fields rejected the field group delete: ' . ($model->getError() ?: 'unknown error (model returned false without setting an error message)'));
 		}
 
 		return ToolResult::json(['ok' => true, 'id' => $id, 'deleted' => true]);
