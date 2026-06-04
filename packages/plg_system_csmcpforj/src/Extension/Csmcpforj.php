@@ -71,6 +71,17 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Users\DeleteUserTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Users\ListUserGroupsTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Users\ListAccessLevelsTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Users\GetUserApiTokenStatusTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Users\EnableUserApiTokenTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Users\ResetUserApiTokenTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Users\RevokeUserApiTokenTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Users\CreateUserGroupTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Users\UpdateUserGroupTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Users\DeleteUserGroupTool::class,
+		],
+		'Permissions' => [
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Permissions\ListComponentPermissionsTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Permissions\SetComponentPermissionTool::class,
 		],
 		'Modules' => [
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Modules\ListModulesTool::class,

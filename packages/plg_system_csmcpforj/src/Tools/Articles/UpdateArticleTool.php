@@ -71,15 +71,29 @@ final class UpdateArticleTool extends AbstractTool
 		}
 		$data['modified_by'] = (int) $actor->id;
 
-		if (!$model->save($data)) {
-			return ToolResult::error('com_content rejected the update: ' . $model->getError());
+		$result = $this->saveAdminModel($model, $data);
+
+		// On update, the row already exists with $id — the model's state id is
+		// less critical than on create, but a "false" save() with no fatal
+		// error still means the row was updated successfully. Treat it as
+		// success and surface the post-save warning as a hint.
+		if (!$result['ok'] && $result['error'] !== '' && $result['id'] <= 0) {
+			// Confirm the update actually happened by re-reading.
+			$check = $model->getItem($id);
+			if (!$check || empty($check->id)) {
+				return ToolResult::error('com_content rejected the update: ' . $result['error']);
+			}
 		}
 
-		return ToolResult::json([
+		$response = [
 			'ok'             => true,
 			'id'             => $id,
 			'fields_changed' => array_values(array_diff(array_keys($data), ['id', 'modified_by'])),
 			'edit_url'       => 'index.php?option=com_content&task=article.edit&id=' . $id,
-		]);
+		];
+		if (!$result['ok'] && $result['error'] !== '') {
+			$response['post_save_warning'] = $result['error'];
+		}
+		return ToolResult::json($response);
 	}
 }

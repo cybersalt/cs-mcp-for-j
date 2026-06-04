@@ -64,12 +64,17 @@ final class CreateTagTool extends AbstractTool
 			'created_user_id' => (int) $actor->id,
 		];
 
-		$model = $this->getModel('com_tags', 'Tag');
-		if (!$model->save($data)) {
-			return ToolResult::error('com_tags rejected the tag: ' . $model->getError());
+		$model  = $this->getModel('com_tags', 'Tag');
+		$result = $this->saveAdminModel($model, $data);
+
+		if ($result['id'] <= 0) {
+			return ToolResult::error('com_tags rejected the tag: ' . ($result['error'] ?: 'unknown error'));
 		}
 
-		$id = (int) $model->getState($model->getName() . '.id');
-		return ToolResult::json(['ok' => true, 'id' => $id, 'title' => $title, 'alias' => $alias]);
+		$response = ['ok' => true, 'id' => $result['id'], 'title' => $title, 'alias' => $alias];
+		if (!$result['ok'] && $result['error'] !== '') {
+			$response['post_save_warning'] = $result['error'];
+		}
+		return ToolResult::json($response);
 	}
 }

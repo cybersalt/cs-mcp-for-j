@@ -31,7 +31,9 @@ final class CreateCategoryTool extends AbstractTool
 				'alias'       => ['type' => 'string'],
 				'extension'   => ['type' => 'string', 'description' => 'e.g. "com_content".'],
 				'parent_id'   => ['type' => 'integer', 'description' => 'Default 1 (root).'],
-				'description' => ['type' => 'string'],
+				'description' => ['type' => 'string', 'description' => 'On-page category description (HTML).'],
+				'metadesc'    => ['type' => 'string', 'description' => 'Meta description tag for SEO (plain text, no HTML).'],
+				'metakey'     => ['type' => 'string', 'description' => 'Comma-separated meta keywords.'],
 				'published'   => ['type' => 'integer', 'enum' => [0, 1]],
 				'language'    => ['type' => 'string'],
 				'access'      => ['type' => 'integer'],
@@ -59,6 +61,8 @@ final class CreateCategoryTool extends AbstractTool
 			'title'       => $title,
 			'alias'       => $alias,
 			'description' => (string) ($arguments['description'] ?? ''),
+			'metadesc'    => (string) ($arguments['metadesc'] ?? ''),
+			'metakey'     => (string) ($arguments['metakey'] ?? ''),
 			'published'   => isset($arguments['published']) ? (int) $arguments['published'] : 1,
 			'language'    => (string) ($arguments['language'] ?? '*'),
 			'access'      => isset($arguments['access']) ? (int) $arguments['access'] : 1,
@@ -70,11 +74,15 @@ final class CreateCategoryTool extends AbstractTool
 		$model = $this->getModel('com_categories', 'Category');
 		$model->setState($model->getName() . '.extension', $extension);
 
-		if (!$model->save($data)) {
-			return ToolResult::error('com_categories rejected the category: ' . $model->getError());
+		$result = $this->saveAdminModel($model, $data);
+		if ($result['id'] <= 0) {
+			return ToolResult::error('com_categories rejected the category: ' . ($result['error'] ?: 'unknown error'));
 		}
 
-		$id = (int) $model->getState($model->getName() . '.id');
-		return ToolResult::json(['ok' => true, 'id' => $id, 'title' => $title, 'alias' => $alias, 'extension' => $extension]);
+		$response = ['ok' => true, 'id' => $result['id'], 'title' => $title, 'alias' => $alias, 'extension' => $extension];
+		if (!$result['ok'] && $result['error'] !== '') {
+			$response['post_save_warning'] = $result['error'];
+		}
+		return ToolResult::json($response);
 	}
 }

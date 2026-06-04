@@ -12,7 +12,7 @@ use Joomla\CMS\User\User;
 
 final class UpdateCategoryTool extends AbstractTool
 {
-	private const UPDATABLE = ['title', 'alias', 'parent_id', 'description', 'published', 'language', 'access'];
+	private const UPDATABLE = ['title', 'alias', 'parent_id', 'description', 'metadesc', 'metakey', 'published', 'language', 'access'];
 
 	public function getName(): string { return 'update_category'; }
 
@@ -31,7 +31,9 @@ final class UpdateCategoryTool extends AbstractTool
 				'title'       => ['type' => 'string'],
 				'alias'       => ['type' => 'string'],
 				'parent_id'   => ['type' => 'integer'],
-				'description' => ['type' => 'string'],
+				'description' => ['type' => 'string', 'description' => 'On-page category description (HTML).'],
+				'metadesc'    => ['type' => 'string', 'description' => 'Meta description tag for SEO (plain text, no HTML).'],
+				'metakey'     => ['type' => 'string', 'description' => 'Comma-separated meta keywords.'],
 				'published'   => ['type' => 'integer', 'enum' => [0, 1]],
 				'language'    => ['type' => 'string'],
 				'access'      => ['type' => 'integer'],

@@ -105,12 +105,17 @@ final class CreateMenuItemTool extends AbstractTool
 			'client_id'         => 0,
 		];
 
-		$model = $this->getModel('com_menus', 'Item');
-		if (!$model->save($data)) {
-			return ToolResult::error('com_menus rejected the menu item: ' . $model->getError());
+		$model  = $this->getModel('com_menus', 'Item');
+		$result = $this->saveAdminModel($model, $data);
+
+		if ($result['id'] <= 0) {
+			return ToolResult::error('com_menus rejected the menu item: ' . ($result['error'] ?: 'unknown error'));
 		}
 
-		$id = (int) $model->getState($model->getName() . '.id');
-		return ToolResult::json(['ok' => true, 'id' => $id, 'title' => $title, 'alias' => $alias, 'menutype' => $menutype]);
+		$response = ['ok' => true, 'id' => $result['id'], 'title' => $title, 'alias' => $alias, 'menutype' => $menutype];
+		if (!$result['ok'] && $result['error'] !== '') {
+			$response['post_save_warning'] = $result['error'];
+		}
+		return ToolResult::json($response);
 	}
 }

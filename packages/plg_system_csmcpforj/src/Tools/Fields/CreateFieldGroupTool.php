@@ -64,11 +64,15 @@ final class CreateFieldGroupTool extends AbstractTool
 		// before save so the model resolves the correct asset rules for the new group.
 		$model->setState($model->getName() . '.context', $context);
 
-		if (!$model->save($data)) {
-			return ToolResult::error('com_fields rejected the field group: ' . $model->getError());
+		$result = $this->saveAdminModel($model, $data);
+		if ($result['id'] <= 0) {
+			return ToolResult::error('com_fields rejected the field group: ' . ($result['error'] ?: 'unknown error'));
 		}
 
-		$id = (int) $model->getState($model->getName() . '.id');
-		return ToolResult::json(['ok' => true, 'id' => $id, 'title' => $data['title'], 'context' => $context]);
+		$response = ['ok' => true, 'id' => $result['id'], 'title' => $data['title'], 'context' => $context];
+		if (!$result['ok'] && $result['error'] !== '') {
+			$response['post_save_warning'] = $result['error'];
+		}
+		return ToolResult::json($response);
 	}
 }

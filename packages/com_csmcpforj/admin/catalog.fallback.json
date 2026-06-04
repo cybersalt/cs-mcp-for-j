@@ -1,0 +1,52 @@
+{
+	"schema_version": 1,
+	"generated_at": "2026-06-01T00:00:00Z",
+	"source": "bundled-fallback",
+	"addons": [
+		{
+			"key": "4seo",
+			"name": "MCP add-on for 4SEO",
+			"short_description": "Adds Claude tools for 4SEO meta tags, redirects, JSON-LD, sitemap, and Business Profile management.",
+			"target_extension": {
+				"type": "plugin",
+				"folder": "system",
+				"element": "forseo",
+				"display_name": "4SEO"
+			},
+			"addon_extension": {
+				"type": "plugin",
+				"folder": "system",
+				"element": "csmcpforj4seo"
+			},
+			"tier": "free",
+			"requires_pro_membership": false,
+			"version": "1.8.1",
+			"released": "2026-05-29",
+			"download_url": "",
+			"available": false,
+			"notes": "Detached from the core in v2.0 — download link populated once the live catalog endpoint is online."
+		},
+		{
+			"key": "rsticketspro",
+			"name": "MCP add-on for RSTicketsPro",
+			"short_description": "Adds Claude tools for the RSTicketsPro ticket workflow: list, assign, reply, escalate, and resolve.",
+			"target_extension": {
+				"type": "component",
+				"element": "com_rsticketspro",
+				"display_name": "RSTicketsPro"
+			},
+			"addon_extension": {
+				"type": "plugin",
+				"folder": "system",
+				"element": "csmcpforjrst"
+			},
+			"tier": "free",
+			"requires_pro_membership": false,
+			"version": "1.8.1",
+			"released": "2026-05-29",
+			"download_url": "",
+			"available": false,
+			"notes": "Detached from the core in v2.0 — download link populated once the live catalog endpoint is online."
+		}
+	]
+}

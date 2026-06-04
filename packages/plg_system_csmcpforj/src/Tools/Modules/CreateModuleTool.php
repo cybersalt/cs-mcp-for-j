@@ -69,19 +69,24 @@ final class CreateModuleTool extends AbstractTool
 				: [],
 		];
 
-		$model = $this->getModel('com_modules', 'Module');
-		if (!$model->save($data)) {
-			return ToolResult::error('com_modules rejected the module: ' . $model->getError());
+		$model  = $this->getModel('com_modules', 'Module');
+		$result = $this->saveAdminModel($model, $data);
+
+		if ($result['id'] <= 0) {
+			return ToolResult::error('com_modules rejected the module: ' . ($result['error'] ?: 'unknown error'));
 		}
 
-		$id = (int) $model->getState($model->getName() . '.id');
-		return ToolResult::json([
+		$response = [
 			'ok'       => true,
-			'id'       => $id,
+			'id'       => $result['id'],
 			'title'    => $data['title'],
 			'module'   => $data['module'],
 			'position' => $data['position'],
-			'edit_url' => 'index.php?option=com_modules&task=module.edit&id=' . $id,
-		]);
+			'edit_url' => 'index.php?option=com_modules&task=module.edit&id=' . $result['id'],
+		];
+		if (!$result['ok'] && $result['error'] !== '') {
+			$response['post_save_warning'] = $result['error'];
+		}
+		return ToolResult::json($response);
 	}
 }

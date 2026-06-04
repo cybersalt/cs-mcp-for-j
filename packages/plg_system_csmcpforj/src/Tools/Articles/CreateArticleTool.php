@@ -89,20 +89,25 @@ final class CreateArticleTool extends AbstractTool
 			'created_by'  => (int) $actor->id,
 		];
 
-		$model = $this->getModel('com_content', 'Article');
-		if (!$model->save($data)) {
-			return ToolResult::error('com_content rejected the article: ' . $model->getError());
+		$model  = $this->getModel('com_content', 'Article');
+		$result = $this->saveAdminModel($model, $data);
+
+		if ($result['id'] <= 0) {
+			return ToolResult::error('com_content rejected the article: ' . ($result['error'] ?: 'unknown error'));
 		}
 
-		$id = (int) $model->getState($model->getName() . '.id');
-		return ToolResult::json([
+		$response = [
 			'ok'       => true,
-			'id'       => $id,
+			'id'       => $result['id'],
 			'title'    => $title,
 			'alias'    => $alias,
 			'catid'    => $catid,
 			'state'    => $data['state'],
-			'edit_url' => 'index.php?option=com_content&task=article.edit&id=' . $id,
-		]);
+			'edit_url' => 'index.php?option=com_content&task=article.edit&id=' . $result['id'],
+		];
+		if (!$result['ok'] && $result['error'] !== '') {
+			$response['post_save_warning'] = $result['error'];
+		}
+		return ToolResult::json($response);
 	}
 }

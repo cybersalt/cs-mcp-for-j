@@ -71,11 +71,15 @@ final class CreateCustomFieldTool extends AbstractTool
 		$model = $this->getModel('com_fields', 'Field');
 		$model->setState($model->getName() . '.context', $data['context']);
 
-		if (!$model->save($data)) {
-			return ToolResult::error('com_fields rejected the field: ' . $model->getError());
+		$result = $this->saveAdminModel($model, $data);
+		if ($result['id'] <= 0) {
+			return ToolResult::error('com_fields rejected the field: ' . ($result['error'] ?: 'unknown error'));
 		}
 
-		$id = (int) $model->getState($model->getName() . '.id');
-		return ToolResult::json(['ok' => true, 'id' => $id, 'title' => $data['title'], 'name' => $data['name'], 'context' => $data['context']]);
+		$response = ['ok' => true, 'id' => $result['id'], 'title' => $data['title'], 'name' => $data['name'], 'context' => $data['context']];
+		if (!$result['ok'] && $result['error'] !== '') {
+			$response['post_save_warning'] = $result['error'];
+		}
+		return ToolResult::json($response);
 	}
 }

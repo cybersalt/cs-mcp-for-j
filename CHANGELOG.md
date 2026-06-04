@@ -1,5 +1,85 @@
 # Changelog
 
+## 🚀 Version 1.10.0 (June 3, 2026)
+
+Closes the **ACL gap** that previously required UI clicks to grant a non-Super-User group access to a component. Adds full user-group CRUD plus a new **Permissions** domain that reads and writes `#__assets.rules` directly.
+
+Tool count: 114 → 119. New domain: Permissions (2 tools). Three new tools join Users.
+
+### 📦 New Features — User Group CRUD
+
+- **`create_user_group(title, parent_id=1)`** — goes through `com_users`' `GroupModel` so the matching `#__assets` row is created and the new group inherits from its parent.
+- **`update_user_group(id, title?, parent_id?)`** — PATCH semantics. Moving a group changes which permissions it inherits.
+- **`delete_user_group(id, confirm:true)`** — refuses if any users are still in the group or if child groups inherit from it. Joomla's built-in groups can't be deleted.
+
+### 📦 New Features — Permissions Domain
+
+- **`list_component_permissions(component)`** — return the parsed `#__assets.rules` JSON for a component (or `root.1` for global) **plus** the resolved value for every (group, permission) cell via `Access::checkGroup()` — the same inheritance walk Joomla uses at runtime. Diff the resolved column across groups to find which permission is gating access.
+
+  Actions are discovered from the component's `access.xml` (canonical) and from any keys already present in the rules JSON.
+
+- **`set_component_permission(component, group_id, permission, value)`** — set one ACL cell. `value`: `1` = Allowed, `0` = Denied, `null` = Inherited (clears the explicit setting). Equivalent to clicking one row/column intersection in the admin Permissions tab and saving.
+
+  Refuses one footgun: setting `core.admin` Denied for Super Users on `root.1`. Other dangerous combinations are allowed because Joomla itself allows them.
+
+### 🔒 Security review (pre-release sweep, June 3)
+
+Five findings caught and fixed in the same release. None reachable from outside an authenticated admin session, but worth closing for defense in depth:
+
+- **MED — Path traversal in `list_component_permissions`.** Input `component` was only validated with `str_starts_with('com_')`, so values like `com_../../etc/passwd` passed and got concatenated into `JPATH_ADMINISTRATOR . '/components/' . $component . '/access.xml'`. New `AbstractTool::requireSafeAssetName()` helper enforces `root.1` | `com_[a-z0-9_]+` | `com_<name>.<subtype>.<id>` shape. Applied to both `list_/set_component_permission`.
+- **MED — Privilege escalation via direct-DB token tools.** The four new `*_user_api_token` tools bypassed Joomla's UserModel, so a Manager with `csmcpforj.write` could mint a Super User token and pivot. New `AbstractTool::requireCanEditTargetUser()` helper mirrors Joomla's "can't edit equal-or-higher privilege users" check by comparing `MAX(usergroups.level)` across actor vs target. Super Users bypass; self-operations bypass. Applied to all four token tools + the `create_user(enable_api_token: true)` mint path (defense-in-depth: UserModel already enforces it during group assignment).
+- **LOW — Missing ACL on `CatalogController::refresh`.** Any logged-in admin who could hit the URL could trigger remote fetches against cybersalt.com. Now requires `core.admin` on `com_csmcpforj` in addition to the form-token check.
+- **LOW — `CatalogModel` accepted any URL scheme for the catalog endpoint.** An operator who could edit the component config could set `file://` or `gopher://`. Now allowlists `http://` and `https://` only.
+- **VERY LOW — `JoomlatokenHelper::loadProfileRows` bound `$likePattern` before assigning it.** Worked because Joomla's `bind()` is by-reference, but fragile against refactors. Reordered.
+
+### 🎯 Use case (from field testing, June 3)
+
+Granting a new low-privilege group access to DPCalendar previously meant stepping a test user through each built-in group manually to discover the gating permission. Now:
+
+```
+list_component_permissions(component: "com_dpcalendar")
+  → diff Super Users vs Manager → identify "core.admin" as gate
+
+create_user_group(title: "Kiosk Access", parent_id: 1)
+  → returns id: 10
+
+set_component_permission(component: "com_dpcalendar",
+                         group_id: 10,
+                         permission: "core.admin",
+                         value: 1)
+
+update_user(id: 7, groups: [10])
+```
+
+Four MCP calls instead of an admin GUI dance.
+
+---
+
+## 🚀 Version 1.9.0 (June 3, 2026)
+
+Closes the **per-user API token management** gap that previously forced operators to log in as each target user to mint or rotate tokens. Adds a full `joomlatoken` admin surface plus atomic create-and-mint on `create_user`.
+
+Tool count: 110 → 114.
+
+### 📦 New Features — User / Token Surface
+
+- **`get_user_api_token_status(user_id)`** — read-only state of a user's API token: `enabled`, `has_secret`, `algorithm`. The secret itself is never returned.
+- **`enable_user_api_token(user_id, enabled)`** — toggle the `joomlatoken.enabled` flag without touching the secret. Useful for temporarily blocking a token without invalidating it.
+- **`reset_user_api_token(user_id)`** — generate a fresh secret and return the **display token** the user can paste straight into an MCP client's `Authorization: Bearer` header. Format mirrors `plg_user_token` exactly: `base64("<algo>:<userid>:<hmac>")`. Bypasses Joomla's "only the user can see their own token" GUI restriction because Super User MCP tools are by definition programmatic admin.
+- **`revoke_user_api_token(user_id)`** — disable + zero the secret. For incident response. Restore access with `reset_user_api_token`.
+
+### 🔧 Improvements
+
+- **`create_user(enable_api_token: true)`** — atomic create-and-mint. Response now includes `display_token` and a pre-formatted `paste_as` header string. Replaces the previous multi-step dance (create user → bump to Manager → log in as user → reset token → unbump) with a single call.
+- **`get_user(include_profile: true)`** — adds `#__user_profiles` rows to the response (joomlatoken state, profile plugin fields, vendor plugin fields like DPCalendar's private-feed token, etc.). The raw `joomlatoken.token` secret is redacted to `[redacted; present]`; other plugin tokens are returned verbatim so the agent can spot them.
+
+### 🛠 Engineering
+
+- Token format mirrors `plugins/user/token/src/Extension/Token.php` exactly so the display string returned by `reset_user_api_token` works in any MCP client. The HMAC uses Joomla's `secret` from `configuration.php` as the key (same as the GUI).
+- New `JoomlatokenHelper` consolidates the seed-gen, HMAC, and `#__user_profiles` upsert logic so the four new tools (and `create_user`) share one code path.
+
+---
+
 ## 🚀 Version 1.8.1 (May 25, 2026)
 
 Fills out the **Custom Fields** domain so programmatic setup of a clean field group on an article context is one MCP call rather than 6+ admin clicks. Closes issue [#1](https://github.com/cybersalt/cs-mcp-for-j/issues/1) — VMT template change-log Subform field-group setup on 2026-05-25 needed it.

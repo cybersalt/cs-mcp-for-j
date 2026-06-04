@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+	<fieldset
+		name="catalog"
+		label="COM_CSMCPFORJ_CONFIG_CATALOG_FIELDSET_LABEL"
+		description="COM_CSMCPFORJ_CONFIG_CATALOG_FIELDSET_DESC"
+	>
+		<field
+			name="catalog_url"
+			type="url"
+			label="COM_CSMCPFORJ_CONFIG_CATALOG_URL_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_CATALOG_URL_DESC"
+			default="https://cybersalt.com/cs-mcp-for-j/"
+			filter="url"
+		/>
+
+		<field
+			name="cache_ttl_hours"
+			type="integer"
+			label="COM_CSMCPFORJ_CONFIG_CATALOG_CACHE_TTL_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_CATALOG_CACHE_TTL_DESC"
+			default="24"
+			first="1"
+			last="168"
+			step="1"
+		/>
+
+		<field
+			name="catalog_show_pro_unavailable"
+			type="radio"
+			layout="joomla.form.field.radio.switcher"
+			label="COM_CSMCPFORJ_CONFIG_CATALOG_SHOW_PRO_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_CATALOG_SHOW_PRO_DESC"
+			default="1"
+		>
+			<option value="1">JYES</option>
+			<option value="0">JNO</option>
+		</field>
+	</fieldset>
+</config>

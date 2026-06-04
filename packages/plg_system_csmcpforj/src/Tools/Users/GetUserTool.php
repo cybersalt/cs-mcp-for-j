@@ -17,7 +17,10 @@ final class GetUserTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'Fetch a single user by id (or by username). Returns the user record including '
-			. 'group memberships. Password hash, otpKey, otep, and activation tokens are NEVER returned.';
+			. 'group memberships. Password hash, otpKey, otep, and activation tokens are NEVER returned. '
+			. 'Set include_profile=true to also return #__user_profiles rows (joomlatoken state, '
+			. 'profile plugin fields, vendor plugin fields, etc.); the raw joomlatoken.token secret '
+			. 'is redacted but its presence is reported.';
 	}
 
 	public function getInputSchema(): array
@@ -25,9 +28,10 @@ final class GetUserTool extends AbstractTool
 		return [
 			'type' => 'object',
 			'properties' => [
-				'id'       => ['type' => 'integer'],
-				'username' => ['type' => 'string'],
-				'email'    => ['type' => 'string'],
+				'id'              => ['type' => 'integer'],
+				'username'        => ['type' => 'string'],
+				'email'           => ['type' => 'string'],
+				'include_profile' => ['type' => 'boolean', 'description' => 'If true, include #__user_profiles rows in the response.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -63,6 +67,41 @@ final class GetUserTool extends AbstractTool
 			->where($this->db->quoteName('m.user_id') . ' = ' . (int) $user['id']);
 		$user['groups'] = $this->db->setQuery($gq)->loadAssocList() ?: [];
 
+		if (!empty($arguments['include_profile'])) {
+			$user['profile'] = $this->loadProfile((int) $user['id']);
+		}
+
 		return ToolResult::json($user);
+	}
+
+	/**
+	 * Returns all #__user_profiles rows for the user, with the joomlatoken.token
+	 * secret redacted but its presence preserved as a boolean. Other vendor
+	 * plugin tokens (e.g. dpcalendar.private_token) are returned verbatim so
+	 * the caller can spot them — they have no MCP-auth significance.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function loadProfile(int $userId): array
+	{
+		$q = $this->db->getQuery(true)
+			->select([$this->db->quoteName('profile_key'), $this->db->quoteName('profile_value')])
+			->from($this->db->quoteName('#__user_profiles'))
+			->where($this->db->quoteName('user_id') . ' = ' . $userId)
+			->order($this->db->quoteName('ordering') . ' ASC');
+		$rows = $this->db->setQuery($q)->loadAssocList() ?: [];
+
+		$out = [];
+		foreach ($rows as $row) {
+			$key   = (string) $row['profile_key'];
+			$value = (string) $row['profile_value'];
+
+			if ($key === 'joomlatoken.token') {
+				$out[$key] = $value !== '' ? '[redacted; present]' : '';
+				continue;
+			}
+			$out[$key] = $value;
+		}
+		return $out;
 	}
 }
