@@ -7,7 +7,7 @@
 	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
 	<authorEmail>support@cybersalt.com</authorEmail>
 	<authorUrl>https://cybersalt.com</authorUrl>
-	<version>1.10.0</version>
+	<version>1.10.1</version>
 	<description>PKG_CSMCPFORJ_XML_DESCRIPTION</description>
 	<packagename>csmcpforj</packagename>
 	<scriptfile>script.php</scriptfile>
@@ -23,4 +23,8 @@
 	<languages folder="language">
 		<language tag="en-GB">en-GB/pkg_csmcpforj.sys.ini</language>
 	</languages>
+
+	<updateservers>
+		<server type="extension" name="MCP for Joomla">https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.updatexml&amp;format=raw&amp;element=pkg_csmcpforj</server>
+	</updateservers>
 </extension>

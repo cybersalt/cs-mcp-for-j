@@ -1,5 +1,27 @@
 # Changelog
 
+## 🚀 Version 1.10.1 (June 10, 2026)
+
+Public-release housekeeping. Adds the Cybersalt update-server URL to the package manifest so Joomla's "Find Updates" surfaces future versions automatically — required for the **first official public release** on cybersalt.com.
+
+### 🔧 Update server
+
+`pkg_csmcpforj.xml` now declares:
+
+```xml
+<updateservers>
+    <server type="extension" name="MCP for Joomla">https://www.cybersalt.com/index.php?option=com_csreleasemanager&task=api.updatexml&format=raw&element=pkg_csmcpforj</server>
+</updateservers>
+```
+
+Existing installs upgrading from v1.10.0 → v1.10.1 register the update server during the package install; from then on, Joomla → System → Update will detect new versions without re-installing.
+
+### ⚠️ Supersedes v1.10.0
+
+v1.10.0 was tagged earlier on June 3 but had no update-server URL, which made it unfit as the public-distribution build. v1.10.1 is functionally identical except for the manifest line; if you grabbed v1.10.0, install v1.10.1 over the top.
+
+---
+
 ## 🚀 Version 1.10.0 (June 3, 2026)
 
 Closes the **ACL gap** that previously required UI clicks to grant a non-Super-User group access to a component. Adds full user-group CRUD plus a new **Permissions** domain that reads and writes `#__assets.rules` directly.
