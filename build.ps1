@@ -1,9 +1,21 @@
-# Cybersalt MCP for Joomla — build script
-# Produces pkg_csmcpforj_v{version}_{yyyymmdd}_{hhmm}.zip in the project root.
+# Cybersalt MCP for Joomla - build script
+#
+# Default (test build): produces pkg_csmcpforj_v{version}_{yyyymmdd}_{hhmm}.zip
+#   so every iteration is uniquely named and the dated zips stack up locally
+#   for comparison.
+#
+# -Release: produces pkg_csmcpforj_v{version}.zip - no date in the filename.
+#   This is the artifact that gets attached to the GitHub release and uploaded
+#   to cs-release-manager on cybersalt.com (which keys downloads off a stable
+#   filename, not a dated one).
 #
 # Requires 7-Zip at the default install path. PowerShell's built-in
 # Compress-Archive does NOT create directory entries, which Joomla refuses.
 # See Joomla-Brain/PACKAGE-BUILD-NOTES.md.
+
+param(
+    [switch]$Release
+)
 
 $ErrorActionPreference = 'Stop'
 
@@ -23,10 +35,14 @@ if ([string]::IsNullOrWhiteSpace($version)) {
     throw 'Could not read <version> from pkg_csmcpforj.xml.'
 }
 
-$timestamp = Get-Date -Format 'yyyyMMdd_HHmm'
-$pkgZip    = Join-Path $root "pkg_csmcpforj_v${version}_${timestamp}.zip"
-
-Write-Host "Building cs-mcp-for-j v$version ($timestamp)" -ForegroundColor Cyan
+if ($Release) {
+    $pkgZip = Join-Path $root "pkg_csmcpforj_v${version}.zip"
+    Write-Host "Building cs-mcp-for-j v$version (RELEASE - stable filename)" -ForegroundColor Cyan
+} else {
+    $timestamp = Get-Date -Format 'yyyyMMdd_HHmm'
+    $pkgZip    = Join-Path $root "pkg_csmcpforj_v${version}_${timestamp}.zip"
+    Write-Host "Building cs-mcp-for-j v$version ($timestamp)" -ForegroundColor Cyan
+}
 
 # Clean staging
 if (Test-Path $staging) { Remove-Item -Recurse -Force $staging }
