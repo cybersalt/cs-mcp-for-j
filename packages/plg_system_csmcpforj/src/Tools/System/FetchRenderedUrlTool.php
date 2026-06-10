@@ -30,9 +30,10 @@ final class FetchRenderedUrlTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'Fetch a rendered page from this same Joomla site (same-origin only — no SSRF). '
-			. 'Required: path (relative path or full URL on this site). Path is relative to the '
-			. 'Joomla install root (e.g. "index.php?option=...", "my-article-alias", "images/foo.jpg") — '
-			. 'do NOT include the install\'s subdirectory or the full server path. Optional: '
+			. 'REQUIRED ARG: path (relative path OR full URL on this site; url is also accepted as a '
+			. 'convenience alias). A relative path is resolved against the Joomla install root '
+			. '(e.g. "my-article-alias", "/about-us", "index.php?option=..."). A full URL must point '
+			. 'at the same host as the Joomla site or the call is refused. Optional: '
 			. 'extract_jsonld=true returns parsed JSON-LD blocks from <script type="application/ld+json"> '
 			. 'tags so the agent can verify Schema.org writes landed without re-grepping the HTML. '
 			. 'Response cap ~1.5 MB. NOTE for 4SEO verification: when checking that a custom meta '
@@ -46,9 +47,9 @@ final class FetchRenderedUrlTool extends AbstractTool
 	{
 		return [
 			'type'     => 'object',
-			'required' => ['path'],
 			'properties' => [
-				'path'           => ['type' => 'string', 'description' => 'Relative path (e.g. "/about-us") or full URL on this site.'],
+				'path'           => ['type' => 'string', 'description' => 'Relative path (e.g. "/about-us") or full URL on this site. Pass this OR url.'],
+				'url'            => ['type' => 'string', 'description' => 'Alias for path; pass a full URL on the same host as the Joomla site.'],
 				'extract_jsonld' => ['type' => 'boolean', 'description' => 'If true, also return parsed JSON-LD blocks. Default false.'],
 				'include_html'   => ['type' => 'boolean', 'description' => 'If false, omit the raw HTML body from the response (handy when only extract_jsonld is needed). Default true.'],
 				'timeout'        => ['type' => 'integer', 'description' => 'HTTP request timeout in seconds. Default 15, max 60.'],
@@ -61,7 +62,11 @@ final class FetchRenderedUrlTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		$path        = $this->requireString($arguments, 'path');
+		$pathRaw = trim((string) ($arguments['path'] ?? $arguments['url'] ?? ''));
+		if ($pathRaw === '') {
+			return ToolResult::error('path is required (url is accepted as an alias).');
+		}
+		$path        = $pathRaw;
 		$extractJ    = (bool) ($arguments['extract_jsonld'] ?? false);
 		$includeHtml = !isset($arguments['include_html']) || (bool) $arguments['include_html'];
 		$timeout     = max(1, min(60, (int) ($arguments['timeout'] ?? 15)));

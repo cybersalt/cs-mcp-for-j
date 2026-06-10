@@ -29,20 +29,22 @@ final class SetArticleSchemaTool extends AbstractTool
 
 	public function getDescription(): string
 	{
-		return 'Set/replace the Schema.org data for a content item. Required: item_id, schema_type, payload. '
-			. 'schema_type must be one of: Article, BlogPosting, Book, Custom, Event, JobPosting, '
-			. 'Organization, Person, Recipe. payload is the type-specific object (use list_schema_types '
-			. 'to see typical fields per type). Use clear_article_schema to remove. For Custom, '
-			. 'prefer set_article_custom_jsonld so you can pass a JSON object directly.';
+		return 'Set/replace the Schema.org data for a content item. '
+			. 'REQUIRED ARG: item_id (the article id; article_id is also accepted as a convenience alias). '
+			. 'REQUIRED ARG: schema_type — one of: Article, BlogPosting, Book, Custom, Event, JobPosting, '
+			. 'Organization, Person, Recipe. REQUIRED ARG: payload — the type-specific object '
+			. '(use list_schema_types to see typical fields per type). Use clear_article_schema to remove. '
+			. 'For Custom, prefer set_article_custom_jsonld so you can pass a JSON object directly.';
 	}
 
 	public function getInputSchema(): array
 	{
 		return [
 			'type'     => 'object',
-			'required' => ['item_id', 'schema_type', 'payload'],
+			'required' => ['schema_type', 'payload'],
 			'properties' => [
-				'item_id'     => ['type' => 'integer'],
+				'item_id'     => ['type' => 'integer', 'description' => 'Article id (or other entity id matching context). Pass this OR article_id.'],
+				'article_id'  => ['type' => 'integer', 'description' => 'Alias for item_id; use whichever name feels natural.'],
 				'context'     => ['type' => 'string', 'description' => 'Default "com_content.article".'],
 				'schema_type' => ['type' => 'string', 'enum' => self::VALID_TYPES],
 				'payload'     => ['type' => 'object', 'description' => 'Type-specific payload. Will be JSON-encoded into the schema column.'],
@@ -55,7 +57,7 @@ final class SetArticleSchemaTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		$itemId     = $this->requirePositiveInt($arguments, 'item_id');
+		$itemId     = $this->requireItemOrArticleId($arguments);
 		$context    = (string) ($arguments['context'] ?? 'com_content.article');
 		$schemaType = (string) ($arguments['schema_type'] ?? '');
 

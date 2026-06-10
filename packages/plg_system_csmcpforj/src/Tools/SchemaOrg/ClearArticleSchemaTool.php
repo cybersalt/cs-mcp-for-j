@@ -22,17 +22,18 @@ final class ClearArticleSchemaTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'Remove the Schema.org row for a content item (sets schemaType=None internally, '
-			. 'which Joomla handles by deleting the row). Required: item_id.';
+			. 'which Joomla handles by deleting the row). '
+			. 'REQUIRED ARG: item_id (the article id; article_id is also accepted as a convenience alias).';
 	}
 
 	public function getInputSchema(): array
 	{
 		return [
 			'type'     => 'object',
-			'required' => ['item_id'],
 			'properties' => [
-				'item_id' => ['type' => 'integer'],
-				'context' => ['type' => 'string', 'description' => 'Default "com_content.article".'],
+				'item_id'    => ['type' => 'integer', 'description' => 'Article id (or other entity id matching context). Pass this OR article_id.'],
+				'article_id' => ['type' => 'integer', 'description' => 'Alias for item_id; use whichever name feels natural.'],
+				'context'    => ['type' => 'string', 'description' => 'Default "com_content.article".'],
 			],
 			'additionalProperties' => false,
 		];
@@ -42,7 +43,7 @@ final class ClearArticleSchemaTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		$itemId  = $this->requirePositiveInt($arguments, 'item_id');
+		$itemId  = $this->requireItemOrArticleId($arguments);
 		$context = (string) ($arguments['context'] ?? 'com_content.article');
 
 		$delete = $this->db->getQuery(true)

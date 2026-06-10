@@ -55,6 +55,7 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 		try {
 			$this->clearAutoloadCache();
 			$this->enableBundledPlugins();
+			$this->ensureUpdateSiteRegistered();
 		} catch (\Throwable $e) {
 			// Surface unexpected install errors instead of silently swallowing.
 			Factory::getApplication()->enqueueMessage(
@@ -109,6 +110,92 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 				->where($db->quoteName('element') . ' = ' . $db->quote($element));
 			$db->setQuery($query)->execute();
 		}
+	}
+
+	/**
+	 * Belt-and-braces: explicitly create or enable the #__update_sites row
+	 * pointing at cs-release-manager's update XML feed.
+	 *
+	 * Joomla's PackageAdapter is supposed to process the <updateservers>
+	 * block in the package manifest automatically. In practice that works on
+	 * a fresh install but is unreliable when upgrading from a version of the
+	 * package that didn't ship updateservers (v1.10.0 → v1.10.1 was exactly
+	 * that case). Without this method, "System -> Update Sites" stays empty
+	 * and "Find Updates" can never discover new versions.
+	 *
+	 * Idempotent: safe to run on every install/update. Looks up the package
+	 * extension_id, finds any existing update_sites row for it, and either
+	 * updates the URL + re-enables it or inserts a fresh row.
+	 */
+	private function ensureUpdateSiteRegistered(): void
+	{
+		$db = Factory::getContainer()->get(DatabaseInterface::class);
+
+		$updateUrl  = 'https://www.cybersalt.com/index.php?option=com_csreleasemanager&task=api.updatexml&format=raw&element=pkg_csmcpforj';
+		$updateName = 'MCP for Joomla';
+
+		// 1. Find the package's extension_id.
+		$query = $db->getQuery(true)
+			->select($db->quoteName('extension_id'))
+			->from($db->quoteName('#__extensions'))
+			->where($db->quoteName('type') . ' = ' . $db->quote('package'))
+			->where($db->quoteName('element') . ' = ' . $db->quote('pkg_csmcpforj'));
+		$extensionId = (int) $db->setQuery($query)->loadResult();
+
+		if ($extensionId <= 0) {
+			// Package row not yet committed — Joomla will run postflight again
+			// in some upgrade paths. Bail quietly.
+			return;
+		}
+
+		// 2. Find any existing update_sites row already linked to this package.
+		$query = $db->getQuery(true)
+			->select($db->quoteName('us.update_site_id'))
+			->from($db->quoteName('#__update_sites', 'us'))
+			->innerJoin(
+				$db->quoteName('#__update_sites_extensions', 'use') . ' ON '
+				. $db->quoteName('use.update_site_id') . ' = ' . $db->quoteName('us.update_site_id')
+			)
+			->where($db->quoteName('use.extension_id') . ' = ' . $extensionId);
+		$updateSiteId = (int) $db->setQuery($query)->loadResult();
+
+		if ($updateSiteId > 0) {
+			// Already linked — refresh the URL and re-enable. Catches the
+			// "update site exists but URL is stale" case.
+			$update = $db->getQuery(true)
+				->update($db->quoteName('#__update_sites'))
+				->set($db->quoteName('name') . ' = ' . $db->quote($updateName))
+				->set($db->quoteName('location') . ' = ' . $db->quote($updateUrl))
+				->set($db->quoteName('enabled') . ' = 1')
+				->set($db->quoteName('type') . ' = ' . $db->quote('extension'))
+				->where($db->quoteName('update_site_id') . ' = ' . $updateSiteId);
+			$db->setQuery($update)->execute();
+			return;
+		}
+
+		// 3. No row yet — insert a new update_sites row and link it.
+		$insertSite = $db->getQuery(true)
+			->insert($db->quoteName('#__update_sites'))
+			->columns($db->quoteName(['name', 'type', 'location', 'enabled', 'extra_query']))
+			->values(
+				$db->quote($updateName) . ', '
+				. $db->quote('extension') . ', '
+				. $db->quote($updateUrl) . ', '
+				. '1, '
+				. $db->quote('')
+			);
+		$db->setQuery($insertSite)->execute();
+		$newSiteId = (int) $db->insertid();
+
+		if ($newSiteId <= 0) {
+			return;
+		}
+
+		$insertLink = $db->getQuery(true)
+			->insert($db->quoteName('#__update_sites_extensions'))
+			->columns($db->quoteName(['update_site_id', 'extension_id']))
+			->values($newSiteId . ', ' . $extensionId);
+		$db->setQuery($insertLink)->execute();
 	}
 
 	private function showPostInstallMessage(string $type): void

@@ -94,6 +94,30 @@ abstract class AbstractTool implements ToolInterface
 	}
 
 	/**
+	 * Pull a positive content-item id from arguments, accepting either the
+	 * canonical Joomla "item_id" name (matches #__schemaorg.itemId) or the
+	 * natural "article_id" alias.
+	 *
+	 * Tools named *_article_* (set_article_schema, get_article_schema, ...)
+	 * are easy for an agent to confuse with the *_article tools (update_article,
+	 * delete_article), which use "id" / "article_id". Accept both so the
+	 * agent's first guess works either way.
+	 *
+	 * @param array<string,mixed> $arguments
+	 */
+	protected function requireItemOrArticleId(array $arguments): int
+	{
+		$id = (int) ($arguments['item_id'] ?? $arguments['article_id'] ?? 0);
+		if ($id <= 0) {
+			throw new \InvalidArgumentException(
+				'item_id is required and must be a positive integer. '
+				. '(article_id is accepted as an alias for convenience.)'
+			);
+		}
+		return $id;
+	}
+
+	/**
 	 * Validate that an asset name follows the safe Joomla shape, rejecting any
 	 * input that could traverse the filesystem when concatenated into a path.
 	 *

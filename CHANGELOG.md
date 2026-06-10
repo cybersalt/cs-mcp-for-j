@@ -1,5 +1,41 @@
 # Changelog
 
+## 🚀 Version 1.10.2 (June 10, 2026)
+
+Same-day patch on the heels of v1.10.1's first public release. Closes two MCP discoverability paper-cuts caught while filling out cybersalt.com's `/extensions/mcp-for-j` page through the live endpoint, plus a belt-and-braces fix for the missing **Update Sites** entry some installs had after upgrading from v1.10.0.
+
+### 🔧 Discoverability — `article_id` and `url` aliases
+
+- New `AbstractTool::requireItemOrArticleId()` helper accepts **either** the canonical `item_id` (matches Joomla's `#__schemaorg.itemId`) or the natural-sounding `article_id` alias. Applied to:
+  - `get_article_schema`
+  - `set_article_schema`
+  - `clear_article_schema`
+  - `set_article_custom_jsonld`
+  - `set_article_custom_jsonld_bulk` (per-entry)
+- `fetch_rendered_url` now accepts `url` as an alias for `path`.
+- All six tool descriptions rewritten to **lead** with `REQUIRED ARG: ...` so an agent doesn't have to read past the prose to find the parameter name.
+
+These were caught when an agent extrapolating from `update_article(id=812)` reasonably guessed `article_id` for `set_article_custom_jsonld` — and got an error. Both names work now.
+
+### 🐛 Update Sites missing after upgrade
+
+The package manifest's `<updateservers>` block is supposed to be processed by Joomla's PackageAdapter on install AND upgrade. In practice it lands reliably on fresh installs but is flaky when upgrading from a version of the package that didn't ship an `<updateservers>` block — exactly the v1.10.0 → v1.10.1 case. Result: System → Update Sites stayed empty, "Find Updates" had nothing to query.
+
+New `ensureUpdateSiteRegistered()` step in the postflight script explicitly:
+
+1. Finds the package's `extension_id` in `#__extensions`
+2. Looks up any linked `#__update_sites` row via the `#__update_sites_extensions` join
+3. If a row exists: refreshes the URL, name, type, and enables it
+4. If not: inserts both rows
+
+Idempotent. Safe to re-run. Anyone on v1.10.1 with a missing Update Sites entry gets it added when they install v1.10.2 over the top.
+
+### ⬆️ Upgrade
+
+Standard "Install from File" over your existing install. No data migration, no DB schema changes.
+
+---
+
 ## 🚀 Version 1.10.1 (June 10, 2026)
 
 Public-release housekeeping. Adds the Cybersalt update-server URL to the package manifest so Joomla's "Find Updates" surfaces future versions automatically — required for the **first official public release** on cybersalt.com.

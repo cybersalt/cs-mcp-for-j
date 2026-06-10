@@ -24,8 +24,9 @@ final class SetArticleCustomJsonldTool extends AbstractTool
 
 	public function getDescription(): string
 	{
-		return 'Attach a fully-formed JSON-LD object as Custom schema to a content item. Required: '
-			. 'item_id, jsonld (the @context+@type+rest object). Use this for FAQPage, Service, '
+		return 'Attach a fully-formed JSON-LD object as Custom schema to a content item. '
+			. 'REQUIRED ARG: item_id (the article id; article_id is also accepted as a convenience alias). '
+			. 'REQUIRED ARG: jsonld (the @context+@type+rest object). Use this for FAQPage, Service, '
 			. 'LocalBusiness, Product, Review, BreadcrumbList, or any other schema.org type Joomla '
 			. 'does not ship a native form for. The object is stringified into the Custom plugin\'s '
 			. '"json" field automatically. IMPORTANT: supply a SINGLE JSON-LD object '
@@ -38,11 +39,12 @@ final class SetArticleCustomJsonldTool extends AbstractTool
 	{
 		return [
 			'type'     => 'object',
-			'required' => ['item_id', 'jsonld'],
+			'required' => ['jsonld'],
 			'properties' => [
-				'item_id' => ['type' => 'integer'],
-				'context' => ['type' => 'string', 'description' => 'Default "com_content.article".'],
-				'jsonld'  => ['type' => 'object', 'description' => 'Complete JSON-LD object, e.g. {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[...]}'],
+				'item_id'    => ['type' => 'integer', 'description' => 'Article id (or other entity id matching context). Pass this OR article_id.'],
+				'article_id' => ['type' => 'integer', 'description' => 'Alias for item_id; use whichever name feels natural.'],
+				'context'    => ['type' => 'string', 'description' => 'Default "com_content.article".'],
+				'jsonld'     => ['type' => 'object', 'description' => 'Complete JSON-LD object, e.g. {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[...]}'],
 			],
 			'additionalProperties' => false,
 		];
@@ -52,7 +54,7 @@ final class SetArticleCustomJsonldTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		$itemId  = $this->requirePositiveInt($arguments, 'item_id');
+		$itemId  = $this->requireItemOrArticleId($arguments);
 		$context = (string) ($arguments['context'] ?? 'com_content.article');
 		$jsonld  = $arguments['jsonld'] ?? null;
 

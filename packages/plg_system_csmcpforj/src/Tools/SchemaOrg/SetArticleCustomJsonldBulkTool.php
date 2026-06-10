@@ -28,10 +28,10 @@ final class SetArticleCustomJsonldBulkTool extends AbstractTool
 
 	public function getDescription(): string
 	{
-		return 'Bulk attach Custom JSON-LD to many articles in one call. Required: updates[] '
-			. 'where each entry is {item_id, jsonld, context?}. Per-item independent — one '
-			. 'failure does not abort the rest. Response gives per-item ok/error. Cap: '
-			. self::MAX_UPDATES_PER_CALL . ' updates per call. For more, chunk and call again. '
+		return 'Bulk attach Custom JSON-LD to many articles in one call. REQUIRED ARG: updates[] '
+			. 'where each entry is {item_id (or article_id alias), jsonld, context?}. Per-item '
+			. 'independent — one failure does not abort the rest. Response gives per-item ok/error. '
+			. 'Cap: ' . self::MAX_UPDATES_PER_CALL . ' updates per call. For more, chunk and call again. '
 			. 'IMPORTANT: each `jsonld` must be a SINGLE object (e.g. {"@type":"VideoObject",...}); '
 			. 'do NOT wrap it in your own @graph — Joomla merges each block into the page\'s '
 			. 'existing @graph automatically.';
@@ -48,11 +48,12 @@ final class SetArticleCustomJsonldBulkTool extends AbstractTool
 					'maxItems' => self::MAX_UPDATES_PER_CALL,
 					'items' => [
 						'type'     => 'object',
-						'required' => ['item_id', 'jsonld'],
+						'required' => ['jsonld'],
 						'properties' => [
-							'item_id' => ['type' => 'integer'],
-							'context' => ['type' => 'string', 'description' => 'Default "com_content.article".'],
-							'jsonld'  => ['type' => 'object'],
+							'item_id'    => ['type' => 'integer', 'description' => 'Article id. Pass this OR article_id.'],
+							'article_id' => ['type' => 'integer', 'description' => 'Alias for item_id.'],
+							'context'    => ['type' => 'string', 'description' => 'Default "com_content.article".'],
+							'jsonld'     => ['type' => 'object'],
 						],
 					],
 				],
@@ -84,12 +85,12 @@ final class SetArticleCustomJsonldBulkTool extends AbstractTool
 				$failed++;
 				continue;
 			}
-			$itemId  = (int) ($update['item_id'] ?? 0);
+			$itemId  = (int) ($update['item_id'] ?? $update['article_id'] ?? 0);
 			$context = (string) ($update['context'] ?? 'com_content.article');
 			$jsonld  = $update['jsonld'] ?? null;
 
 			if ($itemId <= 0) {
-				$results[] = ['index' => $i, 'ok' => false, 'error' => 'item_id must be positive.'];
+				$results[] = ['index' => $i, 'ok' => false, 'error' => 'item_id (or article_id alias) must be positive.'];
 				$failed++;
 				continue;
 			}

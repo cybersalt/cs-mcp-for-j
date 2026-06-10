@@ -22,7 +22,8 @@ final class GetArticleSchemaTool extends AbstractTool
 
 	public function getDescription(): string
 	{
-		return 'Fetch the stored Schema.org data for a content item. Required: item_id. '
+		return 'Fetch the stored Schema.org data for a content item. '
+			. 'REQUIRED ARG: item_id (the article id; article_id is also accepted as a convenience alias). '
 			. 'Returns schema_type, payload (decoded JSON), and the raw schema column. '
 			. 'Returns null payload when no schemaorg row exists for the item.';
 	}
@@ -31,10 +32,10 @@ final class GetArticleSchemaTool extends AbstractTool
 	{
 		return [
 			'type'     => 'object',
-			'required' => ['item_id'],
 			'properties' => [
-				'item_id' => ['type' => 'integer', 'description' => 'Article id (or other entity id matching context).'],
-				'context' => ['type' => 'string', 'description' => 'Default "com_content.article". Other examples: "com_contact.contact".'],
+				'item_id'    => ['type' => 'integer', 'description' => 'Article id (or other entity id matching context). Pass this OR article_id.'],
+				'article_id' => ['type' => 'integer', 'description' => 'Alias for item_id; use whichever name feels natural.'],
+				'context'    => ['type' => 'string', 'description' => 'Default "com_content.article". Other examples: "com_contact.contact".'],
 			],
 			'additionalProperties' => false,
 		];
@@ -44,7 +45,7 @@ final class GetArticleSchemaTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		$itemId  = $this->requirePositiveInt($arguments, 'item_id');
+		$itemId  = $this->requireItemOrArticleId($arguments);
 		$context = (string) ($arguments['context'] ?? 'com_content.article');
 
 		$query = $this->db->getQuery(true)

@@ -8,7 +8,7 @@
 	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
 	<authorEmail>support@cybersalt.com</authorEmail>
 	<authorUrl>https://cybersalt.com</authorUrl>
-	<version>1.10.1</version>
+	<version>1.10.2</version>
 	<description>COM_CSMCPFORJ_XML_DESCRIPTION</description>
 
 	<namespace path="src">Cybersalt\Component\Csmcpforj</namespace>
