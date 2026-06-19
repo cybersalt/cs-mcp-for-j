@@ -1,5 +1,31 @@
 # Changelog
 
+## 🚀 Version 2.1.1 (June 18, 2026)
+
+**Issue-backlog sweep.** Bug fixes + catalog UX polish driven by the WMW #342 chat feedback and the open GitHub issues list.
+
+### 🐛 Fixes
+- **RSTicketsPro Pro add-on (GitHub #5): `add_rst_ticket_reply` forced `html=0` regardless of passed argument.** The wrapper was correctly extracting the caller's `html` value and putting it in `$data`, but `RSTicketsProTicketHelper::bind($data)` was dropping the field empirically — `saveMessage()` always wrote html=0. Fix: after `$helper->bind($data)`, set `$helper->html = (int) $data['html']` directly so the value survives. Ships in cs-mcp-for-j-addons-pro / plg_system_csmcpforjrst v1.8.1.
+- **RSTicketsPro Pro add-on: missing `script.php` referenced by manifest.** The plugin manifest declared `<scriptfile>script.php</scriptfile>` but no file shipped — Joomla's installer would warn on install. Added the standard auto-enable-on-install script.php (matching the pattern of the other three addons) plus a post-install confirmation message.
+
+### ✨ Catalog UX (driven by Bjørn + Ivar feedback from WMW #342 chat)
+- **"Installed" badges polished.** The catalog's per-card state badges now read **green ✓ "Installed"** (active) and **grey "Installed (disabled)"** (with hover tooltips explaining the state) instead of the terse "ENABLED"/"DISABLED" labels. Easier to register at a skim — "you've already got this" lands visually.
+- **Post-install confirmation message** from every add-on plugin's `postflight`. Tells the operator the install actually did something (no admin UI by design, tools appear in connected MCP clients) and names the new tools. Addresses Ivar's "couldn't find the Akeeba add-on after install — expected a menu entry" pattern. Lands in cs-mcp-for-j-addons-free (Akeeba Backup Core, Cybersalt Release Manager) and cs-mcp-for-j-addons-pro (4SEO, RSTicketsPro).
+- **Supersede-pair logic** — `superseded_by` field on catalog metadata. Each catalog entry can declare a list of extensions ({type, folder?, element, display_name?}) that, if installed on the client site, mean this catalog entry is redundant. The cs-mcp-for-j catalog template marks superseded rows with a teal "Superseded by &lt;X&gt;" badge and hides the Install / Update buttons (Toggle / Uninstall stay available on already-installed rows so cleanup is possible). Resolves Bjørn's request: hide Akeeba Backup Core add-on when Akeeba Pro is installed.
+
+### 📝 Investigation notes (no code changes)
+- **Pro activation false-positive on fresh install** (Bjørn 2026-06-17) — investigated the activation helper's per-request memo path and the postflight script; no obvious mechanism that would carry a false "Membership Expired" verdict across a fresh install. Cannot reproduce statically. Queued for live-repro on a clean test site.
+- **AMM (Regular Labs Advanced Module Manager) form-name compat** (Bjørn 2026-06-17 catalog-chat note) — audited the codebase; cs-mcp-for-j ships zero `onContentPrepareForm` handlers and the module-management tools (`create_module`, `update_module`, etc.) call into Joomla's MVC model layer directly, which is form-name agnostic. AMM's `com_modules.module` → `com_advancedmodules.module` rename does not affect us. Closing as N/A.
+
+### 🤝 Companion releases
+This release coordinates with simultaneous bumps:
+- **cs-mcp-for-j-addons-free** v1.0.1 (Akeeba Backup Core + Cybersalt Release Manager) — post-install confirmation messages added.
+- **cs-mcp-for-j-addons-pro** v1.8.1 (4SEO + RSTicketsPro) — RST `html=0` fix, RST `script.php` added, post-install confirmation messages added.
+- **cs-release-manager** v1.11.3 — `api.catalog` endpoint output gains the `superseded_by` field passed through from `catalog_metadata.superseded_by` JSON. No schema changes; no DB migration needed.
+
+### 📦 Upgrade notes
+No breaking changes. The catalog endpoint's response shape gains one optional field (`superseded_by`); existing MCP clients ignore unknown fields. The "Installed" badge labels changed; if you had screen-reader translations relying on the old strings, update to the new `COM_CSMCPFORJ_CATALOG_STATE_INSTALLED_ACTIVE` / `..._DISABLED` keys.
+
 ## 🚀 Version 2.1.0 (June 18, 2026)
 
 **Server-side safety + agentic ergonomics + native Joomla update tools.** Several new cross-cutting features were added to the MCP server after surveying the landscape — see the credits section at the bottom of this entry.

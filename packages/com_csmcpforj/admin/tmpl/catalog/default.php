@@ -158,6 +158,8 @@ if ($this->fetchedAt) {
 						$installedVersion = htmlspecialchars((string) ($addon['installed_version'] ?? ''), ENT_QUOTES, 'UTF-8');
 						$addonKey         = (string) ($addon['key'] ?? '');
 						$downloadUrl      = (string) ($addon['download_url'] ?? '');
+						$isSuperseded     = !empty($addon['superseded']);
+						$supersededByName = htmlspecialchars((string) ($addon['superseded_by_name'] ?? ''), ENT_QUOTES, 'UTF-8');
 
 						// Build the install URL once if we have a key + URL to send to.
 						$installUrl = '';
@@ -215,10 +217,29 @@ if ($this->fetchedAt) {
 										<h5 class="card-title mb-1"><?php echo $name; ?></h5>
 										<div class="d-flex flex-column align-items-end gap-1">
 											<span class="badge <?php echo $tierClass; ?>"><?php echo htmlspecialchars($tierLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+											<?php
+											// Installed-state badge. Three visual states for a "you can see at
+											// a glance whether you've already got this" cue (Bjørn + Ivar 2026-06-17):
+											//   installed+enabled  → green ✓ "Installed & active"
+											//   installed+disabled → grey   "Installed (disabled)"
+											//   not installed      → no badge (catalog default)
+											// Replaces the earlier ENABLED/DISABLED single-word badges which
+											// were too terse to register as "you already have this."
+											?>
 											<?php if ($isInstalled && $isEnabled) : ?>
-												<span class="badge bg-primary"><?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_ENABLED'); ?></span>
+												<span class="badge bg-success" title="<?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_INSTALLED_ACTIVE_HINT'); ?>">
+													<span class="icon-checkmark" aria-hidden="true"></span>
+													<?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_INSTALLED_ACTIVE'); ?>
+												</span>
 											<?php elseif ($isInstalled) : ?>
-												<span class="badge bg-secondary"><?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_DISABLED'); ?></span>
+												<span class="badge bg-secondary" title="<?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_INSTALLED_DISABLED_HINT'); ?>">
+													<span class="icon-pause" aria-hidden="true"></span>
+													<?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_INSTALLED_DISABLED'); ?>
+												</span>
+											<?php elseif ($isSuperseded) : ?>
+												<span class="badge bg-info text-dark" title="<?php echo Text::sprintf('COM_CSMCPFORJ_CATALOG_SUPERSEDED_HINT', $supersededByName); ?>">
+													<?php echo Text::sprintf('COM_CSMCPFORJ_CATALOG_SUPERSEDED_BY', $supersededByName); ?>
+												</span>
 											<?php endif; ?>
 										</div>
 									</div>
@@ -278,11 +299,19 @@ if ($this->fetchedAt) {
 											<?php endif; ?>
 										<?php endif; ?>
 										<?php
-										$canInstall = !$isInstalled && $installUrl !== ''
+										// Supersede gate: if a larger version of this thing is already
+										// installed (e.g. Akeeba Backup Pro present → Core wrapper
+										// superseded), refuse all install/update CTAs. The user already
+										// has the bigger version covered by a different MCP wrapper or
+										// doesn't need a wrapper at all; pushing them to install the
+										// smaller free wrapper would create confusing duplicate tool
+										// surfaces. Toggle/uninstall on an ALREADY-installed superseded
+										// row stays available so they can clean up if they want.
+										$canInstall = !$isInstalled && !$isSuperseded && $installUrl !== ''
 											&& (empty($addon['requires_pro_membership']) || !empty($addon['has_pro_membership']));
-										$proLocked  = !$isInstalled && !empty($addon['requires_pro_membership'])
+										$proLocked  = !$isInstalled && !$isSuperseded && !empty($addon['requires_pro_membership'])
 											&& empty($addon['has_pro_membership']);
-										$canUpdate  = $updateAvailable && $installUrl !== ''
+										$canUpdate  = $updateAvailable && !$isSuperseded && $installUrl !== ''
 											&& (empty($addon['requires_pro_membership']) || !empty($addon['has_pro_membership']));
 										?>
 										<?php if ($canInstall) : ?>

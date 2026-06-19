@@ -183,6 +183,34 @@ final class CatalogModel extends BaseDatabaseModel
 			$addons[$i]['enabled']           = $row !== null && (int) $row['enabled'] === 1;
 			$addons[$i]['extension_id']      = $row !== null ? (int) $row['extension_id'] : 0;
 			$addons[$i]['installed_version'] = $row !== null ? $this->extractVersion($row['manifest_cache'] ?? '') : '';
+
+			// Supersede-pair check: catalog endpoint may declare that this entry
+			// is superseded by another extension being installed (e.g. "Akeeba
+			// Backup Core MCP wrapper is superseded by Akeeba Backup Pro"). Walk
+			// the list, look each up in #__extensions, and on the first hit mark
+			// the row as superseded with the display name so the template can
+			// render a clear "You already have <X>" tag instead of an install
+			// button. Bjørn 2026-06-17 catalog-UX request.
+			$addons[$i]['superseded']        = false;
+			$addons[$i]['superseded_by_name'] = '';
+			$supersededBy = $addon['superseded_by'] ?? [];
+			if (is_array($supersededBy)) {
+				foreach ($supersededBy as $candidate) {
+					if (!is_array($candidate) || empty($candidate['type']) || empty($candidate['element'])) {
+						continue;
+					}
+					$hit = $this->lookupExtension(
+						(string) $candidate['type'],
+						(string) ($candidate['folder'] ?? ''),
+						(string) $candidate['element']
+					);
+					if ($hit !== null) {
+						$addons[$i]['superseded']         = true;
+						$addons[$i]['superseded_by_name'] = (string) ($candidate['display_name'] ?? $candidate['element']);
+						break;
+					}
+				}
+			}
 		}
 		return $addons;
 	}
