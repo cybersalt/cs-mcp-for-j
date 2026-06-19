@@ -7,6 +7,7 @@ namespace Cybersalt\Plugin\System\Csmcpforj\Tools\Articles;
 \defined('_JEXEC') or die;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
+use Cybersalt\Component\Csmcpforj\Administrator\MCP\RequiresTrashFirstTrait;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\User\User;
 
@@ -18,6 +19,8 @@ use Joomla\CMS\User\User;
  */
 final class DeleteArticleTool extends AbstractTool
 {
+	use RequiresTrashFirstTrait;
+
 	public function getName(): string { return 'delete_article'; }
 
 	public function getDescription(): string
@@ -62,6 +65,12 @@ final class DeleteArticleTool extends AbstractTool
 		$model     = $this->getModel('com_content', 'Article');
 
 		if ($permanent) {
+			// Belt-and-braces: even though com_content's Article model already
+			// refuses to delete non-trashed rows, surface the safety contract
+			// explicitly with a friendly message so the AI client gets a clear
+			// "trash first" signal instead of Joomla's generic delete error.
+			$this->assertAlreadyTrashed($ids, '#__content', 'state', 'article');
+
 			$idsCopy = $ids;
 			if (!$model->delete($idsCopy)) {
 				return ToolResult::error('Permanent delete rejected: ' . $model->getError());

@@ -1,5 +1,63 @@
 # Changelog
 
+## 🚀 Version 2.1.0 (June 18, 2026)
+
+**Server-side safety + agentic ergonomics + native Joomla update tools.** Several new cross-cutting features were added to the MCP server after surveying the landscape — see the credits section at the bottom of this entry.
+
+### 🔒 Security
+- **Argument secret guard.** Before any tool dispatches, the server recursively scans the tool's arguments for the current session's Bearer token. If found anywhere in the payload, the call is refused before reaching the tool handler. This is a server-side circuit breaker against prompt-injection attempts that smuggle the user's API token into a downstream tool call (e.g. via a fetched URL or article body the AI happens to be processing). Implementation in `MCP\Security\ArgumentSecretGuard`.
+- **Permanent-delete safety scaffolding.** `delete_article` now refuses to permanent-delete a row that isn't already trashed, with an error message that clearly explains the two-step path (trash first, then re-call with `permanent=true`). Powered by a new `RequiresTrashFirstTrait` so the same pattern can extend to other delete-* tools incrementally. This is intentional friction for AI clients — the two-step intent has to be explicit, not a single mis-targeted call.
+
+### ✨ New Features
+- **Read-only mode (component config).** New Options → "MCP server" tab with a "Read-only mode" switch. When on, the MCP endpoint only announces and accepts tools whose MCP ToolAnnotations declare `readOnlyHint=true` (list_*, get_*, check_*, validate_*, fetch_*). Lets an operator hand an AI client a "browse but don't mutate" surface without revoking the user's API token. Per-request override: `?read_only=1` on the endpoint URL narrows further (but cannot UNLOCK writes from a site that has the floor set).
+- **Category-based tool filtering.** Optional `?categories=articles,users,menus` (or singular `?category=`) on the endpoint URL filters which tools the server announces. Useful for context-window-bound models that choke on the full tool list. The filter applies consistently to `tools/list` AND `tools/call` so a client cannot invoke a tool that the filtered list wouldn't have shown them.
+- **MCP `ToolAnnotations` on every tool.** The server now emits the MCP-spec-standard `annotations` object on every tool descriptor: `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`. Tools auto-classify from their name verb (list_/get_/check_/validate_/fetch_ → read-only; delete_/uninstall_/clear_/revoke_/cancel_ → destructive; etc.); individual tools can override via `getMcpAnnotations()`. Lets MCP-spec-aware clients render safety badges per tool.
+- **Type-introspection tools (2 new):**
+  - **`list_menu_item_types`** — every menu item type installed on this site, grouped by component. Discovery for the AI before calling `create_menu_item`, which needs an installed type code (Single Article, Category List, Login Form, Contact Form, Custom URL, plus any third-party component's types).
+  - **`list_module_types`** — every module type installed (mod_login, mod_menu, mod_custom, mod_articles_latest, mod_banners, plus any third-party module). Discovery before `create_module`.
+- **Joomla core update tools (3 new):**
+  - **`check_joomla_update`** (read-only) — force-polls the Joomla update server (bypasses the up-to-24h local cache) and reports current vs latest, release notes URL, update availability.
+  - **`joomla_update_healthcheck`** (read-only) — pre-flight: PHP version, database type/version, extension count, disk space. Returns OK/warning/error verdicts per check + an aggregate summary.
+  - **`apply_joomla_update`** (destructive, irreversible) — downloads + extracts + applies the update via Joomla's own `UpdateModel`. Requires explicit `confirm=true` argument; without it, refuses with a message explaining why. Conservative scope: routine point releases on straightforward sites; for major version upgrades or sites with extension compat warnings, the description points the AI back to the web UI.
+
+### 🙏 Credits
+The infrastructure ideas above (argument secret guard, MCP tool annotations + read-only mode, trash-before-permanent-delete, category filtering, type-introspection, multi-step Joomla update tool family) were inspired by reviewing **[nikosdion/joomla-mcp-php](https://github.com/nikosdion/joomla-mcp-php)** (licensed AGPL-3.0). Each feature was studied for the *concept* — what problem it solves and why — and then **independently reimplemented from scratch** in cs-mcp-for-j's GPL-2-or-later codebase using our own naming, file layout, and code structure. No source code, configuration, or strings were copied. Nikolaos Dionysopoulos's broader MCP-for-Joomla work is excellent and worth a look if you're after a stdio-based MCP server that runs outside Joomla via Composer/PHAR.
+
+### 📦 Upgrade notes
+- New component config field `read_only_mode` defaults to `0` (off) — existing installs keep current behavior on upgrade.
+- 5 new tools added to the registry — the total surface is now ~100 tools. Consider using the new `?categories=` filter on the endpoint URL if your MCP client struggles with the full list.
+- No schema migrations. No breaking changes to existing tools' input/output shapes; the only addition to the tools/list response is the `annotations` object per tool, which MCP clients ignore if they don't recognise it.
+
+## 🚀 Version 2.0.0 (June 12, 2026)
+
+v2.0 catalog architecture lands as GA: the four extension-specific add-ons (**4SEO, RSTicketsPro, Cybersalt Release Manager, Akeeba Backup**) are now detached from the bundle and ship as standalone installable plugins from cs-release-manager on cybersalt.com. The component itself stays light — operators install only the add-ons their site actually uses, one click from **Components → MCP for Joomla → Browse MCP Add-ons**.
+
+### 🔒 Security
+- **XSS in catalog install messages.** `CatalogController::installAddon` now HTML-escapes catalog-sourced `addonName` and request-sourced `addonKey` before passing them to `Text::sprintf`/`setMessage`. A compromised remote catalog endpoint (or an operator-set malicious catalog URL) can no longer XSS the admin via a crafted addon name. Joomla's admin message bar renders messages as HTML, so this escape is required at the substitution boundary.
+
+### 📦 New Features — Catalog GA
+- **Browse MCP Add-ons view.** Cards per add-on with Pro/Free tier badge, installed/disabled state, catalog-vs-installed version compare, target-extension info, and vendor link with an "MCP tools developed independently of [vendor]" notice.
+- **One-click Install.** Wraps Joomla's standard `InstallerHelper::downloadPackage` + `Installer::install` — same code path Extensions → Install from URL uses, so manifest parsing, file copy, postflight, and rollback all behave exactly like a normal Joomla install. Defensive checks: GET token, `core.admin` on `com_csmcpforj`, addon_key must resolve to a catalog entry (no arbitrary URLs), HTTPS-only.
+- **One-click Update.** When an installed add-on's manifest version is older than the catalog version, the Install button becomes "Update to v…" and runs the same code path against the new zip.
+- **One-click Enable / Disable / Uninstall** per card so the full lifecycle happens inside the catalog UI.
+- **Pro Activation flow.** Dashboard "Pro Activation" card: enter membership email, activate locally, dlid gets appended to Pro add-on downloads so cs-release-manager's `AccessCheckHelper::verifyUpdateAccess` lets them through. Deactivate Locally clears the activation. Activation state mirrors into Component Options (read-only) with a "Open Dashboard" link for the deactivate action.
+- **Pro gate on Install button.** Pro add-ons render a disabled "Pro — manual install" button with a tooltip when Pro activation isn't present locally. No more dead-end click → 401.
+- **Akeeba Backup add-on** added to the launch lineup (free) alongside 4SEO, RSTicketsPro, and Cybersalt Release Manager (free).
+
+### 🔧 Improvements
+- **Dashboard Options button** — the gear icon now appears on the dashboard view too, not just on Browse Add-ons.
+- **Canonical Joomla sidebar.** Cross-view nav now uses `HTMLHelper::_('sidebar.addEntry', ...)` — same pattern as com_users / com_modules.
+- **Skip-rebuild when source unchanged.** `build.ps1` reuses an existing standalone add-on zip when no source file is newer than it. Stops spamming cs-release-manager with identical-content uploads when only the core changed.
+- **Per-extension version discipline.** Each sub-extension's `<version>` now reflects when *its* source actually changed, not the bundle release. No more lockstep bumps that cause spurious "Find Updates" prompts on installed sites.
+
+### ⬆️ Upgrade notes
+
+Standard "Install from File" over your existing install. Postflight auto-enables the core component, system plugin, and webservices plugin. Add-ons no longer ship in the bundle — install them per-site from **Components → MCP for Joomla → Browse MCP Add-ons**.
+
+If you have a previous version of `csmcpforj4seo` or `csmcpforjrst` installed via the v1.10.x bundle, they remain in place after the upgrade (Joomla doesn't auto-uninstall children that move out of the bundle). The catalog will detect them as installed and offer Enable/Disable/Uninstall as normal.
+
+---
+
 ## 🚀 Version 1.10.2 (June 10, 2026)
 
 Same-day patch on the heels of v1.10.1's first public release. Closes two MCP discoverability paper-cuts caught while filling out cybersalt.com's `/extensions/mcp-for-j` page through the live endpoint, plus a belt-and-braces fix for the missing **Update Sites** entry some installs had after upgrading from v1.10.0.

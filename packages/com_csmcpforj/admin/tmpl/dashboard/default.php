@@ -60,15 +60,79 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 					<p><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CONNECTION_INTRO'); ?></p>
 					<dl class="row mb-0">
 						<dt class="col-sm-3"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_ENDPOINT'); ?></dt>
-						<dd class="col-sm-9"><pre class="mb-2 p-2" style="white-space: pre-wrap; word-break: break-all;"><code><?php echo $endpoint; ?></code></pre></dd>
-						<dt class="col-sm-3"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN'); ?></dt>
 						<dd class="col-sm-9">
+							<div class="input-group mb-1">
+								<input type="text" id="csmcpforj-endpoint-url" class="form-control font-monospace"
+									value="<?php echo $endpoint; ?>" readonly onclick="this.select();">
+								<button type="button" class="btn btn-primary csmcpforj-copy-btn" data-target="csmcpforj-endpoint-url"
+									title="<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_BUTTON'); ?>">
+									<span class="icon-copy" aria-hidden="true"></span>
+									<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_BUTTON'); ?>
+								</button>
+							</div>
+							<small class="text-muted d-block">
+								<span class="icon-info-circle" aria-hidden="true"></span>
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_ENDPOINT_HINT'); ?>
+							</small>
+						</dd>
+						<dt class="col-sm-3 mt-2"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN'); ?></dt>
+						<dd class="col-sm-9 mt-2">
 							<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN_VALUE'); ?>
 							<a href="<?php echo $tokenUrl; ?>" target="_blank" rel="noopener" class="ms-2"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN_LINK'); ?></a>
 						</dd>
 					</dl>
+
+					<?php
+					// Update-check action. Sits at the bottom of the Connection
+					// card so operators see it in the same place they see the
+					// endpoint URL — single place for "things about how this site
+					// talks to cybersalt.com". Bypasses Joomla's #__updates cache
+					// for every cs-mcp-for-j-related extension and force-polls
+					// cs-release-manager so a release I just pushed shows up
+					// without waiting for the default 24h cache window.
+					$checkUpdatesUrl  = \Joomla\CMS\Router\Route::_('index.php?option=com_csmcpforj&task=dashboard.checkUpdatesNow');
+					$systemFormToken  = \Joomla\CMS\Session\Session::getFormToken();
+					?>
+					<hr class="my-3">
+					<div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+						<div class="small text-muted">
+							<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_UPDATE_CHECK_HINT'); ?>
+						</div>
+						<form action="<?php echo $checkUpdatesUrl; ?>" method="post" class="m-0">
+							<input type="hidden" name="<?php echo $systemFormToken; ?>" value="1">
+							<button type="submit" class="btn btn-sm btn-outline-primary">
+								<span class="icon-refresh" aria-hidden="true"></span>
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_UPDATE_CHECK_BTN'); ?>
+							</button>
+						</form>
+					</div>
 				</div>
 			</div>
+
+			<script>
+			(function () {
+				// Tiny inline copy-to-clipboard handler — no external lib.
+				// Mirrors the cs-release-manager admin pattern (.csrm-copy-btn).
+				document.querySelectorAll('.csmcpforj-copy-btn').forEach(function (btn) {
+					btn.addEventListener('click', function () {
+						var input = document.getElementById(btn.getAttribute('data-target'));
+						if (!input) { return; }
+						input.select();
+						navigator.clipboard.writeText(input.value).then(function () {
+							var original = btn.innerHTML;
+							btn.innerHTML = <?php echo json_encode('<span class="icon-check" aria-hidden="true"></span> ' . Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED'), JSON_HEX_TAG | JSON_HEX_AMP); ?>;
+							btn.classList.remove('btn-primary');
+							btn.classList.add('btn-success');
+							setTimeout(function () {
+								btn.innerHTML = original;
+								btn.classList.remove('btn-success');
+								btn.classList.add('btn-primary');
+							}, 1500);
+						});
+					});
+				});
+			})();
+			</script>
 
 			<div class="card mb-3 border-info">
 				<div class="card-body">
@@ -263,6 +327,189 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 					<a href="<?php echo $tokenUrl; ?>" target="_blank" rel="noopener" class="btn btn-primary text-white d-block mb-2">
 						<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_LINK_GENERATE_TOKEN'); ?>
 					</a>
+				</div>
+			</div>
+
+			<?php
+			$proSubmitUrl   = \Joomla\CMS\Router\Route::_('index.php?option=com_csmcpforj&task=dashboard.activatePro');
+			$proDeactivate  = \Joomla\CMS\Router\Route::_('index.php?option=com_csmcpforj&task=dashboard.deactivatePro');
+			$proRefresh     = \Joomla\CMS\Router\Route::_('index.php?option=com_csmcpforj&task=dashboard.refreshMembership');
+			$proFormToken   = \Joomla\CMS\Session\Session::getFormToken();
+			?>
+			<?php
+			// Pro Activation card — 4-state UI driven by ProActivationHelper +
+			// cs-release-manager's api.verifyaccess endpoint.
+			//
+			// Layout principles:
+			//   - The card chrome stays neutral; only the ACTIVE state gets the
+			//     green border so success reads clearly. Non-active states use
+			//     no border emphasis — they're not failures, they're
+			//     "registered, but here's the next step".
+			//   - The state indicator lives INLINE above the email input, not
+			//     across the top of the card. So a "Lapsed" state reads as
+			//     "this email registered successfully; it's currently in the
+			//     renewable tier, click Renew" instead of "your activation
+			//     attempt failed".
+			//   - The form is ALWAYS present except when state=active (no
+			//     point re-trying) or state=blacklisted (different email won't
+			//     help on a blocked domain).
+			$cardBorder = $this->proStatus === 'active' ? 'border-success' : '';
+			$emailEscaped = htmlspecialchars($this->proEmail, ENT_QUOTES, 'UTF-8');
+			?>
+			<div class="card mb-3 <?php echo $cardBorder; ?>">
+				<div class="card-body">
+					<h3 class="card-title"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_HEADING'); ?></h3>
+
+					<?php
+					// Two distinct layouts driven by whether an email has been
+					// registered to this install:
+					//
+					//   1. CLEAN (no email yet) — editable input + Activate Pro button
+					//   2. REGISTERED (any email + state) — readonly input showing
+					//      the registered email, NO Activate Pro button, and a
+					//      state-specific primary action button instead:
+					//        active       → Deactivate locally
+					//        lapsed       → Renew Membership (jumps to URL)
+					//        not_a_member → Register for Membership (jumps to URL)
+					//        blacklisted  → no action button (Deactivate link only)
+					//        denied       → no action button (Deactivate link only)
+					//
+					// Plus a small "Deactivate locally" link at the bottom of
+					// every REGISTERED state EXCEPT active (active has the
+					// Deactivate button as its primary action). The small link
+					// is the escape hatch for "I want to try a different email".
+					$hasEmail   = $this->proEmail !== '';
+					$badgeInfo  = match ($this->proStatus) {
+						'active'       => ['bg-success',           'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_ACTIVE',  'COM_CSMCPFORJ_DASHBOARD_PRO_ACTIVE_BODY'],
+						'lapsed'       => ['bg-warning text-dark', 'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_EXPIRED', 'COM_CSMCPFORJ_DASHBOARD_PRO_EXPIRED_BODY'],
+						'not_a_member' => ['bg-secondary',         'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_NONE',    'COM_CSMCPFORJ_DASHBOARD_PRO_NONE_BODY'],
+						'blacklisted'  => ['bg-danger',            'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_BLOCKED', 'COM_CSMCPFORJ_DASHBOARD_PRO_BLACKLISTED_BODY'],
+						'denied'       => ['bg-warning text-dark', 'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_DENIED',  'COM_CSMCPFORJ_DASHBOARD_PRO_DENIED_BODY'],
+						default        => [null, null, null],
+					};
+					?>
+
+					<p class="card-text small"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_INTRO'); ?></p>
+
+					<?php if (!$hasEmail) : ?>
+						<?php // === CLEAN SLATE: editable input + Activate Pro button === ?>
+						<form action="<?php echo $proSubmitUrl; ?>" method="post" class="row g-2 align-items-end">
+							<input type="hidden" name="<?php echo $proFormToken; ?>" value="1">
+							<div class="col-12">
+								<label for="pro-email" class="form-label mb-1">
+									<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_EMAIL_LABEL'); ?>
+								</label>
+								<input type="email" id="pro-email" name="email" class="form-control"
+									placeholder="<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_EMAIL_PLACEHOLDER'); ?>"
+									value=""
+									autocomplete="email"
+									required>
+							</div>
+							<div class="col-12">
+								<button type="submit" class="btn btn-primary w-100">
+									<span class="icon-key" aria-hidden="true"></span>
+									<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_ACTIVATE_BUTTON'); ?>
+								</button>
+							</div>
+						</form>
+
+					<?php else : ?>
+						<?php // === REGISTERED: readonly email + state-specific primary action === ?>
+						<div class="row g-2 align-items-end">
+							<div class="col-12">
+								<?php if ($badgeInfo[0] !== null) : ?>
+									<div class="mb-2">
+										<span class="badge <?php echo $badgeInfo[0]; ?>"><?php echo Text::_($badgeInfo[1]); ?></span>
+										<?php if ($badgeInfo[2]) : ?>
+											<small class="text-body-secondary ms-1"><?php echo Text::_($badgeInfo[2]); ?></small>
+										<?php endif; ?>
+									</div>
+								<?php endif; ?>
+
+								<label for="pro-email" class="form-label mb-1">
+									<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_EMAIL_LABEL'); ?>
+								</label>
+								<input type="email" id="pro-email" class="form-control"
+									value="<?php echo $emailEscaped; ?>"
+									readonly>
+							</div>
+
+							<div class="col-12">
+								<?php if ($this->proStatus === 'active') : ?>
+									<form action="<?php echo $proDeactivate; ?>" method="post">
+										<input type="hidden" name="<?php echo $proFormToken; ?>" value="1">
+										<button type="submit" class="btn btn-outline-secondary w-100"
+											onclick="return confirm('<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_DEACTIVATE_CONFIRM', true); ?>');">
+											<span class="icon-remove" aria-hidden="true"></span>
+											<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_DEACTIVATE'); ?>
+										</button>
+									</form>
+								<?php elseif ($this->proStatus === 'lapsed' && $this->proRenewalUrl !== '') : ?>
+									<a href="<?php echo htmlspecialchars($this->proRenewalUrl, ENT_QUOTES, 'UTF-8'); ?>"
+										target="_blank" rel="noopener"
+										class="btn btn-warning text-dark fw-bold w-100">
+										<span class="icon-refresh" aria-hidden="true"></span>
+										<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_RENEW_BTN'); ?>
+									</a>
+								<?php elseif ($this->proStatus === 'not_a_member' && $this->proSignupUrl !== '') : ?>
+									<a href="<?php echo htmlspecialchars($this->proSignupUrl, ENT_QUOTES, 'UTF-8'); ?>"
+										target="_blank" rel="noopener"
+										class="btn btn-primary fw-bold w-100">
+										<span class="icon-cart" aria-hidden="true"></span>
+										<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_REGISTER_BTN'); ?>
+									</a>
+								<?php endif; ?>
+							</div>
+						</div>
+
+						<?php
+						// Refresh Membership Status — re-runs verifyaccess against
+						// cs-release-manager immediately, bypassing the recheck_seconds
+						// TTL. Visible in EVERY non-clean state (active too) so a user
+						// who just renewed on cybersalt.com can flip themselves out of
+						// 'lapsed' / 'denied' without waiting up to a day for the
+						// scheduled recheck. The button also covers the "I'm Active
+						// but my package_title looks stale" case — cheap to click.
+						?>
+						<form action="<?php echo $proRefresh; ?>" method="post" class="mt-2">
+							<input type="hidden" name="<?php echo $proFormToken; ?>" value="1">
+							<button type="submit" class="btn btn-outline-info w-100">
+								<span class="icon-loop" aria-hidden="true"></span>
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_REFRESH_BTN'); ?>
+							</button>
+							<small class="text-muted d-block mt-1 text-center">
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_REFRESH_HINT'); ?>
+							</small>
+						</form>
+
+						<?php
+						// Second button below the primary state-specific action:
+						// "Disconnect this email" — full-width neutral button so
+						// it visually parallels the primary CTA (Renew / Register).
+						// Active state has its own big Deactivate button as the
+						// primary action; no need to duplicate here.
+						if ($this->proStatus !== 'active') : ?>
+							<form action="<?php echo $proDeactivate; ?>" method="post" class="mt-2">
+								<input type="hidden" name="<?php echo $proFormToken; ?>" value="1">
+								<button type="submit" class="btn btn-outline-secondary w-100"
+									onclick="return confirm('<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_DEACTIVATE_CONFIRM', true); ?>');">
+									<span class="icon-remove" aria-hidden="true"></span>
+									<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_DISCONNECT_BTN'); ?>
+								</button>
+							</form>
+						<?php endif; ?>
+					<?php endif; ?>
+
+					<?php
+					// Installation id at the bottom of the card for non-active
+					// states — purely diagnostic, helps with support tickets.
+					if ($this->proInstallationId !== '' && $this->proStatus !== 'active') : ?>
+						<p class="card-text mt-3 mb-0">
+							<small class="text-body-secondary">
+								<?php echo Text::sprintf('COM_CSMCPFORJ_DASHBOARD_PRO_INSTALLATION_ID', htmlspecialchars($this->proInstallationId, ENT_QUOTES, 'UTF-8')); ?>
+							</small>
+						</p>
+					<?php endif; ?>
 				</div>
 			</div>
 

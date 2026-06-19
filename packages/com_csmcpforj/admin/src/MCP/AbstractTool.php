@@ -38,6 +38,111 @@ abstract class AbstractTool implements ToolInterface
 
 	abstract protected function run(array $arguments, User $actor): ToolResult;
 
+	/**
+	 * Derives a category from the tool's PHP namespace by default. Tools
+	 * declared in `Cybersalt\Plugin\System\Csmcpforj\Tools\Articles\…`
+	 * return "articles"; `Tools\JoomlaUpdate\…` returns "joomla_update".
+	 * Add-on plugins follow the same pattern in their own namespaces
+	 * (Tools\ForSEO → "forseo", Tools\AkeebaBackup → "akeeba_backup").
+	 *
+	 * Override in a concrete tool to force a specific category string.
+	 */
+	public function getCategory(): string
+	{
+		$ns    = static::class;
+		$parts = explode('\\', $ns);
+
+		// Find the "Tools" segment; the next segment is the domain folder.
+		$idx = array_search('Tools', $parts, true);
+		if ($idx === false || !isset($parts[$idx + 1])) {
+			return 'general';
+		}
+
+		// PascalCase → snake_case: JoomlaUpdate → joomla_update,
+		// AkeebaBackup → akeeba_backup.
+		$domain = (string) $parts[$idx + 1];
+		$snake  = (string) preg_replace('/([a-z])([A-Z])/', '$1_$2', $domain);
+		return strtolower($snake);
+	}
+
+	/**
+	 * Default annotation hint set, derived from the tool's name. Subclasses can
+	 * override to be explicit (e.g., a tool that LOOKS like a list but actually
+	 * mutates state should declare destructiveHint=true directly).
+	 *
+	 * Auto-classification rules — matched in order, first match wins:
+	 *   list_* / get_* / check_* / validate_* / fetch_*
+	 *     → readOnlyHint=true, destructiveHint=false, idempotentHint=true
+	 *   delete_* / uninstall_* / clear_* / revoke_* / cancel_*
+	 *     → readOnlyHint=false, destructiveHint=true, idempotentHint=true
+	 *   create_*
+	 *     → readOnlyHint=false, destructiveHint=false, idempotentHint=false
+	 *   update_* / set_* / enable_* / disable_* / reset_* / install_*
+	 *     → readOnlyHint=false, destructiveHint=false, idempotentHint=true
+	 *   anything else
+	 *     → readOnlyHint=false, destructiveHint=false (treat as write but
+	 *       unknown, safest default for the read-only-mode filter)
+	 *
+	 * @return array<string, bool|string>
+	 */
+	public function getMcpAnnotations(): array
+	{
+		$name = $this->getName();
+
+		// Order matters: more specific prefixes first so e.g. "list_*" doesn't
+		// also match a hypothetical "list_and_delete_*" tool — explicit branch
+		// for destructive verbs comes first.
+		$prefixIs = static fn(string $p): bool => str_starts_with($name, $p);
+
+		if ($prefixIs('delete_') || $prefixIs('uninstall_') || $prefixIs('clear_')
+			|| $prefixIs('revoke_') || $prefixIs('cancel_')) {
+			return [
+				'readOnlyHint'    => false,
+				'destructiveHint' => true,
+				'idempotentHint'  => true,
+				'openWorldHint'   => false,
+			];
+		}
+
+		if ($prefixIs('list_') || $prefixIs('get_') || $prefixIs('check_')
+			|| $prefixIs('validate_') || $prefixIs('fetch_')) {
+			return [
+				'readOnlyHint'    => true,
+				'destructiveHint' => false,
+				'idempotentHint'  => true,
+				'openWorldHint'   => $prefixIs('fetch_'),
+			];
+		}
+
+		if ($prefixIs('create_')) {
+			return [
+				'readOnlyHint'    => false,
+				'destructiveHint' => false,
+				'idempotentHint'  => false,
+				'openWorldHint'   => false,
+			];
+		}
+
+		if ($prefixIs('update_') || $prefixIs('set_') || $prefixIs('enable_')
+			|| $prefixIs('disable_') || $prefixIs('reset_') || $prefixIs('install_')) {
+			return [
+				'readOnlyHint'    => false,
+				'destructiveHint' => false,
+				'idempotentHint'  => true,
+				'openWorldHint'   => $prefixIs('install_'),
+			];
+		}
+
+		// Unknown verb — assume write, non-destructive. Safe default for the
+		// read-only-mode filter (will be excluded as "not read-only").
+		return [
+			'readOnlyHint'    => false,
+			'destructiveHint' => false,
+			'idempotentHint'  => false,
+			'openWorldHint'   => false,
+		];
+	}
+
 	protected function app(): CMSApplication
 	{
 		return Factory::getApplication();

@@ -58,6 +58,7 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 		'Menus' => [
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Menus\ListMenusTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Menus\ListMenuItemsTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Menus\ListMenuItemTypesTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Menus\GetMenuItemTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Menus\CreateMenuItemTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Menus\UpdateMenuItemTool::class,
@@ -86,6 +87,7 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 		'Modules' => [
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Modules\ListModulesTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Modules\ListModulePositionsTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Modules\ListModuleTypesTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Modules\GetModuleTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Modules\CreateModuleTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Modules\UpdateModuleTool::class,
@@ -97,6 +99,7 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Extensions\SetExtensionEnabledTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Extensions\GetPluginParamsTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Extensions\SetPluginParamsTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Extensions\InstallExtensionTool::class,
 		],
 		'Templates' => [
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Templates\ListTemplateStylesTool::class,
@@ -127,6 +130,11 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\System\ListScheduledTasksTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\System\FetchRenderedUrlTool::class,
 		],
+		'Joomla Update' => [
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\JoomlaUpdate\CheckJoomlaUpdateTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\JoomlaUpdate\JoomlaUpdateHealthcheckTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\JoomlaUpdate\ApplyJoomlaUpdateTool::class,
+		],
 		'Schema.org (SEO)' => [
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\ListSchemaTypesTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\ListArticlesWithSchemaTool::class,
@@ -150,7 +158,10 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 	}
 
 	/**
-	 * Translate Authorization: Bearer to X-Joomla-Token for the MCP route.
+	 * Translate Authorization: Bearer to X-Joomla-Token for the MCP route,
+	 * AND intercept unauthenticated GETs to emit the discovery JSON before
+	 * Joomla's API auth middleware can 401 them.
+	 *
 	 * Runs early so Joomla's plg_api-authentication_token sees the header.
 	 */
 	public function onAfterInitialise(): void
@@ -165,24 +176,75 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			return;
 		}
 
-		if ($app->input->server->get('HTTP_X_JOOMLA_TOKEN', '', 'string') !== '') {
-			return;
-		}
-
+		// Collect the inbound Bearer token (if any) so both branches below can
+		// inspect it. Empty string means "no token" — which is the case for
+		// browsers landing on the URL via the dashboard.
 		$auth = (string) $app->input->server->get('HTTP_AUTHORIZATION', '', 'string');
 		if ($auth === '') {
 			$auth = (string) $app->input->server->get('REDIRECT_HTTP_AUTHORIZATION', '', 'string');
 		}
+		$hasBearer = $auth !== '' && stripos($auth, 'Bearer ') === 0
+			&& trim(substr($auth, 7)) !== '';
 
-		if ($auth === '' || stripos($auth, 'Bearer ') !== 0) {
+		$method = strtoupper((string) $app->input->server->get('REQUEST_METHOD', 'GET', 'string'));
+
+		// EARLY GET DISCOVERY — if someone hits the MCP URL with GET and no
+		// Bearer token (e.g. a browser opened from the dashboard's "MCP
+		// endpoint" link), emit the same discovery JSON our McpController::info()
+		// would emit. We have to do it here because Joomla's API auth middleware
+		// runs BEFORE the API controller dispatches, and it rejects token-less
+		// requests with a bare 401 Forbidden — which makes the dashboard's
+		// "public for discovery" hint look like a lie.
+		//
+		// The actual MCP protocol surface (POST + Bearer token) is untouched —
+		// this only fires for GET-without-token. Anyone with a token still
+		// goes through normal API dispatch and reaches McpController::info()
+		// or ::handle() as before.
+		if ($method === 'GET' && !$hasBearer) {
+			$root    = rtrim(\Joomla\CMS\Uri\Uri::root(), '/');
+			$payload = [
+				'service'         => 'cs-mcp-for-j',
+				'description'     => 'Model Context Protocol (MCP) endpoint for this Joomla site. Lets MCP clients (Claude Desktop, Claude Code, Cursor, Continue, Cline, etc.) call the site\'s registered tools over JSON-RPC 2.0.',
+				'endpoint'        => $root . '/api/index.php/v1/mcp',
+				'protocol'        => 'JSON-RPC 2.0 over HTTP',
+				'method'          => 'POST (only — GET returns this info response)',
+				'content_type'    => 'application/json',
+				'authentication'  => 'Bearer <joomla-api-token> in the Authorization header (Joomla API tokens are created at User Profile → Joomla API Token)',
+				'example_request' => [
+					'method'  => 'POST',
+					'headers' => [
+						'Authorization' => 'Bearer YOUR_JOOMLA_API_TOKEN_HERE',
+						'Content-Type'  => 'application/json',
+					],
+					'body' => [
+						'jsonrpc' => '2.0',
+						'id'      => 1,
+						'method'  => 'tools/list',
+					],
+				],
+				'note' => 'You are seeing this response because you hit the endpoint with GET (e.g. clicked the URL in a browser). MCP clients use POST and you do not interact with this URL directly — the client talks to it for you.',
+			];
+
+			http_response_code(200);
+			header('Content-Type: application/json; charset=utf-8');
+			header('Cache-Control: no-store');
+			echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+			$app->close();
+			return;
+		}
+
+		// POST with a Bearer token — fall through into the existing
+		// Authorization → X-Joomla-Token translation so the standard
+		// plg_api-authentication_token plugin picks it up.
+		if ($app->input->server->get('HTTP_X_JOOMLA_TOKEN', '', 'string') !== '') {
+			return;
+		}
+
+		if (!$hasBearer) {
 			return;
 		}
 
 		$token = trim(substr($auth, 7));
-		if ($token === '') {
-			return;
-		}
-
 		$app->input->server->set('HTTP_X_JOOMLA_TOKEN', $token);
 		$_SERVER['HTTP_X_JOOMLA_TOKEN'] = $token;
 	}

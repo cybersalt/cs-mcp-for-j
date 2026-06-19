@@ -7,6 +7,7 @@ namespace Cybersalt\Component\Csmcpforj\Administrator\MCP;
 \defined('_JEXEC') or die;
 
 use Cybersalt\Component\Csmcpforj\Administrator\Helper\PermissionHelper;
+use Cybersalt\Component\Csmcpforj\Administrator\MCP\Security\ArgumentSecretGuard;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\User\User;
 use Throwable;
@@ -17,6 +18,23 @@ use Throwable;
  * HTTP response).
  *
  * v1 surface: initialize, notifications/initialized, ping, tools/list, tools/call.
+ *
+ * Constructor accepts two optional server-side filters:
+ *   - $categoryFilter: lowercase domain slugs ('articles', 'users', ...) the
+ *     session is scoped to. Empty array = no filter. Backed by the
+ *     `?categories=articles,users` query parameter on the HTTP endpoint.
+ *   - $readOnlyMode: when true, the session can only see/call tools whose
+ *     ToolAnnotations declare readOnlyHint=true. Backed by the component's
+ *     read_only_mode config switch.
+ *
+ * Both filters apply consistently to tools/list AND tools/call so a client
+ * cannot invoke a tool that the filtered tools/list response wouldn't have
+ * shown them.
+ *
+ * Constructor also accepts an optional $secrets array — strings that must not
+ * appear in any tool argument. The McpController populates this with the
+ * authenticated Bearer token so a prompt-injection attempt can't smuggle the
+ * token into a downstream tool call.
  */
 final class Server
 {
@@ -24,10 +42,25 @@ final class Server
 	public const SERVER_NAME              = 'cs-mcp-for-j';
 	public const SERVER_VERSION           = '1.8.1';
 
+	/** @var array<int, string> */
+	private array $categoryFilter;
+
+	private bool $readOnlyMode;
+
+	/** @var array<int, string> */
+	private array $secrets;
+
 	public function __construct(
 		private readonly ToolRegistry $registry,
-		private readonly User $actor
-	) {}
+		private readonly User $actor,
+		array $categoryFilter = [],
+		bool $readOnlyMode = false,
+		array $secrets = []
+	) {
+		$this->categoryFilter = $categoryFilter;
+		$this->readOnlyMode   = $readOnlyMode;
+		$this->secrets        = $secrets;
+	}
 
 	/**
 	 * Handle a parsed JSON-RPC message (object or batch).
@@ -112,7 +145,7 @@ final class Server
 	{
 		PermissionHelper::requireUse($this->actor);
 
-		return ['tools' => $this->registry->describeForMcp()];
+		return ['tools' => $this->registry->describeForMcp($this->categoryFilter, $this->readOnlyMode)];
 	}
 
 	private function handleToolsCall(mixed $params): array
@@ -129,11 +162,32 @@ final class Server
 			throw new McpException(-32602, Text::_('COM_CSMCPFORJ_ERROR_TOOL_NOT_FOUND') . ': ' . $name);
 		}
 
+		// Enforce the same category + read-only filters on tools/call as on
+		// tools/list — otherwise a client could call a tool by name that
+		// the filtered tools/list response wouldn't have shown them, defeating
+		// the whole "scoped session" guarantee.
+		if (!$this->registry->isCallable($name, $this->categoryFilter, $this->readOnlyMode)) {
+			throw new McpException(
+				-32601,
+				'Tool "' . $name . '" is not available in this session. '
+				. ($this->readOnlyMode ? '(server is in read-only mode) ' : '')
+				. ($this->categoryFilter !== []
+					? '(session scoped to categories: ' . implode(', ', $this->categoryFilter) . ')'
+					: '')
+			);
+		}
+
 		if ($tool->getRequiredPermission() === 'write') {
 			PermissionHelper::requireWrite($this->actor);
 		} else {
 			PermissionHelper::requireUse($this->actor);
 		}
+
+		// Prompt-injection circuit breaker. If any tool argument contains the
+		// session's bearer token (or any other secret the controller chose to
+		// pass in), refuse the call before the tool handler runs. See
+		// ArgumentSecretGuard for the threat model.
+		ArgumentSecretGuard::assertNoSecretsIn($arguments, $this->secrets);
 
 		return $tool->execute($arguments, $this->actor)->toArray();
 	}

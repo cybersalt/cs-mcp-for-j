@@ -6,9 +6,12 @@ namespace Cybersalt\Component\Csmcpforj\Administrator\View\Catalog;
 
 \defined('_JEXEC') or die;
 
+use Cybersalt\Component\Csmcpforj\Administrator\Helper\ProActivationHelper;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
+use Joomla\CMS\Router\Route;
+use Joomla\CMS\Toolbar\Toolbar;
 use Joomla\CMS\Toolbar\ToolbarHelper;
 
 /**
@@ -34,6 +37,16 @@ final class HtmlView extends BaseHtmlView
 	public string $sourceUrl = '';
 	public ?string $catalogError = null;
 
+	/**
+	 * URL to the public "independent development" disclosure page on
+	 * cybersalt.com. Catalog cards for add-ons that wrap a third-party
+	 * extension link to this page so end users can verify that cs-mcp-for-j is
+	 * built independently of the vendor of the extension it wraps. Surfaced
+	 * from the catalog JSON's top-level `independence_notice_url` field, with
+	 * a sensible default if the field is missing.
+	 */
+	public string $independenceNoticeUrl = '';
+
 	public function display($tpl = null): void
 	{
 		$params = ComponentHelper::getParams('com_csmcpforj');
@@ -50,6 +63,19 @@ final class HtmlView extends BaseHtmlView
 		$this->catalogSource = (string) ($catalog['source'] ?? 'empty');
 		$this->sourceUrl     = (string) ($catalog['source_url'] ?? ($this->catalogUrl . '/catalog.json'));
 		$this->catalogError  = $catalog['error'] ?? null;
+		$this->independenceNoticeUrl = (string) ($catalog['independence_notice_url']
+			?? 'https://www.cybersalt.com/extensions/mcp-for-j-independent-development');
+
+		// Enrich each Pro-tier addon with the local site's Pro membership state
+		// so the template can decide between the Install button (membership
+		// active) and the locked "Pro Manual Install" pill (no membership).
+		// The flag lookup talks to ProActivationHelper, which reads the saved
+		// pro_status from the component params bypassing ComponentHelper's
+		// stale cache (see readPro() and the 2026-06-12 cache-bust fix).
+		$hasPro = ProActivationHelper::isActivated();
+		foreach ($this->addons as $i => $addon) {
+			$this->addons[$i]['has_pro_membership'] = $hasPro && !empty($addon['requires_pro_membership']);
+		}
 
 		if (!$this->showProUnavailable) {
 			$this->addons = array_values(array_filter(
@@ -59,6 +85,12 @@ final class HtmlView extends BaseHtmlView
 		}
 
 		ToolbarHelper::title(Text::_('COM_CSMCPFORJ_CATALOG_TITLE'), 'cog');
+
+		$toolbar = Toolbar::getInstance('toolbar');
+		$toolbar->linkButton('dashboard', 'COM_CSMCPFORJ_TOOLBAR_DASHBOARD')
+			->url(Route::_('index.php?option=com_csmcpforj&view=dashboard'))
+			->icon('icon-dashboard');
+
 		ToolbarHelper::preferences('com_csmcpforj');
 
 		parent::display($tpl);

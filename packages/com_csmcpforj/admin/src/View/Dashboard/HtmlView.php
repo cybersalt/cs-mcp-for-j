@@ -9,6 +9,8 @@ namespace Cybersalt\Component\Csmcpforj\Administrator\View\Dashboard;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
+use Joomla\CMS\Router\Route;
+use Joomla\CMS\Toolbar\Toolbar;
 use Joomla\CMS\Toolbar\ToolbarHelper;
 use Joomla\CMS\Uri\Uri;
 
@@ -46,6 +48,26 @@ final class HtmlView extends BaseHtmlView
 	public array $toolsByDomain = [];
 	public int $toolCount = 0;
 
+	/** Pro membership state for the Pro Activation card. */
+	public bool $proActivated = false;
+	public string $proEmail = '';
+	/**
+	 * Pro state machine — one of:
+	 *   ''             — never activated (clean slate)
+	 *   'active'       — pro tools unlocked
+	 *   'lapsed'       — user exists on cybersalt.com but membership expired/insufficient
+	 *   'not_a_member' — no Joomla user with that email on cybersalt.com
+	 *   'blacklisted'  — domain blocked
+	 *   'denied'       — generic / collapsed terminal-error fallback
+	 * Drives which CTA the dashboard card renders.
+	 */
+	public string $proStatus = '';
+	public string $proInstallationId = '';
+	public string $proRenewalUrl = '';
+	public string $proSignupUrl = '';
+	public string $proMessage = '';
+	public string $proPackageTitle = '';
+
 	private const PLUGIN_TOOL_MAPS = [
 		'__core' => [
 			'\\Cybersalt\\Plugin\\System\\Csmcpforj\\Extension\\Csmcpforj',
@@ -57,6 +79,14 @@ final class HtmlView extends BaseHtmlView
 		],
 		'RSTicketsPro' => [
 			'\\Cybersalt\\Plugin\\System\\Csmcpforjrst\\Extension\\Csmcpforjrst',
+			'getToolClasses',
+		],
+		'Cybersalt Release Manager' => [
+			'\\Cybersalt\\Plugin\\System\\Csmcpforjreleasemanager\\Extension\\Csmcpforjreleasemanager',
+			'getToolClasses',
+		],
+		'Akeeba Backup' => [
+			'\\Cybersalt\\Plugin\\System\\Csmcpforjakeebabackup\\Extension\\Csmcpforjakeebabackup',
 			'getToolClasses',
 		],
 	];
@@ -72,6 +102,30 @@ final class HtmlView extends BaseHtmlView
 		$this->claudePrompt    = $this->buildClaudePrompt();
 		$this->tokenProfileUrl = $this->buildTokenProfileUrl();
 
+		// Pro Membership state — driven by ProActivationHelper, persisted in
+		// the component params. The dashboard card uses these to decide
+		// whether to show the email-entry form or the linked-account panel.
+		//
+		// refreshIfStale() re-asks cs-release-manager for the current state
+		// when the cached pro_last_verified is older than pro_recheck_seconds
+		// (default 24h, set to 0 for "always re-check" in testing). Without
+		// this call, a membership change on cybersalt.com (e.g. an admin moves
+		// a user out of "MCP for J") never reaches the local dashboard.
+		// refreshIfStale() re-asks cs-release-manager for the current state
+		// then we read params directly from #__extensions (bypassing
+		// ComponentHelper's static cache, which was returning stale empty
+		// values in production on Joomla 5.4.6 — see ProActivationHelper::readPro).
+		\Cybersalt\Component\Csmcpforj\Administrator\Helper\ProActivationHelper::refreshIfStale();
+		$pro = \Cybersalt\Component\Csmcpforj\Administrator\Helper\ProActivationHelper::readPro();
+		$this->proActivated      = \Cybersalt\Component\Csmcpforj\Administrator\Helper\ProActivationHelper::isActivated();
+		$this->proEmail          = $pro['email'];
+		$this->proStatus         = $pro['status'];
+		$this->proInstallationId = $pro['installation_id'];
+		$this->proRenewalUrl     = $pro['renewal_url'];
+		$this->proSignupUrl      = $pro['signup_url'];
+		$this->proMessage        = $pro['message'];
+		$this->proPackageTitle   = $pro['package_title'];
+
 		// Bootstrap tab JS isn't auto-loaded in Joomla admin — without this,
 		// clicking a tab just changes the URL hash and the panel never
 		// activates. Same situation as bootstrap.modal / bootstrap.collapse
@@ -79,6 +133,21 @@ final class HtmlView extends BaseHtmlView
 		Factory::getApplication()->getDocument()->getWebAssetManager()->useScript('bootstrap.tab');
 
 		ToolbarHelper::title(Text::_('COM_CSMCPFORJ'), 'cog');
+
+		// "Browse MCP Add-ons" jumps to the catalog view. Modern Joomla 5/6
+		// fluent toolbar API — gets solid (not outline) styling so it's
+		// readable in Atum dark mode (per feedback_joomla_admin_dark_mode_buttons memory).
+		$toolbar = Toolbar::getInstance('toolbar');
+		$toolbar->linkButton('catalog', 'COM_CSMCPFORJ_TOOLBAR_BROWSE_ADDONS')
+			->url(Route::_('index.php?option=com_csmcpforj&view=catalog'))
+			->icon('icon-cube');
+
+		// Component options — same gear-icon button the Browse Add-ons view shows.
+		// Operators expect it on the dashboard too; this is the canonical Joomla
+		// way to add it (matches every core component's toolbar setup).
+		if (Factory::getApplication()->getIdentity()->authorise('core.admin', 'com_csmcpforj')) {
+			ToolbarHelper::preferences('com_csmcpforj');
+		}
 
 		parent::display($tpl);
 	}

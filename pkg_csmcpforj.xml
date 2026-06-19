@@ -7,7 +7,7 @@
 	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
 	<authorEmail>support@cybersalt.com</authorEmail>
 	<authorUrl>https://cybersalt.com</authorUrl>
-	<version>1.10.2</version>
+	<version>2.1.0</version>
 	<description>PKG_CSMCPFORJ_XML_DESCRIPTION</description>
 	<packagename>csmcpforj</packagename>
 	<scriptfile>script.php</scriptfile>
@@ -16,8 +16,13 @@
 		<file type="component" id="com_csmcpforj">com_csmcpforj.zip</file>
 		<file type="plugin" id="csmcpforj" group="webservices">plg_webservices_csmcpforj.zip</file>
 		<file type="plugin" id="csmcpforj" group="system">plg_system_csmcpforj.zip</file>
-		<file type="plugin" id="csmcpforj4seo" group="system">plg_system_csmcpforj4seo.zip</file>
-		<file type="plugin" id="csmcpforjrst" group="system">plg_system_csmcpforjrst.zip</file>
+		<!--
+		Per-extension MCP add-ons (4SEO, RSTicketsPro, Cybersalt Release Manager,
+		future DPCalendar / Akeeba / etc.) ship STANDALONE from cs-release-manager
+		on cybersalt.com. The core stays light; users install only the add-ons
+		their site actually uses, via Components -> MCP for Joomla -> Browse
+		MCP Add-ons.
+		-->
 	</files>
 
 	<languages folder="language">

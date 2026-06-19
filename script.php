@@ -56,6 +56,8 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 			$this->clearAutoloadCache();
 			$this->enableBundledPlugins();
 			$this->ensureUpdateSiteRegistered();
+			$this->ensureApiAuthorizationPreserved();
+			$this->migrateLegacyCatalogUrl();
 		} catch (\Throwable $e) {
 			// Surface unexpected install errors instead of silently swallowing.
 			Factory::getApplication()->enqueueMessage(
@@ -97,19 +99,13 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 			$db->setQuery($query)->execute();
 		}
 
-		// Add-on plugins shipped in this package — enable on install/update.
-		// Each add-on is a separate plugin so it can later be split into its
-		// own paid SKU without restructuring the core.
-		$addons = ['csmcpforj4seo', 'csmcpforjrst'];
-		foreach ($addons as $element) {
-			$query = $db->getQuery(true)
-				->update($db->quoteName('#__extensions'))
-				->set($db->quoteName('enabled') . ' = 1')
-				->where($db->quoteName('type') . ' = ' . $db->quote('plugin'))
-				->where($db->quoteName('folder') . ' = ' . $db->quote('system'))
-				->where($db->quoteName('element') . ' = ' . $db->quote($element));
-			$db->setQuery($query)->execute();
-		}
+		// Add-on plugins now ship STANDALONE from cs-release-manager (v2.0
+		// detach, 2026-06-10) — they're no longer bundled in pkg_csmcpforj.
+		// Each add-on's own installer handles its own enable-on-install. We
+		// preserve any prior enabled state for sites upgrading FROM a bundled
+		// release: the rows already exist in #__extensions and weren't touched
+		// by this install, so they keep working as-is until the operator
+		// uninstalls them.
 	}
 
 	/**
@@ -196,6 +192,116 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 			->columns($db->quoteName(['update_site_id', 'extension_id']))
 			->values($newSiteId . ', ' . $extensionId);
 		$db->setQuery($insertLink)->execute();
+	}
+
+	/**
+	 * Append (or update) a RewriteRule in JPATH_ROOT/api/.htaccess that
+	 * preserves the HTTP Authorization header.
+	 *
+	 * Why this is needed: cPanel / PHP-FPM stacks (the most common Joomla
+	 * hosting setup) consume the `Authorization` header at the Apache layer
+	 * before PHP ever sees it. That breaks every `Authorization: Bearer
+	 * <token>` request to /api/index.php/v1/mcp — Joomla's plg_api-
+	 * authentication_token reads `$_SERVER['HTTP_AUTHORIZATION']`, finds
+	 * nothing, and returns 401 Forbidden. The user has no way to diagnose this
+	 * without either inspecting raw HTTP traces or switching their client to
+	 * the `X-Joomla-Token: <token>` header (which Joomla also accepts as a
+	 * fallback). Field-discovered on mcpfree.basicjoomla.com on 2026-06-12;
+	 * full investigation in Joomla-Brain/JOOMLA-API-AUTH-ON-CPANEL.md.
+	 *
+	 * The fix is the standard Apache RewriteRule that copies the inbound
+	 * Authorization header into a request-scoped environment variable, which
+	 * Joomla's token plugin then picks up via the `REDIRECT_HTTP_AUTHORIZATION`
+	 * fallback path. Idempotent — we mark our snippet with a comment line so
+	 * we can detect prior runs without reading the whole file every time.
+	 *
+	 * Skips quietly when:
+	 *  - JPATH_ROOT/api/ doesn't exist (some custom installs)
+	 *  - .htaccess is missing (operator may have disabled mod_rewrite handling)
+	 *  - the marker is already there (nothing to do)
+	 *  - the file is read-only (we don't want to fail the install over a
+	 *    permission glitch — the user can hand-add the snippet from docs)
+	 */
+	private function ensureApiAuthorizationPreserved(): void
+	{
+		$apiDir = JPATH_ROOT . '/api';
+		if (!is_dir($apiDir)) {
+			return;
+		}
+
+		$htaccess = $apiDir . '/.htaccess';
+		if (!is_file($htaccess) || !is_writable($htaccess)) {
+			return;
+		}
+
+		$marker  = '# cs-mcp-for-j: preserve Authorization header (cPanel/PHP-FPM strips it otherwise)';
+		$current = (string) @file_get_contents($htaccess);
+
+		if ($current === '' || str_contains($current, $marker)) {
+			return;
+		}
+
+		$snippet = "\n"
+			. $marker . "\n"
+			. "<IfModule mod_rewrite.c>\n"
+			. "    RewriteEngine On\n"
+			. "    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]\n"
+			. "</IfModule>\n";
+
+		@file_put_contents($htaccess, $current . $snippet);
+	}
+
+	/**
+	 * Migrate the saved catalog_url param from the legacy static-file shape
+	 * ("https://cybersalt.com/cs-mcp-for-j/" + appended /catalog.json) to the
+	 * new dynamic api.catalog endpoint. Only rewrites the param if it still
+	 * holds the old default — operators who explicitly set their own catalog
+	 * URL keep it untouched.
+	 *
+	 * Idempotent. Safe to run every install/update.
+	 */
+	private function migrateLegacyCatalogUrl(): void
+	{
+		$db = Factory::getContainer()->get(DatabaseInterface::class);
+
+		$query = $db->getQuery(true)
+			->select($db->quoteName('params'))
+			->from($db->quoteName('#__extensions'))
+			->where($db->quoteName('type') . ' = ' . $db->quote('component'))
+			->where($db->quoteName('element') . ' = ' . $db->quote('com_csmcpforj'));
+		$raw = (string) ($db->setQuery($query)->loadResult() ?? '');
+		if ($raw === '') {
+			return;
+		}
+
+		$params = json_decode($raw, true);
+		if (!is_array($params)) {
+			return;
+		}
+
+		$current = trim((string) ($params['catalog_url'] ?? ''));
+
+		// Only migrate the known-legacy values. Anything else is operator-set
+		// and stays untouched.
+		$legacyDefaults = [
+			'',
+			'https://cybersalt.com/cs-mcp-for-j/',
+			'https://cybersalt.com/cs-mcp-for-j',
+			'https://www.cybersalt.com/cs-mcp-for-j/',
+			'https://www.cybersalt.com/cs-mcp-for-j',
+		];
+		if (!in_array($current, $legacyDefaults, true)) {
+			return;
+		}
+
+		$params['catalog_url'] = 'https://www.cybersalt.com/index.php?option=com_csreleasemanager&task=api.catalog&format=json&catalog=cs-mcp-for-j';
+
+		$update = $db->getQuery(true)
+			->update($db->quoteName('#__extensions'))
+			->set($db->quoteName('params') . ' = ' . $db->quote(json_encode($params, JSON_UNESCAPED_SLASHES)))
+			->where($db->quoteName('type') . ' = ' . $db->quote('component'))
+			->where($db->quoteName('element') . ' = ' . $db->quote('com_csmcpforj'));
+		$db->setQuery($update)->execute();
 	}
 
 	private function showPostInstallMessage(string $type): void

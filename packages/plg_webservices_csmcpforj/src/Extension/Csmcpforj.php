@@ -29,7 +29,15 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 		$defaults = ['component' => 'com_csmcpforj'];
 
 		$router->addRoutes([
+			// MCP protocol surface — JSON-RPC 2.0 over HTTP POST, token-gated.
 			new Route(['POST'], 'v1/mcp', 'mcp.handle', [], $defaults),
+			// Discovery / help response for browsers and curl-from-command-line
+			// debugging. Public on purpose — returns no tool data, just describes
+			// what the endpoint is and how MCP clients are expected to call it.
+			// Without this, hitting the URL with GET returns Joomla's bare
+			// "Resource not found" 404 which makes operators think the install
+			// is broken.
+			new Route(['GET'], 'v1/mcp', 'mcp.info', [], $defaults),
 		]);
 	}
 }

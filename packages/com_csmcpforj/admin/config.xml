@@ -10,8 +10,9 @@
 			type="url"
 			label="COM_CSMCPFORJ_CONFIG_CATALOG_URL_LABEL"
 			description="COM_CSMCPFORJ_CONFIG_CATALOG_URL_DESC"
-			default="https://cybersalt.com/cs-mcp-for-j/"
+			default="https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.catalog&amp;format=json&amp;catalog=cs-mcp-for-j"
 			filter="url"
+			size="80"
 		/>
 
 		<field
@@ -33,8 +34,129 @@
 			description="COM_CSMCPFORJ_CONFIG_CATALOG_SHOW_PRO_DESC"
 			default="1"
 		>
-			<option value="1">JYES</option>
 			<option value="0">JNO</option>
+			<option value="1">JYES</option>
 		</field>
+
+		<field
+			name="pro_recheck_seconds"
+			type="integer"
+			label="COM_CSMCPFORJ_CONFIG_PRO_RECHECK_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_PRO_RECHECK_DESC"
+			default="86400"
+			first="60"
+			last="604800"
+			step="60"
+		/>
+	</fieldset>
+
+	<fieldset
+		name="server"
+		label="COM_CSMCPFORJ_CONFIG_SERVER_FIELDSET_LABEL"
+		description="COM_CSMCPFORJ_CONFIG_SERVER_FIELDSET_DESC"
+	>
+		<field
+			name="read_only_mode"
+			type="radio"
+			layout="joomla.form.field.radio.switcher"
+			label="COM_CSMCPFORJ_CONFIG_READ_ONLY_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_READ_ONLY_DESC"
+			default="0"
+		>
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+	</fieldset>
+
+	<!--
+	Pro Membership / Activation — set by the Activate Pro flow in the dashboard,
+	NOT meant to be edited by hand here. Listed for completeness so an operator
+	can see / clear values if they get into a bad state. Read/write via
+	ProActivationHelper at runtime.
+	-->
+	<fieldset
+		name="pro"
+		label="COM_CSMCPFORJ_CONFIG_PRO_FIELDSET_LABEL"
+		description="COM_CSMCPFORJ_CONFIG_PRO_FIELDSET_DESC"
+	>
+		<field
+			name="pro_deactivate_note"
+			type="note"
+			label="COM_CSMCPFORJ_CONFIG_PRO_DEACTIVATE_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_PRO_DEACTIVATE_DESC"
+		/>
+
+		<field
+			name="pro_installation_id"
+			type="text"
+			label="COM_CSMCPFORJ_CONFIG_PRO_INSTALLATION_ID_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_PRO_INSTALLATION_ID_DESC"
+			readonly="true"
+			filter="string"
+		/>
+
+		<field
+			name="pro_email"
+			type="email"
+			label="COM_CSMCPFORJ_CONFIG_PRO_EMAIL_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_PRO_EMAIL_DESC"
+			readonly="true"
+			filter="string"
+		/>
+
+		<field
+			name="pro_email_hash"
+			type="text"
+			label="COM_CSMCPFORJ_CONFIG_PRO_EMAIL_HASH_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_PRO_EMAIL_HASH_DESC"
+			readonly="true"
+			filter="string"
+		/>
+
+		<field
+			name="pro_status"
+			type="text"
+			label="COM_CSMCPFORJ_CONFIG_PRO_STATUS_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_PRO_STATUS_DESC"
+			readonly="true"
+			filter="string"
+		/>
+
+		<field
+			name="pro_renewal_url"
+			type="url"
+			label="COM_CSMCPFORJ_CONFIG_PRO_RENEWAL_URL_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_PRO_RENEWAL_URL_DESC"
+			readonly="true"
+			filter="url"
+		/>
+
+		<field
+			name="pro_signup_url"
+			type="url"
+			label="COM_CSMCPFORJ_CONFIG_PRO_SIGNUP_URL_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_PRO_SIGNUP_URL_DESC"
+			readonly="true"
+			filter="url"
+		/>
+
+		<field
+			name="pro_message"
+			type="textarea"
+			label="COM_CSMCPFORJ_CONFIG_PRO_MESSAGE_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_PRO_MESSAGE_DESC"
+			readonly="true"
+			rows="3"
+			filter="string"
+		/>
+
+		<field
+			name="pro_package_title"
+			type="text"
+			label="COM_CSMCPFORJ_CONFIG_PRO_PACKAGE_TITLE_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_PRO_PACKAGE_TITLE_DESC"
+			readonly="true"
+			filter="string"
+		/>
 	</fieldset>
 </config>

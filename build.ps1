@@ -51,12 +51,15 @@ New-Item -ItemType Directory -Force -Path (Join-Path $staging 'packages') | Out-
 New-Item -ItemType Directory -Force -Path (Join-Path $staging 'language') | Out-Null
 
 # Subpackage list: dev folder name -> output zip name (matches pkg manifest <files>)
+# As of the v2.1 source split (2026-06-18), this repo only contains the three
+# CORE extensions. The add-on plugins moved to:
+#   e:/github/cs-mcp-for-j-addons-free  (public — Akeeba Backup Core, Cybersalt Release Manager)
+#   e:/github/cs-mcp-for-j-addons-pro   (private — 4SEO, RSTicketsPro)
+# Each of those repos has its own build.ps1 that emits standalone add-on zips.
 $subpackages = @{
     'com_csmcpforj'              = 'com_csmcpforj.zip'
     'plg_system_csmcpforj'       = 'plg_system_csmcpforj.zip'
     'plg_webservices_csmcpforj'  = 'plg_webservices_csmcpforj.zip'
-    'plg_system_csmcpforj4seo'   = 'plg_system_csmcpforj4seo.zip'
-    'plg_system_csmcpforjrst'    = 'plg_system_csmcpforjrst.zip'
 }
 
 foreach ($srcName in $subpackages.Keys) {

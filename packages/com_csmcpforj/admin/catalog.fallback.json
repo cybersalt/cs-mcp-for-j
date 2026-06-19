@@ -1,7 +1,8 @@
 {
-	"schema_version": 1,
-	"generated_at": "2026-06-01T00:00:00Z",
+	"schema_version": 2,
+	"generated_at": "2026-06-12T16:50:00Z",
 	"source": "bundled-fallback",
+	"independence_notice_url": "https://www.cybersalt.com/extensions/mcp-for-j-independent-development",
 	"addons": [
 		{
 			"key": "4seo",
@@ -11,20 +12,22 @@
 				"type": "plugin",
 				"folder": "system",
 				"element": "forseo",
-				"display_name": "4SEO"
+				"display_name": "4SEO",
+				"vendor_name": "Weeblr",
+				"vendor_url": "https://weeblr.com/"
 			},
 			"addon_extension": {
 				"type": "plugin",
 				"folder": "system",
 				"element": "csmcpforj4seo"
 			},
-			"tier": "free",
-			"requires_pro_membership": false,
-			"version": "1.8.1",
-			"released": "2026-05-29",
-			"download_url": "",
-			"available": false,
-			"notes": "Detached from the core in v2.0 — download link populated once the live catalog endpoint is online."
+			"tier": "pro",
+			"requires_pro_membership": true,
+			"version": "1.8.0",
+			"released": "2026-05-23",
+			"download_url": "https://www.cybersalt.com/index.php?option=com_csreleasemanager&task=api.download&format=raw&element=csmcpforj4seo&version=1.8.0",
+			"available": true,
+			"notes": "Paid add-on — install via Extensions → Install from URL with your download ID, until Phase 3 wires the in-catalog license flow."
 		},
 		{
 			"key": "rsticketspro",
@@ -33,20 +36,69 @@
 			"target_extension": {
 				"type": "component",
 				"element": "com_rsticketspro",
-				"display_name": "RSTicketsPro"
+				"display_name": "RSTicketsPro",
+				"vendor_name": "RSJoomla",
+				"vendor_url": "https://www.rsjoomla.com/"
 			},
 			"addon_extension": {
 				"type": "plugin",
 				"folder": "system",
 				"element": "csmcpforjrst"
 			},
+			"tier": "pro",
+			"requires_pro_membership": true,
+			"version": "1.8.0",
+			"released": "2026-05-23",
+			"download_url": "https://www.cybersalt.com/index.php?option=com_csreleasemanager&task=api.download&format=raw&element=csmcpforjrst&version=1.8.0",
+			"available": true,
+			"notes": "Paid add-on — install via Extensions → Install from URL with your download ID, until Phase 3 wires the in-catalog license flow."
+		},
+		{
+			"key": "akeebabackup",
+			"name": "MCP add-on for Akeeba Backup Core",
+			"short_description": "Adds Claude tools for Akeeba Backup Core — list profiles, list/inspect backup records, start and step backups, manage archives. Works against the same engine the admin UI uses.",
+			"target_extension": {
+				"type": "component",
+				"element": "com_akeebabackup",
+				"display_name": "Akeeba Backup Core",
+				"vendor_name": "Akeeba Ltd",
+				"vendor_url": "https://www.akeeba.com/"
+			},
+			"addon_extension": {
+				"type": "plugin",
+				"folder": "system",
+				"element": "csmcpforjakeebabackup"
+			},
 			"tier": "free",
 			"requires_pro_membership": false,
-			"version": "1.8.1",
-			"released": "2026-05-29",
-			"download_url": "",
-			"available": false,
-			"notes": "Detached from the core in v2.0 — download link populated once the live catalog endpoint is online."
+			"version": "1.0.0",
+			"released": "2026-06-12",
+			"download_url": "https://www.cybersalt.com/index.php?option=com_csreleasemanager&task=api.userdownload&format=raw&element=csmcpforjakeebabackup&version=1.0.0",
+			"available": true,
+			"notes": "Free — only useful on sites running Akeeba Backup Core (com_akeebabackup). Tools refuse cleanly on sites without it. Restore is intentionally NOT exposed: Akeeba Backup Core has no in-admin restore — restore is via the external Kickstart script, which an MCP tool can't usefully orchestrate."
+		},
+		{
+			"key": "releasemanager",
+			"name": "MCP add-on for Cybersalt Release Manager",
+			"short_description": "Adds Claude tools for managing Cybersalt Release Manager — Packages, releases, installations, and activity log. Lets the MCP catalog inside cs-mcp-for-j dogfood itself.",
+			"target_extension": {
+				"type": "component",
+				"element": "com_csreleasemanager",
+				"display_name": "Cybersalt Release Manager",
+				"vendor_name": "Cybersalt"
+			},
+			"addon_extension": {
+				"type": "plugin",
+				"folder": "system",
+				"element": "csmcpforjreleasemanager"
+			},
+			"tier": "free",
+			"requires_pro_membership": false,
+			"version": "1.0.0",
+			"released": "2026-06-10",
+			"download_url": "https://www.cybersalt.com/index.php?option=com_csreleasemanager&task=api.userdownload&format=raw&element=csmcpforjreleasemanager&version=1.0.0",
+			"available": true,
+			"notes": "Free — only useful on sites running cs-release-manager. Tools refuse cleanly on sites without it."
 		}
 	]
 }
