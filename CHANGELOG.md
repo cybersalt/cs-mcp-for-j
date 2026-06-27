@@ -1,5 +1,52 @@
 # Changelog
 
+## 🚀 Version 2.2.0 (June 19, 2026)
+
+**Templates domain ships full coverage — file editing + style settings.** Driven by GitHub issue #7 (Greg Willson Cassiopeia `user.css` engagement, 2026-06-26): every other step of the work landed cleanly through MCP except the actual file write, which required two human round-trips through the Joomla admin Template Files Editor. After this release, that whole workflow runs through Claude.
+
+### ✨ New tools (5)
+
+**File editing** — equivalent to the Joomla admin's **System → Templates → Site Templates → [template] → Edit Template Files** screen, exposed as MCP tools:
+
+- **`list_template_files`** (read) — recursively list every file under `media/templates/<client>/<template>/`. Returns `{path, size, mtime}` per file with paths relative to the template root, suitable to feed back into the read/write tools.
+- **`read_template_file`** (read) — return the text contents of a file under the template root. Auto-detects binary files (presence of null byte) and returns them base64-encoded so the JSON-RPC envelope stays valid.
+- **`write_template_file`** (write, destructive) — overwrite-or-create a file under the template root. Returns post-write size + sha256 for the AI to verify what landed. **PHP files intentionally NOT writable in v1** — see safety below.
+
+**Style settings** — equivalent to opening a style under **System → Site Template Styles → [style]** and clicking Save:
+
+- **`get_template_style`** (read) — fetch a single style by id with its params blob decoded into a JSON object. Pairs with the existing `list_template_styles` (which returns the list without params).
+- **`update_template_style`** (write) — update a style's params (and optionally its title). Params are **merged** into existing (not replaced) — pass only the keys you want to change, use `null` to delete a key. Same write semantics as `set_plugin_params` so the AI doesn't have to learn two different patterns.
+
+### 🔒 Safety stack on the file tools
+
+Template files can be executable PHP, so write access without guardrails would be effectively RCE if the API token leaks. The safety surface for the file tools is built around a shared `TemplateFilePathTrait` that every read/write tool routes through. Each layer is strict-by-default; any failure aborts before touching disk:
+
+1. **Strict input validation** — `client_id` must be 0 or 1; `template` must match the safe-element pattern (lowercase alphanumeric + underscore + hyphen + dot suffix); `path` must use forward slashes, no `..`, no null bytes.
+2. **Path canonicalization** — every resolved target goes through `realpath()`. Final path must start with the canonical jail root (`media/templates/<client>/<template>/`); catches symlink escapes that string-prefix checks would miss.
+3. **Write-extension allowlist** — `write_template_file` only accepts CSS, JS, SCSS, LESS, JSON, SVG, plain text, raster images, and font files. **PHP is denied in this version**; enabling .php writes is a deliberate later-version decision behind its own permission flag. Read access is broader (any extension) so the AI can still inspect existing PHP overrides to decide whether a CSS-only customization would suffice.
+4. **MCP `ToolAnnotations`** — list/read get `readOnlyHint=true, idempotentHint=true`. Write gets `destructiveHint=true, idempotentHint=true` (overwrites may destroy prior content; calling with same args twice = same end state). Read-only mode (component config) naturally excludes the write tool.
+
+### ✨ Auto-classifier additions
+
+`AbstractTool::getMcpAnnotations()` now recognizes two more name-verb prefixes for automatic ToolAnnotations classification:
+
+- **`read_*`** → readOnlyHint=true, idempotentHint=true (was previously falling through to the "unknown verb" default which is non-destructive but also not read-only). Matches the existing `list_/get_/check_/validate_/fetch_` cluster.
+- **`write_*`** → readOnlyHint=false, destructiveHint=true, idempotentHint=true. Covers the new file tool and any future overwrite-or-create style tools.
+
+### 🚫 Deliberately deferred
+
+To keep the v2.2.0 release focused, these template-domain capabilities are NOT in this release:
+
+- `create_template_style` / `delete_template_style` — less common, more error-prone; can come later.
+- `create_template_override` / `delete_template_file` — the issue #7 spec includes them but the MVP scope ships read/write without them.
+- Per-menu-item template-style assignment — already partially possible via existing menu tools.
+- Schema-aware param validation (parsing each template's own `templateDetails.xml` config schema) — pass-through covers ~90% of use cases without it.
+- `csmcpforj.templates.editphp` permission flag to unlock PHP writes — deferred until there's a concrete need.
+
+### 📦 Upgrade notes
+
+No breaking changes. New tools land in the Templates category, automatically picked up by the registry. If you have a `?categories=` filter in use on the MCP endpoint URL, add `templates` to keep the new tools accessible.
+
 ## 🚀 Version 2.1.1 (June 18, 2026)
 
 **Issue-backlog sweep.** Bug fixes + catalog UX polish driven by the WMW #342 chat feedback and the open GitHub issues list.

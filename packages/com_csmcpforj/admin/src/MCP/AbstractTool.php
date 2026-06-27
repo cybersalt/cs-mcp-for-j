@@ -104,13 +104,25 @@ abstract class AbstractTool implements ToolInterface
 			];
 		}
 
-		if ($prefixIs('list_') || $prefixIs('get_') || $prefixIs('check_')
-			|| $prefixIs('validate_') || $prefixIs('fetch_')) {
+		if ($prefixIs('list_') || $prefixIs('get_') || $prefixIs('read_')
+			|| $prefixIs('check_') || $prefixIs('validate_') || $prefixIs('fetch_')) {
 			return [
 				'readOnlyHint'    => true,
 				'destructiveHint' => false,
 				'idempotentHint'  => true,
 				'openWorldHint'   => $prefixIs('fetch_'),
+			];
+		}
+
+		if ($prefixIs('write_')) {
+			// write_X tools overwrite-or-create. Mark destructive (may destroy
+			// prior contents on existing target) but idempotent (calling with
+			// same args twice ends in the same state as calling once).
+			return [
+				'readOnlyHint'    => false,
+				'destructiveHint' => true,
+				'idempotentHint'  => true,
+				'openWorldHint'   => false,
 			];
 		}
 

@@ -103,7 +103,12 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 		],
 		'Templates' => [
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Templates\ListTemplateStylesTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Templates\GetTemplateStyleTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Templates\UpdateTemplateStyleTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Templates\SetDefaultTemplateStyleTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Templates\ListTemplateFilesTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Templates\ReadTemplateFileTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Templates\WriteTemplateFileTool::class,
 		],
 		'Languages' => [
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Languages\ListLanguagesTool::class,
