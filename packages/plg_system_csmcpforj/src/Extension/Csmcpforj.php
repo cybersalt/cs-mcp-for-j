@@ -64,6 +64,10 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Menus\UpdateMenuItemTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Menus\DeleteMenuItemTool::class,
 		],
+		'Admin Menu Presets' => [
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\AdminMenu\ListAdminMenuPresetsTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\AdminMenu\GetAdminMenuPresetTool::class,
+		],
 		'Users' => [
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Users\ListUsersTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Users\GetUserTool::class,

@@ -1,5 +1,60 @@
 # Changelog
 
+## 🚀 Version 2.3.0 (July 6, 2026)
+
+**Admin sidebar preset XMLs are now inspectable from an MCP session.** Driven by the americanfoam.com/stageit engagement 2026-07-06 — a Super User reported Content > Fields, Content > Field Groups, and Users > Fields missing from the admin sidebar on Joomla 5.4.6. Every existing menu tool queries `#__menu`, but the Joomla 4+ admin sidebar isn't stored there — it's rendered at request time from XML preset files on disk under `administrator/components/<component>/presets/`. The session ended with "SSH in and diff against stock" because there was no MCP path to the file contents. This release closes that loop.
+
+### ✨ New tools (2)
+
+- **`list_admin_menu_presets`** (read) — enumerate every preset XML installed on the site. Returns per-preset `{component, name, path, size, mtime, sha256}` plus `matches_stock` when a bundled stock hash is available for the running Joomla version. Answers "what presets exist and which ones have been modified" in a single call.
+- **`get_admin_menu_preset`** (read) — read one preset by `(component, name)`. Structured input only — path is built server-side as `administrator/components/<component>/presets/<name>.xml`, both parts regex-validated. Returns raw XML contents plus sha256 for direct diff against a stock reference.
+
+### 🔒 Explicit scope choice: narrow allowlist, not `read_file`
+
+The obvious way to solve this would be to add a general `read_file` tool. The full analysis is in `ISSUE-6-get_admin_menu_preset-scoped-file-read.md` at repo root; the short version:
+
+- A leaked API token *today* = attacker can create content and install extensions. Bad, but bounded.
+- A leaked token *with* `read_file` = attacker can pull `configuration.php` (DB password, `$secret`, mailer creds, session key). Full site compromise, potentially shared-credential lateral movement to other Cybersalt-managed sites.
+- Silent, script-friendly recon over the whole webroot, much stealthier than the "install a plugin to exfiltrate" alternative.
+
+**Decision: scoped diagnostic readers, one file family at a time.** This release ships the admin-menu-preset family. Follow-on issues (deliberately separate, not this release):
+
+- `get_language_file` — allowlisted to `administrator/language/**/*.ini` + `language/**/*.ini`.
+- `get_template_manifest` — read `templateDetails.xml` for a specific template.
+- `diagnose_admin_menu` — higher-level convenience: read all presets, diff against bundled stock hashes, return a report of modified/added/removed entries + which `<menuitem>` blocks are missing.
+- `get_component_manifest` — read `<component>.xml` for an installed component.
+
+Each of those gets its own scoped tool with its own allowlist. **No general `read_file`.**
+
+### 🔒 Safety stack on the preset tools
+
+Both new tools route through a shared `AdminMenuPresetPathTrait` — single source of truth for the security model. Each layer is strict-by-default; any failure aborts before touching disk:
+
+1. **Structured input only.** No raw path parameter. Caller supplies `component` + `name`; the tool builds the filesystem path server-side.
+2. **Regex validation.** `component` must match `^com_[a-z0-9_]+$`, `name` must match `^[a-z0-9_-]+$`. Rejects `..`, path separators, null bytes, leading dots, extensions in the name.
+3. **realpath canonicalization.** Resolved absolute path must start with `realpath(JPATH_ADMINISTRATOR . '/components')`. Catches symlink escape attempts that string-prefix checks miss.
+4. **File-type + extension check.** `is_file()` (not `is_link()` alone), extension must be `.xml`.
+5. **Size cap.** Response cap of 256 KB — presets are typically 5–15 KB; a preset XML much bigger than that is suspicious enough to refuse loading.
+6. **Distinct "not found" vs "not authorized" responses.** `PresetNotFoundException` for genuine 404s (component exists but no preset by that name), `InvalidArgumentException` for allowlist violations. AI can distinguish "you asked for a preset that isn't installed" from "you asked for something outside the allowlist".
+
+### 🧭 What test cases pass now
+
+Per the spec:
+
+- ✅ `list_admin_menu_presets` on a stock Joomla 5.4.6 returns exactly the expected presets with sha256 hashes. `matches_stock` returns `null` until the stock-hash table is populated (opt-in — see `AdminMenuPresetPathTrait::stockHashLookup()` docblock for how to generate + transcribe hashes; hash comparison logic is already wired up).
+- ✅ `get_admin_menu_preset(component="com_menus", name="default")` returns byte-identical file content on any Joomla install.
+- ✅ `get_admin_menu_preset(component="../etc", name="passwd")` — refused, no file access attempted.
+- ✅ `get_admin_menu_preset(component="com_menus", name="../../../configuration")` — refused, name regex rejects `../`.
+- ✅ `get_admin_menu_preset(component="com_menus", name="nonexistent")` — clean 404-shaped `ToolResult::error`, no PHP warning.
+- ✅ Symlink `administrator/components/com_evil/presets/default.xml -> /etc/passwd` — refused because realpath escapes the allowlist base.
+- ✅ Preset file > 256 KB — refused with a clear message.
+
+### 📦 Upgrade notes
+
+No breaking changes. New tools land in a new "Admin Menu Presets" category, automatically picked up by the tool registry. If you have a `?categories=` filter in use on the MCP endpoint URL, add `admin_menu_presets` to keep the new tools accessible.
+
+The stock-hash lookup table in `AdminMenuPresetPathTrait::stockHashLookup()` intentionally ships **empty** in v2.3.0 — plumbing wired, awaits hash-gathering from stock Joomla installs. Populating it is a follow-on task; sha256 is returned regardless so external diffs against a reference install work today.
+
 ## 🚀 Version 2.2.0 (June 19, 2026)
 
 **Templates domain ships full coverage — file editing + style settings.** Driven by GitHub issue #7 (Greg Willson Cassiopeia `user.css` engagement, 2026-06-26): every other step of the work landed cleanly through MCP except the actual file write, which required two human round-trips through the Joomla admin Template Files Editor. After this release, that whole workflow runs through Claude.
