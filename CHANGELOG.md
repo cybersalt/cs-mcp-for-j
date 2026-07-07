@@ -1,5 +1,20 @@
 # Changelog
 
+## 🚀 Version 2.3.1 (July 6, 2026)
+
+**Catalog badges + advisory disclosure.** Two operator-flippable per-add-on flags and a structured "read before install" caveat, driven by the StageIt free add-on landing in the catalog and needing a way to tell prospective users up-front that server-timeout risk on chunked long-runners is beyond our control.
+
+### ✨ Catalog UI
+- **NEW badge** — light-green pill next to the tier badge when `catalog_metadata.is_new = true`. Draws the eye to recently-added add-ons without spamming everything.
+- **EXPERIMENTAL badge** — yellow warning pill (with flag icon) when `catalog_metadata.is_experimental = true`. Hover tooltip points readers to the advisory disclosure below.
+- **Advisory disclosure** — native `<details>` collapsible below the card description, rendered when `catalog_metadata.advisory` is populated. Bootstrap `alert-info` / `alert-warning` / `alert-danger` styling by `severity`; message body is HTML so an operator can include links to docs or format multi-paragraph caveats. Collapsed by default (no visual weight on cards that don't need it) but the summary bar always visible so prospective users see the cue.
+
+### 🤝 Companion release
+Coordinated with `cs-release-manager` v1.11.4 — the `api.catalog` endpoint now passes `is_new`, `is_experimental`, and `advisory` fields through from each Package's `catalog_metadata` JSON. Operators set these via the Package edit form; no code deploy needed to flip an add-on's flags.
+
+### 📦 Upgrade notes
+No breaking changes. The catalog endpoint's response gains three optional fields; MCP clients that don't recognize them ignore them. Add-ons without any of these flags render exactly as before.
+
 ## 🚀 Version 2.3.0 (July 6, 2026)
 
 **Admin sidebar preset XMLs are now inspectable from an MCP session.** Driven by the americanfoam.com/stageit engagement 2026-07-06 — a Super User reported Content > Fields, Content > Field Groups, and Users > Fields missing from the admin sidebar on Joomla 5.4.6. Every existing menu tool queries `#__menu`, but the Joomla 4+ admin sidebar isn't stored there — it's rendered at request time from XML preset files on disk under `administrator/components/<component>/presets/`. The session ended with "SSH in and diff against stock" because there was no MCP path to the file contents. This release closes that loop.

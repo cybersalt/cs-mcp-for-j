@@ -218,6 +218,26 @@ if ($this->fetchedAt) {
 										<div class="d-flex flex-column align-items-end gap-1">
 											<span class="badge <?php echo $tierClass; ?>"><?php echo htmlspecialchars($tierLabel, ENT_QUOTES, 'UTF-8'); ?></span>
 											<?php
+											// Discovery hints from catalog_metadata.is_new / .is_experimental
+											// (pass-through via api.catalog). Operator-flippable per-add-on via the
+											// Package edit form on cs-release-manager -- no code deploy needed to
+											// add or remove.
+											//   is_new         -> light-green "NEW" pill (draws the eye)
+											//   is_experimental -> yellow "EXPERIMENTAL" pill + tooltip pointing
+											//                      to the advisory disclosure below the description.
+											?>
+											<?php if (!empty($addon['is_new'])) : ?>
+												<span class="badge bg-success-subtle text-success border border-success" title="<?php echo Text::_('COM_CSMCPFORJ_CATALOG_BADGE_NEW_HINT'); ?>">
+													<?php echo Text::_('COM_CSMCPFORJ_CATALOG_BADGE_NEW'); ?>
+												</span>
+											<?php endif; ?>
+											<?php if (!empty($addon['is_experimental'])) : ?>
+												<span class="badge bg-warning text-dark" title="<?php echo Text::_('COM_CSMCPFORJ_CATALOG_BADGE_EXPERIMENTAL_HINT'); ?>">
+													<span class="icon-flag" aria-hidden="true"></span>
+													<?php echo Text::_('COM_CSMCPFORJ_CATALOG_BADGE_EXPERIMENTAL'); ?>
+												</span>
+											<?php endif; ?>
+											<?php
 											// Installed-state badge. Three visual states for a "you can see at
 											// a glance whether you've already got this" cue (Bjørn + Ivar 2026-06-17):
 											//   installed+enabled  → green ✓ "Installed & active"
@@ -254,6 +274,36 @@ if ($this->fetchedAt) {
 										</small></p>
 									<?php endif; ?>
 									<p class="card-text"><?php echo $desc; ?></p>
+
+									<?php
+									// Advisory disclosure. Renders when catalog_metadata.advisory
+									// is populated for this add-on. Uses native <details> so it's
+									// collapsed by default (no visual weight on cards that don't
+									// need it) but the summary bar is always visible so prospective
+									// users see the "read before install" cue. Bootstrap alert-*
+									// classes drive the colour by severity. Emits raw HTML for the
+									// message so a catalog entry can link to docs or format list
+									// items when the advisory is long enough to need structure.
+									$advisory = $addon['advisory'] ?? null;
+									if (is_array($advisory) && (string) ($advisory['message'] ?? '') !== '') :
+										$sev = (string) ($advisory['severity'] ?? 'info');
+										if (!in_array($sev, ['info', 'warning', 'danger'], true)) { $sev = 'info'; }
+										$sevClass = 'alert-' . $sev;
+										$sevIcon  = $sev === 'danger'  ? 'icon-warning-circle'
+												  : ($sev === 'warning' ? 'icon-warning'
+												  : 'icon-info-circle');
+										$advTitle = trim((string) ($advisory['title'] ?? '')) !== ''
+											? htmlspecialchars((string) $advisory['title'], ENT_QUOTES, 'UTF-8')
+											: Text::_('COM_CSMCPFORJ_CATALOG_ADVISORY_DEFAULT_TITLE');
+									?>
+										<details class="alert <?php echo $sevClass; ?> py-2 px-3 mb-2 small">
+											<summary class="fw-bold" style="cursor: pointer;">
+												<span class="<?php echo $sevIcon; ?>" aria-hidden="true"></span>
+												<?php echo $advTitle; ?>
+											</summary>
+											<div class="mt-2"><?php echo (string) $advisory['message']; ?></div>
+										</details>
+									<?php endif; ?>
 
 									<?php
 									// Vendor-independence disclosure. Surface a small one-liner
