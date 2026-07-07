@@ -100,7 +100,7 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 						</div>
 						<form action="<?php echo $checkUpdatesUrl; ?>" method="post" class="m-0">
 							<input type="hidden" name="<?php echo $systemFormToken; ?>" value="1">
-							<button type="submit" class="btn btn-sm btn-outline-primary">
+							<button type="submit" class="btn btn-sm btn-primary text-white">
 								<span class="icon-refresh" aria-hidden="true"></span>
 								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_UPDATE_CHECK_BTN'); ?>
 							</button>

@@ -167,11 +167,10 @@ final class DashboardController extends BaseController
 		$delete = $db->getQuery(true)
 			->delete($db->quoteName('#__updates'))
 			->where($db->quoteName('extension_id') . ' IN (' . $placeholders . ')');
-		$db->setQuery($delete);
 		foreach ($extensionIds as $i => $id) {
-			$db->bind($i + 1, $id, \Joomla\Database\ParameterType::INTEGER);
+			$delete->bind($i + 1, $id, \Joomla\Database\ParameterType::INTEGER);
 		}
-		$db->execute();
+		$db->setQuery($delete)->execute();
 
 		// Reset each update site's last_check_timestamp so Joomla's Updater
 		// won't skip the poll for "still inside cache window".
@@ -197,11 +196,10 @@ final class DashboardController extends BaseController
 			->select('COUNT(*)')
 			->from($db->quoteName('#__updates'))
 			->where($db->quoteName('extension_id') . ' IN (' . $placeholders . ')');
-		$db->setQuery($countQuery);
 		foreach ($extensionIds as $i => $id) {
-			$db->bind($i + 1, $id, \Joomla\Database\ParameterType::INTEGER);
+			$countQuery->bind($i + 1, $id, \Joomla\Database\ParameterType::INTEGER);
 		}
-		$count = (int) $db->loadResult();
+		$count = (int) $db->setQuery($countQuery)->loadResult();
 
 		if ($count > 0) {
 			$this->setMessage(Text::sprintf('COM_CSMCPFORJ_DASHBOARD_UPDATE_CHECK_FOUND', $count, count($extensionIds)));

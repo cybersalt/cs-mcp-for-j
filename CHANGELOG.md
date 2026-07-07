@@ -1,5 +1,17 @@
 # Changelog
 
+## 🚀 Version 2.3.2 (July 7, 2026)
+
+Dashboard "Check for Updates Now" polish + one fatal-error fix that surfaces the first time a user actually clicks the button on a cybersalt.com-managed install.
+
+### 🐛 Bug Fixes
+- **`checkUpdatesNow` fatal on click.** The bind-loops in `DashboardController::checkUpdatesNow()` were calling `$db->bind()` — a method that does not exist on Joomla's `DatabaseInterface`. `bind()` lives on the query object. Both loops (`$delete` and `$countQuery`) now bind onto the query, then `setQuery()->execute()` / `setQuery()->loadResult()` runs the parameterised query correctly. Reproduces on any site with at least one cybersalt.com-managed extension and cached `#__updates` rows.
+
+### 🎨 UI
+- **Dashboard "Check for Updates Now" button dark-mode contrast.** Was `btn-outline-primary` (transparent background + blue border + blue text) — vanished into Atum dark's card background. Swapped to `btn-primary text-white`, matching the other primary-action buttons on the dashboard. Reads clearly in both light and dark themes.
+
+Files touched: `packages/com_csmcpforj/admin/src/Controller/DashboardController.php`, `packages/com_csmcpforj/admin/tmpl/dashboard/default.php`.
+
 ## 🚀 Version 2.3.1 (July 6, 2026)
 
 **Catalog badges + advisory disclosure.** Two operator-flippable per-add-on flags and a structured "read before install" caveat, driven by the StageIt free add-on landing in the catalog and needing a way to tell prospective users up-front that server-timeout risk on chunked long-runners is beyond our control.
