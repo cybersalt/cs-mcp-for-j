@@ -1,5 +1,20 @@
 # Changelog
 
+## 🚀 Version 2.3.3 (July 9, 2026)
+
+**Catalog advisory disclosure — dark-mode-friendly redesign.** Ripped the advisory box off Bootstrap's stock `alert alert-warning` / `alert-info` / `alert-danger` classes (which paint the whole box in the semantic hue and don't respect Atum dark mode — the yellow-background variant washes out the title, drowns inline `<code>` tags, and pulls the eye off the surrounding card content). Rebuilt on the design pattern Tim signed off: neutral card background + 4 px colored left border + colored bold title, inspired by GitHub blockquote admonitions and Docusaurus callouts. Reads cleanly against both Atum light and dark card backgrounds without further tuning.
+
+### 🎨 Advisory disclosure redesign
+- **Left border bar** — 4 px solid, hex-coded per severity: `#ffc107` (warning golden yellow), `#ff5c66` (danger coral-red), `#4dd0e1` (info bright cyan).
+- **Summary title** — same accent hex, `fw-bold`, applied via inline `style=""` on `<summary>`, on the leading `<span>` icon, AND on a wrapping `<span>` around the title text. Belt-and-braces so Atum's dark-mode default `<summary>` color can't clobber the accent regardless of external-CSS specificity or `!important`.
+- **Body copy** — normal `--bs-body-color` contrast, integrates with surrounding card body flow.
+- **Inline `<code>` tags** — inset-pill styling via scoped `<style>` block: `--bs-body-bg` background + `--bs-emphasis-color` text + `--bs-border-color` border. Tool names like `deploy`, `sync`, `remove`, `restore`, `continue_*` now read as discrete pills instead of low-contrast ghost text against the previous colored `alert` background.
+- **Marker** — replaced the default `▶` triangle with a rotating `▸` chevron that turns 90° when open. Small polish.
+
+Design pattern locked in project auto-memory (`feedback_advisory_box_design_pattern.md`) as the canonical warning-box style for all future Cybersalt Joomla extension work — cs-articles-module-maxxed, cs-template-integrity, cs-edge-cache-marker, cs-override-checker, cs-userback-admin, etc. — once each touches an advisory / callout / warning surface.
+
+Single-file change: `packages/com_csmcpforj/admin/tmpl/catalog/default.php`.
+
 ## 🚀 Version 2.3.2 (July 7, 2026)
 
 Dashboard "Check for Updates Now" polish + one fatal-error fix that surfaces the first time a user actually clicks the button on a cybersalt.com-managed install.

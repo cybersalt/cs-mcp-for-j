@@ -31,6 +31,57 @@ if ($this->fetchedAt) {
 	);
 }
 ?>
+<style>
+/*
+ * Advisory disclosure — theme-aware (Atum light + dark) styling.
+ * Bootstrap's stock `alert-warning` (etc.) uses hardcoded bright hues that
+ * don't respect Atum dark mode, so on a dark card background the title
+ * washes out, inline <code> tags fade into the alert bg, and the whole
+ * block over-attracts the eye. This ruleset uses Bootstrap 5.3's semantic
+ * theme tokens (--bs-*-bg-subtle, --bs-*-text-emphasis, --bs-body-bg,
+ * --bs-tertiary-bg) which flip automatically under [data-bs-theme="dark"].
+ */
+.csmcpforj-advisory {
+	background: var(--bs-tertiary-bg);
+	color: var(--bs-body-color);
+}
+.csmcpforj-advisory summary {
+	color: var(--bs-emphasis-color);
+	list-style: none;
+}
+.csmcpforj-advisory summary::-webkit-details-marker { display: none; }
+.csmcpforj-advisory summary::before {
+	content: '▸';
+	display: inline-block;
+	margin-right: .35em;
+	transition: transform .15s ease;
+}
+.csmcpforj-advisory[open] summary::before { transform: rotate(90deg); }
+.csmcpforj-advisory-info    { border-left: 4px solid var(--bs-info-border-subtle) !important; }
+.csmcpforj-advisory-warning { border-left: 4px solid var(--bs-warning-border-subtle) !important; }
+.csmcpforj-advisory-danger  { border-left: 4px solid var(--bs-danger-border-subtle) !important; }
+/* !important because Atum's dark-mode default color on <summary>/bold text
+ * has higher-specificity or later-loaded rules that would otherwise beat
+ * our theme-token color. Confirmed 2026-07-09 — without !important the
+ * summary rendered as plain white in dark mode instead of the accent hue. */
+.csmcpforj-advisory-info    summary { color: var(--bs-info) !important; }
+.csmcpforj-advisory-warning summary { color: var(--bs-warning) !important; }
+.csmcpforj-advisory-danger  summary { color: var(--bs-danger) !important; }
+.csmcpforj-advisory .csmcpforj-advisory-body {
+	color: var(--bs-body-color);
+}
+.csmcpforj-advisory .csmcpforj-advisory-body code {
+	background: var(--bs-body-bg);
+	color: var(--bs-emphasis-color);
+	padding: .1em .35em;
+	border-radius: .2em;
+	font-size: .95em;
+	border: 1px solid var(--bs-border-color);
+}
+.csmcpforj-advisory .csmcpforj-advisory-body a {
+	color: var(--bs-link-color);
+}
+</style>
 <div class="container-fluid">
 	<div class="row">
 		<div class="col-12">
@@ -288,7 +339,14 @@ if ($this->fetchedAt) {
 									if (is_array($advisory) && (string) ($advisory['message'] ?? '') !== '') :
 										$sev = (string) ($advisory['severity'] ?? 'info');
 										if (!in_array($sev, ['info', 'warning', 'danger'], true)) { $sev = 'info'; }
-										$sevClass = 'alert-' . $sev;
+										// Hard-coded hex per severity + inline style so no external CSS
+										// (Atum, Bootstrap, etc.) can override the accent colour. Inline
+										// styles beat any class-based rule regardless of !important on
+										// external stylesheets. Chosen to read against both a light card
+										// bg and Atum's dark card bg without further tuning.
+										$sevColor = $sev === 'danger'  ? '#ff5c66'  // bright coral-red
+												  : ($sev === 'warning' ? '#ffc107' // classic warning yellow
+												  : '#4dd0e1');                      // bright cyan for info
 										$sevIcon  = $sev === 'danger'  ? 'icon-warning-circle'
 												  : ($sev === 'warning' ? 'icon-warning'
 												  : 'icon-info-circle');
@@ -296,12 +354,12 @@ if ($this->fetchedAt) {
 											? htmlspecialchars((string) $advisory['title'], ENT_QUOTES, 'UTF-8')
 											: Text::_('COM_CSMCPFORJ_CATALOG_ADVISORY_DEFAULT_TITLE');
 									?>
-										<details class="alert <?php echo $sevClass; ?> py-2 px-3 mb-2 small">
-											<summary class="fw-bold" style="cursor: pointer;">
-												<span class="<?php echo $sevIcon; ?>" aria-hidden="true"></span>
-												<?php echo $advTitle; ?>
+										<details class="csmcpforj-advisory csmcpforj-advisory-<?php echo $sev; ?> border rounded py-2 px-3 mb-2 small" style="border-left: 4px solid <?php echo $sevColor; ?> !important;">
+											<summary class="fw-bold" style="cursor: pointer; color: <?php echo $sevColor; ?>;">
+												<span class="<?php echo $sevIcon; ?>" aria-hidden="true" style="color: <?php echo $sevColor; ?>;"></span>
+												<span style="color: <?php echo $sevColor; ?>;"><?php echo $advTitle; ?></span>
 											</summary>
-											<div class="mt-2"><?php echo (string) $advisory['message']; ?></div>
+											<div class="csmcpforj-advisory-body mt-2"><?php echo (string) $advisory['message']; ?></div>
 										</details>
 									<?php endif; ?>
 
