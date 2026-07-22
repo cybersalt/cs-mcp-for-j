@@ -168,8 +168,10 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 
 	/**
 	 * Translate Authorization: Bearer to X-Joomla-Token for the MCP route,
-	 * AND intercept unauthenticated GETs to emit the discovery JSON before
-	 * Joomla's API auth middleware can 401 them.
+	 * normalise the Accept header so spec-compliant MCP clients survive
+	 * Joomla's API content negotiation, AND intercept unauthenticated GETs
+	 * to emit the discovery JSON before Joomla's API auth middleware can
+	 * 401 them.
 	 *
 	 * Runs early so Joomla's plg_api-authentication_token sees the header.
 	 */
@@ -183,6 +185,22 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 		$uri = (string) $app->input->server->get('REQUEST_URI', '', 'string');
 		if ($uri === '' || strpos($uri, '/api/index.php/v1/mcp') === false) {
 			return;
+		}
+
+		// ACCEPT NORMALIZATION — the MCP Streamable HTTP spec requires
+		// clients to send "Accept: application/json, text/event-stream" on
+		// every POST, but Joomla's ApiApplication negotiates the Accept
+		// header against the formats registered on the route (only
+		// application/vnd.api+json) and throws 406 "Could not match accept
+		// header" before McpController ever runs. Claude Code's transport
+		// sets the spec header itself and overrides any custom Accept the
+		// user configures, so the fix has to live server-side. This endpoint
+		// only ever emits JSON, so coercing the header for our route is
+		// lossless.
+		$accept = (string) $app->input->server->get('HTTP_ACCEPT', '', 'string');
+		if (stripos($accept, 'application/vnd.api+json') === false) {
+			$app->input->server->set('HTTP_ACCEPT', 'application/vnd.api+json');
+			$_SERVER['HTTP_ACCEPT'] = 'application/vnd.api+json';
 		}
 
 		// Collect the inbound Bearer token (if any) so both branches below can

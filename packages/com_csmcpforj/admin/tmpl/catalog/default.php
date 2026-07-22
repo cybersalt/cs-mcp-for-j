@@ -79,7 +79,71 @@ if ($this->fetchedAt) {
 	border: 1px solid var(--bs-border-color);
 }
 .csmcpforj-advisory .csmcpforj-advisory-body a {
-	color: var(--bs-link-color);
+	color: var(--bs-link-color) !important;
+	text-decoration: underline;
+}
+/* Atum dark-mode explicit fallback in case its stylesheet suppresses
+ * --bs-link-color at higher specificity than our rule. Confirmed 2026-07-21
+ * that under Atum dark the advisory body link (e.g. the GitHub feedback link
+ * in the StageIt experimental warning) rendered stubbornly bright default
+ * blue instead of picking up Bootstrap 5.3's softer dark-theme link color. */
+[data-bs-theme="dark"] .csmcpforj-advisory .csmcpforj-advisory-body a {
+	color: #6ea8fe !important;
+}
+
+/*
+ * Collapsible per-add-on card. Wraps the whole card body in a native
+ * <details>/<summary> so it starts collapsed and expands on click. As the
+ * catalog grows (2026-07 shipped ~7 entries; more coming) an all-expanded
+ * grid becomes hard to scan — Tim 2026-07-21 asked for name + tier badge
+ * as the collapsed summary, everything else (installed state, description,
+ * advisory, buttons) inside the expanded body.
+ *
+ * Uses native <details> instead of Bootstrap's collapse component:
+ *  - no JS needed to toggle
+ *  - accessible by default (keyboard, screen readers)
+ *  - state persists on browser refresh via the open= attribute if we ever
+ *    want to add that later (currently: always collapsed on load)
+ */
+.csmcpforj-card-details {
+	display: block;
+}
+.csmcpforj-card-details > summary {
+	cursor: pointer;
+	list-style: none;
+	padding: .75rem 1rem;
+	display: flex;
+	align-items: center;
+	gap: .5rem;
+	user-select: none;
+	transition: background-color .1s ease;
+}
+.csmcpforj-card-details > summary:hover {
+	background-color: var(--bs-tertiary-bg);
+}
+.csmcpforj-card-details > summary::-webkit-details-marker { display: none; }
+.csmcpforj-card-details > summary::marker { content: ''; }
+.csmcpforj-card-details[open] > summary {
+	border-bottom: 1px solid var(--bs-border-color);
+}
+.csmcpforj-card-chevron {
+	display: inline-block;
+	transition: transform .15s ease;
+	color: var(--bs-secondary-color);
+	font-size: .8em;
+	flex-shrink: 0;
+}
+.csmcpforj-card-details[open] > summary .csmcpforj-card-chevron {
+	transform: rotate(90deg);
+}
+.csmcpforj-card-title {
+	font-weight: 600;
+	font-size: 1.05rem;
+	flex-grow: 1;
+	color: var(--bs-body-color);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 </style>
 <div class="container-fluid">
@@ -263,12 +327,22 @@ if ($this->fetchedAt) {
 							data-enabled="<?php echo $isInstalled && $isEnabled ? 'yes' : 'no'; ?>"
 							data-update="<?php echo $updateAvailable ? 'yes' : 'no'; ?>">
 							<div class="card h-100">
-								<div class="card-body">
-									<div class="d-flex justify-content-between align-items-start gap-2">
-										<h5 class="card-title mb-1"><?php echo $name; ?></h5>
-										<div class="d-flex flex-column align-items-end gap-1">
-											<span class="badge <?php echo $tierClass; ?>"><?php echo htmlspecialchars($tierLabel, ENT_QUOTES, 'UTF-8'); ?></span>
-											<?php
+								<?php
+								// Native <details> so each card starts collapsed and expands on click.
+								// Collapsed view shows only name + tier badge (Tim 2026-07-21 —
+								// keep summary lean so the grid scans easily as the catalog grows).
+								// Everything else (badges, description, advisory, buttons) lives in
+								// the expanded card-body below.
+								?>
+								<details class="csmcpforj-card-details">
+									<summary>
+										<span class="csmcpforj-card-chevron" aria-hidden="true">&#9656;</span>
+										<span class="csmcpforj-card-title"><?php echo $name; ?></span>
+										<span class="badge <?php echo $tierClass; ?> ms-2 flex-shrink-0"><?php echo htmlspecialchars($tierLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+									</summary>
+								<div class="card-body pt-2">
+									<div class="d-flex justify-content-end align-items-center gap-1 mb-2 flex-wrap">
+										<?php
 											// Discovery hints from catalog_metadata.is_new / .is_experimental
 											// (pass-through via api.catalog). Operator-flippable per-add-on via the
 											// Package edit form on cs-release-manager -- no code deploy needed to
@@ -313,7 +387,6 @@ if ($this->fetchedAt) {
 												</span>
 											<?php endif; ?>
 										</div>
-									</div>
 									<?php if ($version) : ?>
 										<p class="text-body-secondary mb-1"><small>
 											<?php echo Text::_('COM_CSMCPFORJ_CATALOG_CATALOG_VERSION'); ?> v<?php echo $version; ?>
@@ -339,14 +412,21 @@ if ($this->fetchedAt) {
 									if (is_array($advisory) && (string) ($advisory['message'] ?? '') !== '') :
 										$sev = (string) ($advisory['severity'] ?? 'info');
 										if (!in_array($sev, ['info', 'warning', 'danger'], true)) { $sev = 'info'; }
-										// Hard-coded hex per severity + inline style so no external CSS
-										// (Atum, Bootstrap, etc.) can override the accent colour. Inline
-										// styles beat any class-based rule regardless of !important on
-										// external stylesheets. Chosen to read against both a light card
-										// bg and Atum's dark card bg without further tuning.
-										$sevColor = $sev === 'danger'  ? '#ff5c66'  // bright coral-red
-												  : ($sev === 'warning' ? '#ffc107' // classic warning yellow
-												  : '#4dd0e1');                      // bright cyan for info
+										// Border accent stays bright per-severity (small enough to read
+										// on both light and dark card bg). Summary text + icon now use
+										// Bootstrap 5.3's `--bs-*-emphasis` tokens which auto-flip under
+										// [data-bs-theme="dark"] — so on Atum light the summary is a
+										// dark yellow-brown (readable on white) and on Atum dark it's a
+										// soft warm yellow (readable on charcoal). Prior version (v2.3.3)
+										// hardcoded #ffc107 for text and clashed against dark card bg
+										// combined with the default-blue link inside the message body
+										// — Tim 2026-07-21.
+										$sevAccent = $sev === 'danger'  ? '#dc3545'  // Bootstrap danger
+												   : ($sev === 'warning' ? '#ffc107' // Bootstrap warning
+												   : '#0dcaf0');                      // Bootstrap info
+										$sevEmphasisVar = $sev === 'danger'  ? '--bs-danger-emphasis'
+														: ($sev === 'warning' ? '--bs-warning-emphasis'
+														: '--bs-info-emphasis');
 										$sevIcon  = $sev === 'danger'  ? 'icon-warning-circle'
 												  : ($sev === 'warning' ? 'icon-warning'
 												  : 'icon-info-circle');
@@ -354,10 +434,10 @@ if ($this->fetchedAt) {
 											? htmlspecialchars((string) $advisory['title'], ENT_QUOTES, 'UTF-8')
 											: Text::_('COM_CSMCPFORJ_CATALOG_ADVISORY_DEFAULT_TITLE');
 									?>
-										<details class="csmcpforj-advisory csmcpforj-advisory-<?php echo $sev; ?> border rounded py-2 px-3 mb-2 small" style="border-left: 4px solid <?php echo $sevColor; ?> !important;">
-											<summary class="fw-bold" style="cursor: pointer; color: <?php echo $sevColor; ?>;">
-												<span class="<?php echo $sevIcon; ?>" aria-hidden="true" style="color: <?php echo $sevColor; ?>;"></span>
-												<span style="color: <?php echo $sevColor; ?>;"><?php echo $advTitle; ?></span>
+										<details class="csmcpforj-advisory csmcpforj-advisory-<?php echo $sev; ?> border rounded py-2 px-3 mb-2 small" style="border-left: 4px solid <?php echo $sevAccent; ?> !important;">
+											<summary class="fw-bold" style="cursor: pointer; color: var(<?php echo $sevEmphasisVar; ?>);">
+												<span class="<?php echo $sevIcon; ?>" aria-hidden="true" style="color: var(<?php echo $sevEmphasisVar; ?>);"></span>
+												<span style="color: var(<?php echo $sevEmphasisVar; ?>);"><?php echo $advTitle; ?></span>
 											</summary>
 											<div class="csmcpforj-advisory-body mt-2"><?php echo (string) $advisory['message']; ?></div>
 										</details>
@@ -466,6 +546,7 @@ if ($this->fetchedAt) {
 										<?php endif; ?>
 									</div>
 								</div>
+								</details>
 							</div>
 						</div>
 					<?php endforeach; ?>
