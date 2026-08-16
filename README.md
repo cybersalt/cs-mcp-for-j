@@ -1,6 +1,6 @@
 # Cybersalt MCP for Joomla (`cs-mcp-for-j`)
 
-Turns a Joomla 5/6 site into its own MCP server. Connect Claude (Desktop, Code, claude.ai) directly to your site using a Joomla API token — no local Node/Python/WSL install, no MCP server process to babysit.
+Turns a Joomla 5/6 site into its own MCP server. Connect any conformant MCP client — Claude (Desktop, Code, claude.ai), Cursor, Cline, Continue, ChatGPT custom connectors, GitHub Copilot (agent mode), Gemini CLI, Windsurf, mcp-cli, etc. — directly to your site using a Joomla API token. No local Node/Python/WSL install, no MCP server process to babysit.
 
 > **Status:** v1.8.1 — 110 built-in tools across 14 domains. Self-installing copy-paste prompt with token-substitute UI + manual MCP connector setup. Includes a **4SEO add-on (19 tools)** for sites running the Weeblr 4SEO extension — typed wrappers for per-page meta overrides, site-wide LocalBusiness profile, and config, plus generic CRUD escape hatches. v1.8.0 added a **RSTicketsPro add-on (20 tools)** for sites running RSJoomla!'s helpdesk extension — full ticket workflow (list / get / reply / note / update / close / reopen / flag / notify / delete) calling into RST's own AdminModel so every email notification, ticket_history audit entry, dept-change code regeneration, and staff-access validation happens automatically. v1.8.1 fills out the **Custom Fields domain** with full CRUD over both fields (incl. `update_custom_field` / `delete_custom_field`) and a new field-groups sub-domain (5 tools) so programmatic setup of a clean field group on an article context is one call rather than 6+ admin clicks.
 
@@ -18,9 +18,9 @@ All three are bundled in `pkg_csmcpforj` and enabled automatically on install.
 
 1. **Generate a Joomla API token** for the user account that should perform the actions. (Joomla admin → System → Users → My Profile → Joomla API Token, click the eye icon.)
 2. **Permissions** — Super Users, Administrators, and Managers all work out of the box. For any other user group, grant `Use MCP endpoint` and/or `Write through MCP endpoint` in System → Permissions on the component.
-3. **Configure your MCP client.** Either header works:
+3. **Configure your MCP client.** The endpoint speaks Streamable-HTTP MCP over JSON-RPC 2.0 and accepts either an `Authorization: Bearer` or an `X-Joomla-Token` header. The same underlying config works for every conformant client — only the config file location and wrapper JSON shape change per client:
 
-   **Claude Desktop / `claude_desktop_config.json`:**
+   **Claude Desktop** (`claude_desktop_config.json`) / **Claude Code** (`claude mcp add …`) / **claude.ai** (Settings → Connectors → Add custom connector):
    ```json
    {
      "mcpServers": {
@@ -35,7 +35,15 @@ All three are bundled in `pkg_csmcpforj` and enabled automatically on install.
    }
    ```
 
-   **Or, if your client only allows custom headers:**
+   **Cursor** (`~/.cursor/mcp.json`), **Cline / Continue** (extension settings JSON), **Windsurf**, **Zed**, and most other clients accept the same `mcpServers` shape.
+
+   **ChatGPT custom connectors** (Team / Enterprise / Pro): Settings → Connectors → Add custom connector; paste the endpoint URL and add an `Authorization: Bearer YOUR_JOOMLA_API_TOKEN` header.
+
+   **GitHub Copilot (agent mode)** (VS Code / JetBrains): MCP settings → Add server; URL + `Authorization: Bearer …`.
+
+   **Gemini CLI** (`gemini-cli` / Gemini Code Assist): `~/.gemini/settings.json`, `mcpServers` entry with `httpUrl` + headers.
+
+   **If your client only allows custom headers** (not standard Bearer), use:
    ```json
    "headers": { "X-Joomla-Token": "YOUR_JOOMLA_API_TOKEN" }
    ```

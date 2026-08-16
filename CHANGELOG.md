@@ -1,5 +1,54 @@
 # Changelog
 
+## 🚀 Version 2.5.0 (August 15, 2026)
+
+Biggest release since v2.0.0. Ships a brand-new admin **Setup Guide** view, a full-component **AI-neutrality repositioning** (welcomes every major AI client, not just Claude), and a critical **Claude Desktop compatibility fix** that unblocks a Zod-validation regression on Claude Desktop 1.30096+.
+
+### 📚 New — Setup Guide view
+
+Third admin submenu item alongside Dashboard + Browse MCP Add-Ons. Designed explicitly for non-technical audiences, leads with the Easy Way (Dashboard copy-prompt path) and folds all technical setup into a collapsed Advanced section.
+
+- **Universal sections**: what MCP is, connection recipe, how to generate a Joomla API key, security & sharing model (per-user tokens = passwords; one-per-authorised-person vs. shared-demo patterns; revocation).
+- **Per-client tabs** in the Advanced expander — **Claude** (Desktop, Code, claude.ai), **Cursor**, **ChatGPT custom connectors**. Each tab has copy buttons that substitute your API key inline before copying to clipboard (same `csmcpforj-token` localStorage key as the Dashboard, so a key typed on either view propagates).
+- **Claude Desktop walkthrough** uses the **wrapper-script pattern** — the only pattern verified to work with current Claude Desktop builds (see the compat-fix note below for why the obvious approaches don't work). Four numbered steps: create a small `.cmd` wrapper file with the mcp-remote command inside, edit `claude_desktop_config.json` to reference the wrapper, fully quit from the system tray, restart.
+- **Troubleshooting collapsibles**: 401 Unauthorized, 406 Not Acceptable, empty tools/list, 404 on endpoint, 403 / Malware detected (WAF-blocked), Edit-Config button does nothing, Add-custom-connector dialog has no API-key field, **&ldquo;Some MCP servers could not be loaded&rdquo;** (with wrapper-script workaround), **&ldquo;I restarted Claude Desktop but the new connection doesn't appear&rdquo;** (tray-restart gotcha).
+- **FAQ collapsibles**: anonymous access, multiple tokens per user, rate limits, HTTPS/ports, key rotation, other-clients-work-too.
+- Sticky-nav sidebar with jump links to each section.
+- Design pattern: warning / advisory / callout boxes use the *dark neutral bg + colored left border + colored title* style from `feedback_advisory_box_design_pattern` (not Bootstrap's colored-fill alerts).
+
+### 🌐 AI-neutrality repositioning
+
+Component-wide rewrite of user-facing copy so cs-mcp-for-j names every major MCP client (Claude, Cursor, Cline, Continue, ChatGPT custom connectors, GitHub Copilot, Gemini CLI, Windsurf, mcp-cli) instead of leading with Claude. The MCP server itself was already 100 % AI-neutral (any conformant client works); this is a copy + framing update.
+
+- **10 admin language strings** rewritten in `com_csmcpforj.ini` — dashboard headline is now **&ldquo;Connect an AI assistant to this site&rdquo;** (was &ldquo;Connect Claude to this site&rdquo;), primary tab is **&ldquo;Copy a setup prompt&rdquo;** (was &ldquo;Copy a prompt into Claude&rdquo;), client lists throughout name multiple vendors inclusively.
+- **Two hardcoded discovery-JSON strings** rewritten (`McpController.php:132` and `plg_system_csmcpforj/src/Extension/Csmcpforj.php:234`) — the text returned on GET requests to `/api/index.php/v1/mcp` no longer leads with Claude.
+- **Package sys.ini description** (`pkg_csmcpforj.sys.ini`) — the description shown in Extension Manager after install now names all major MCP clients.
+- **README.md** — lead paragraph rewritten; client-config section now has per-client blocks for Claude Desktop / Code / claude.ai, Cursor, Cline, Continue, ChatGPT, GitHub Copilot, Gemini CLI, Windsurf, Zed.
+- **Live server-side** (deployed 2026-08-07, no client change needed): all 8 MCP add-on catalog entries on cybersalt.com had `"Adds Claude tools for..."` rewritten to `"Adds MCP tools for..."` &mdash; visible immediately on every existing install's Browse MCP Add-Ons view.
+
+### 🐛 Critical fix — Claude Desktop compatibility
+
+`inputSchema.properties` on tools with no input parameters (12 of 152 tools including `list_access_levels`, `get_joomla_version`, `check_for_updates`, `list_user_groups`, `list_schema_types`, `get_site_info`, plus several add-on tools) now serialises as JSON `{}` (record) instead of `[]` (array). PHP's `json_encode` emits `[]` for empty native arrays but MCP spec requires `{}` for empty property records. Claude Desktop 1.30096+ enforces this strictly via Zod validation and rejects the **entire tools/list response** with *&ldquo;Invalid input: expected record, received array&rdquo;* if any tool violates. Effect: Claude Desktop users saw the MCP server listed as connected but no tools available.
+
+Single-point fix in `packages/com_csmcpforj/admin/src/MCP/ToolRegistry::describeForMcp()` &mdash; casts an empty `properties` array to `new \stdClass()` before it goes into the response. Cascades to base tools AND every installed add-on with no per-tool changes needed. Verified end-to-end on cybersalt.org: Claude Desktop now sees all 152 tools successfully.
+
+### ✨ Catalog view improvements
+
+- **All state badges visible in the collapsed card row** — Free/Pro tier + NEW + EXPERIMENTAL + installed-state + Superseded all render on the summary line so you can see the whole state of each add-on without expanding. Previously only the tier badge showed collapsed; everything else was hidden behind the click-to-expand.
+- **New &ldquo;Not installed&rdquo; badge** (neutral gray) &mdash; fills the fourth quadrant of the state grammar so every card explicitly advertises its state. Previously not-installed meant &ldquo;no badge&rdquo; which required the reader to notice absence.
+- **Installed-disabled badge recoloured** from `bg-secondary` (gray) to `bg-success-subtle` with green border and text-success-emphasis. Grammar: same color family as active but dimmed = &ldquo;still installed, but paused.&rdquo; Frees `bg-secondary` gray for the new Not-installed badge.
+- **New &ldquo;Update to vX.Y.Z&rdquo; badge** in the collapsed summary row when an installed add-on has an update available. Clickable — navigates directly to the install action with `event.stopPropagation()` so the click doesn't also toggle the card open. Yellow (`bg-warning`) for the classic action-required cue.
+
+### 🎨 Dashboard polish
+
+- **Token pill in prompt preview is blurred by default** (`filter: blur(5px)`) &mdash; makes the Dashboard safe for screencasting the setup workflow. Hover-to-reveal for the operator's own peek. Copy button still copies the real token because clipboard payload reads DOM textContent, not rendered CSS. Placeholder-mode variant explicitly NOT blurred &mdash; the public placeholder text stays readable.
+
+### 🔧 Miscellaneous
+
+- Setup Guide Easy-Setup card accent swapped from cyan `#4dd0e1` to Bootstrap primary blue `#0d6efd` for consistency with its CTA button and the Joomla-admin canonical action-blue.
+- Setup Guide code snippets fix: `<PASTE YOUR JOOMLA API TOKEN HERE>` placeholder now correctly copies with real angle brackets (fix for double HTML-entity encoding that was leaking `&lt;` / `&gt;` into the clipboard payload).
+- Setup Guide advisory-callout design pattern applied to troubleshooting entries (colored left border + neutral background — per `feedback_advisory_box_design_pattern` memory).
+
 ## 🚀 Version 2.4.0 (July 21, 2026)
 
 ### 🎨 Browse Catalog — collapsible cards

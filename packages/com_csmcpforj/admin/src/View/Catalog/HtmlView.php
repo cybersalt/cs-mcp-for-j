@@ -90,6 +90,9 @@ final class HtmlView extends BaseHtmlView
 		$toolbar->linkButton('dashboard', 'COM_CSMCPFORJ_TOOLBAR_DASHBOARD')
 			->url(Route::_('index.php?option=com_csmcpforj&view=dashboard'))
 			->icon('icon-dashboard');
+		$toolbar->linkButton('setupguide', 'COM_CSMCPFORJ_TOOLBAR_SETUPGUIDE')
+			->url(Route::_('index.php?option=com_csmcpforj&view=setupguide'))
+			->icon('icon-help');
 
 		ToolbarHelper::preferences('com_csmcpforj');
 

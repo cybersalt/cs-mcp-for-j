@@ -75,10 +75,24 @@ final class ToolRegistry
 				continue;
 			}
 
+			// Normalise inputSchema so empty `properties` serialises as JSON
+			// object `{}` (MCP-spec record) rather than JSON array `[]`.
+			// PHP's json_encode on an empty native array emits `[]`; the MCP
+			// SDK validators (newer Claude Desktop especially) reject that
+			// with "Invalid input: expected record, received array" and drop
+			// the whole tools/list response. Casting to stdClass forces
+			// object shape. Same treatment for annotations for safety
+			// (spec-optional but same shape rule applies). Fix Tim 2026-08-15
+			// after Claude Desktop 1.30096 rejected the response with 12 offenders.
+			$inputSchema = $tool->getInputSchema();
+			if (isset($inputSchema['properties']) && is_array($inputSchema['properties']) && $inputSchema['properties'] === []) {
+				$inputSchema['properties'] = new \stdClass();
+			}
+
 			$out[] = [
 				'name'        => $tool->getName(),
 				'description' => $tool->getDescription(),
-				'inputSchema' => $tool->getInputSchema(),
+				'inputSchema' => $inputSchema,
 				'annotations' => $annotations,
 			];
 		}

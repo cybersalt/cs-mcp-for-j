@@ -115,6 +115,7 @@ if ($this->fetchedAt) {
 	display: flex;
 	align-items: center;
 	gap: .5rem;
+	flex-wrap: wrap; /* badges wrap to a 2nd row on narrow cards instead of overflowing */
 	user-select: none;
 	transition: background-color .1s ease;
 }
@@ -140,6 +141,7 @@ if ($this->fetchedAt) {
 	font-weight: 600;
 	font-size: 1.05rem;
 	flex-grow: 1;
+	min-width: 0; /* lets ellipsis kick in when badges eat the available width */
 	color: var(--bs-body-color);
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -294,6 +296,14 @@ if ($this->fetchedAt) {
 							&& $rawCatalogVersion !== ''
 							&& version_compare($rawCatalogVersion, $rawInstalledVersion, '>');
 
+						// $canUpdate — hoisted from the card-body install/update block
+						// so the collapsed summary row can render an "Update" badge
+						// (Tim 2026-08-15). Same condition as the "Update to vX" button
+						// deeper in the body: update present, not superseded, install URL
+						// resolvable, and either free or the user's Pro membership is active.
+						$canUpdate = $updateAvailable && !$isSuperseded && $installUrl !== ''
+							&& (empty($addon['requires_pro_membership']) || !empty($addon['has_pro_membership']));
+
 						if ($isInstalled) {
 							$toggleTask     = $isEnabled ? '0' : '1';
 							$toggleLabelKey = $isEnabled ? 'COM_CSMCPFORJ_CATALOG_DISABLE_BUTTON' : 'COM_CSMCPFORJ_CATALOG_ENABLE_BUTTON';
@@ -338,55 +348,81 @@ if ($this->fetchedAt) {
 									<summary>
 										<span class="csmcpforj-card-chevron" aria-hidden="true">&#9656;</span>
 										<span class="csmcpforj-card-title"><?php echo $name; ?></span>
+										<?php
+										// ALL badges live in the summary so they're visible collapsed
+										// (Tim 2026-08-05: "all the little tags to appear in the row before
+										// they're when it's uncollapsed"). Previously only tier badge showed
+										// collapsed — NEW / EXPERIMENTAL / installed-state / superseded lived
+										// inside card-body and only appeared on expand. flex-shrink-0 on each
+										// so the title truncates before badges do; flex-wrap on the container
+										// so multi-badge stacks wrap to a second line rather than overflow.
+										?>
 										<span class="badge <?php echo $tierClass; ?> ms-2 flex-shrink-0"><?php echo htmlspecialchars($tierLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+										<?php if (!empty($addon['is_new'])) : ?>
+											<span class="badge bg-success-subtle text-success border border-success flex-shrink-0" title="<?php echo Text::_('COM_CSMCPFORJ_CATALOG_BADGE_NEW_HINT'); ?>">
+												<?php echo Text::_('COM_CSMCPFORJ_CATALOG_BADGE_NEW'); ?>
+											</span>
+										<?php endif; ?>
+										<?php if (!empty($addon['is_experimental'])) : ?>
+											<span class="badge bg-warning text-dark flex-shrink-0" title="<?php echo Text::_('COM_CSMCPFORJ_CATALOG_BADGE_EXPERIMENTAL_HINT'); ?>">
+												<span class="icon-flag" aria-hidden="true"></span>
+												<?php echo Text::_('COM_CSMCPFORJ_CATALOG_BADGE_EXPERIMENTAL'); ?>
+											</span>
+										<?php endif; ?>
+										<?php
+										// Installed-state badge — always present, exactly one of four states.
+										// Colour grammar (Tim 2026-08-05):
+										//   installed+enabled  → bright green (bg-success)     "you have it, it's on"
+										//   installed+disabled → muted green (subtle+emphasis) "you have it, but paused" —
+										//                        same colour family as active so the eye reads it as
+										//                        "still installed" but dimmed so it doesn't compete with
+										//                        the active state
+										//   superseded         → info blue                     "there's a better one, look at X"
+										//   not installed      → neutral grey (bg-secondary)   "you don't have this yet"
+										// Prior versions rendered no badge for not-installed; making the state explicit
+										// makes the grid scannable — every card advertises its state without the reader
+										// having to note absence of a badge.
+										?>
+										<?php if ($isInstalled && $isEnabled) : ?>
+											<span class="badge bg-success flex-shrink-0" title="<?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_INSTALLED_ACTIVE_HINT'); ?>">
+												<span class="icon-checkmark" aria-hidden="true"></span>
+												<?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_INSTALLED_ACTIVE'); ?>
+											</span>
+										<?php elseif ($isInstalled) : ?>
+											<span class="badge bg-success-subtle text-success-emphasis border border-success flex-shrink-0" title="<?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_INSTALLED_DISABLED_HINT'); ?>">
+												<span class="icon-pause" aria-hidden="true"></span>
+												<?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_INSTALLED_DISABLED'); ?>
+											</span>
+										<?php elseif ($isSuperseded) : ?>
+											<span class="badge bg-info text-dark flex-shrink-0" title="<?php echo Text::sprintf('COM_CSMCPFORJ_CATALOG_SUPERSEDED_HINT', $supersededByName); ?>">
+												<?php echo Text::sprintf('COM_CSMCPFORJ_CATALOG_SUPERSEDED_BY', $supersededByName); ?>
+											</span>
+										<?php else : ?>
+											<span class="badge bg-secondary flex-shrink-0" title="<?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_NOT_INSTALLED_HINT'); ?>">
+												<?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_NOT_INSTALLED'); ?>
+											</span>
+										<?php endif; ?>
+										<?php
+										// Update-available badge — appears in the collapsed summary row
+										// alongside the installed-state badge (Tim 2026-08-15: he wants
+										// to see at a glance which installed add-ons have a new version,
+										// AND to be able to trigger the install from that badge without
+										// first expanding the card). onclick stopPropagation prevents the
+										// enclosing <summary>'s click-to-toggle from also firing when the
+										// user clicks the badge, so the click goes straight to the install
+										// action rather than toggling the details open.
+										?>
+										<?php if ($canUpdate) : ?>
+											<a href="<?php echo $installUrl; ?>"
+												class="badge bg-warning text-dark flex-shrink-0 text-decoration-none"
+												onclick="event.stopPropagation();"
+												title="<?php echo $this->escape(Text::sprintf('COM_CSMCPFORJ_CATALOG_UPDATE_BADGE_HINT', 'v' . $version)); ?>">
+												<span class="icon-upload" aria-hidden="true"></span>
+												<?php echo Text::sprintf('COM_CSMCPFORJ_CATALOG_UPDATE_BADGE', 'v' . $version); ?>
+											</a>
+										<?php endif; ?>
 									</summary>
 								<div class="card-body pt-2">
-									<div class="d-flex justify-content-end align-items-center gap-1 mb-2 flex-wrap">
-										<?php
-											// Discovery hints from catalog_metadata.is_new / .is_experimental
-											// (pass-through via api.catalog). Operator-flippable per-add-on via the
-											// Package edit form on cs-release-manager -- no code deploy needed to
-											// add or remove.
-											//   is_new         -> light-green "NEW" pill (draws the eye)
-											//   is_experimental -> yellow "EXPERIMENTAL" pill + tooltip pointing
-											//                      to the advisory disclosure below the description.
-											?>
-											<?php if (!empty($addon['is_new'])) : ?>
-												<span class="badge bg-success-subtle text-success border border-success" title="<?php echo Text::_('COM_CSMCPFORJ_CATALOG_BADGE_NEW_HINT'); ?>">
-													<?php echo Text::_('COM_CSMCPFORJ_CATALOG_BADGE_NEW'); ?>
-												</span>
-											<?php endif; ?>
-											<?php if (!empty($addon['is_experimental'])) : ?>
-												<span class="badge bg-warning text-dark" title="<?php echo Text::_('COM_CSMCPFORJ_CATALOG_BADGE_EXPERIMENTAL_HINT'); ?>">
-													<span class="icon-flag" aria-hidden="true"></span>
-													<?php echo Text::_('COM_CSMCPFORJ_CATALOG_BADGE_EXPERIMENTAL'); ?>
-												</span>
-											<?php endif; ?>
-											<?php
-											// Installed-state badge. Three visual states for a "you can see at
-											// a glance whether you've already got this" cue (Bjørn + Ivar 2026-06-17):
-											//   installed+enabled  → green ✓ "Installed & active"
-											//   installed+disabled → grey   "Installed (disabled)"
-											//   not installed      → no badge (catalog default)
-											// Replaces the earlier ENABLED/DISABLED single-word badges which
-											// were too terse to register as "you already have this."
-											?>
-											<?php if ($isInstalled && $isEnabled) : ?>
-												<span class="badge bg-success" title="<?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_INSTALLED_ACTIVE_HINT'); ?>">
-													<span class="icon-checkmark" aria-hidden="true"></span>
-													<?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_INSTALLED_ACTIVE'); ?>
-												</span>
-											<?php elseif ($isInstalled) : ?>
-												<span class="badge bg-secondary" title="<?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_INSTALLED_DISABLED_HINT'); ?>">
-													<span class="icon-pause" aria-hidden="true"></span>
-													<?php echo Text::_('COM_CSMCPFORJ_CATALOG_STATE_INSTALLED_DISABLED'); ?>
-												</span>
-											<?php elseif ($isSuperseded) : ?>
-												<span class="badge bg-info text-dark" title="<?php echo Text::sprintf('COM_CSMCPFORJ_CATALOG_SUPERSEDED_HINT', $supersededByName); ?>">
-													<?php echo Text::sprintf('COM_CSMCPFORJ_CATALOG_SUPERSEDED_BY', $supersededByName); ?>
-												</span>
-											<?php endif; ?>
-										</div>
 									<?php if ($version) : ?>
 										<p class="text-body-secondary mb-1"><small>
 											<?php echo Text::_('COM_CSMCPFORJ_CATALOG_CATALOG_VERSION'); ?> v<?php echo $version; ?>

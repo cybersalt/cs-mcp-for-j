@@ -141,6 +141,9 @@ final class HtmlView extends BaseHtmlView
 		$toolbar->linkButton('catalog', 'COM_CSMCPFORJ_TOOLBAR_BROWSE_ADDONS')
 			->url(Route::_('index.php?option=com_csmcpforj&view=catalog'))
 			->icon('icon-cube');
+		$toolbar->linkButton('setupguide', 'COM_CSMCPFORJ_TOOLBAR_SETUPGUIDE')
+			->url(Route::_('index.php?option=com_csmcpforj&view=setupguide'))
+			->icon('icon-help');
 
 		// Component options — same gear-icon button the Browse Add-ons view shows.
 		// Operators expect it on the dashboard too; this is the canonical Joomla

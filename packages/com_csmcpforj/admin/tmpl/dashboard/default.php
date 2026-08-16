@@ -21,7 +21,16 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 	/* Highlight the placeholder / substituted token inside the copy-paste
 	   prompt so the user can see exactly where their token will land. The
 	   <mark> element is browser-styled but we override for higher contrast
-	   in both Atum light and dark. */
+	   in both Atum light and dark.
+
+	   The substituted token itself is BLURRED on screen (filter: blur) so
+	   screencasts and screen shares don't leak the operator's actual API
+	   key (Tim 2026-08-15 — needed for training-video capture). Copy still
+	   works because clipboard payload reads the DOM textContent, not the
+	   rendered CSS. Hover reveals the token for the operator's own peek —
+	   also useful when the placeholder is showing (nothing to hide there
+	   but the transition looks intentional). The blur is deliberately
+	   heavy enough to defeat frame-grab OCR at normal reading distances. */
 	.csmcpforj-token-mark {
 		background-color: #fff3cd;
 		color: #664d03;
@@ -29,6 +38,18 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 		border-radius: 0.25rem;
 		font-weight: 600;
 		border: 1px solid #ffe69c;
+		filter: blur(5px);
+		transition: filter 0.15s ease;
+	}
+	.csmcpforj-token-mark:hover,
+	.csmcpforj-token-mark:focus {
+		filter: none;
+	}
+	/* Never blur the placeholder-mode variant — placeholder text is public
+	   ("<PASTE YOUR JOOMLA API TOKEN HERE>") and users need to see it. */
+	.csmcpforj-token-mark-empty,
+	.csmcpforj-token-mark.csmcpforj-token-mark-empty {
+		filter: none;
 	}
 	.csmcpforj-token-mark-empty {
 		background-color: #e2e3e5;
