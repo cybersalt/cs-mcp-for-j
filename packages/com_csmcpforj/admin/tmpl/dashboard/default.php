@@ -41,15 +41,64 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 		filter: blur(5px);
 		transition: filter 0.15s ease;
 	}
-	.csmcpforj-token-mark:hover,
-	.csmcpforj-token-mark:focus {
-		filter: none;
-	}
 	/* Never blur the placeholder-mode variant — placeholder text is public
 	   ("<PASTE YOUR JOOMLA API TOKEN HERE>") and users need to see it. */
 	.csmcpforj-token-mark-empty,
 	.csmcpforj-token-mark.csmcpforj-token-mark-empty {
 		filter: none;
+	}
+
+	/* Pro activation email is blurred by default too — same rationale as
+	   the token pill: screencasting-safe (Tim 2026-08-20). Only the
+	   read-only variant (post-activation, showing the registered email)
+	   gets blurred; the editable variant on the activation form has no
+	   value yet so nothing to hide. */
+	#pro-email[readonly] {
+		filter: blur(5px);
+		transition: filter 0.15s ease;
+	}
+
+	/* Reveal state applied by the JS countdown — one class name for both
+	   token pill AND email input so the JS can toggle a single className
+	   regardless of which element type. When present, blur is off. */
+	.csmcpforj-secret-revealed,
+	.csmcpforj-secret-revealed:hover,
+	.csmcpforj-secret-revealed:focus {
+		filter: none !important;
+	}
+
+	/* Countdown pill — appears CENTERED on the blurred secret while the
+	   user is holding hover for the configured delay. Overlays the blurred
+	   content (which is illegible anyway) so the "waiting" state is
+	   unambiguous regardless of the element's size or where the mouse is
+	   pointing within it (Tim 2026-08-21 — the earlier right-of-element
+	   positioning wasn't visible on the readonly email input because the
+	   wrapper was column-sized, and Tim wanted more explicit copy than a
+	   bare number). Fades in/out on show/hide via opacity transition. */
+	.csmcpforj-secret-hover-scope {
+		position: relative;
+		display: inline-block;
+	}
+	.csmcpforj-secret-countdown {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		background: var(--bs-body-color);
+		color: var(--bs-body-bg);
+		font-size: 0.875rem;
+		font-weight: 700;
+		padding: 0.35rem 0.75rem;
+		border-radius: 0.75rem;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.1s ease;
+		z-index: 5;
+		white-space: nowrap;
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+	}
+	.csmcpforj-secret-countdown.is-visible {
+		opacity: 1;
 	}
 	.csmcpforj-token-mark-empty {
 		background-color: #e2e3e5;
@@ -699,5 +748,173 @@ document.addEventListener('DOMContentLoaded', function() {
 			});
 		});
 	});
+
+	// ─────────────────────────────────────────────────────────────────
+	// Hover-with-delay reveal for blurred secrets (token pill + Pro email).
+	//
+	// Design rationale (Tim 2026-08-20): the blur alone defeats casual
+	// screencasting exposure, but pure-CSS :hover reveal defeats itself the
+	// moment a mouse pointer passes through the element while, say, moving
+	// to click something else nearby. Adding a configurable delay (default 3s)
+	// makes "reveal" an intentional act — the operator has to hold hover for
+	// the full duration before the blur comes off, which is essentially never
+	// what an accidental mouse-transit produces.
+	//
+	// Delay is component-option-driven (Dashboard HtmlView reads
+	// hover_reveal_delay_seconds). 0 = immediate reveal (matches the
+	// pre-delay behaviour for operators who don't want the friction).
+	//
+	// Visible countdown pill next to the blurred element (dynamically
+	// created on mouseenter, updated per second, torn down on mouseleave
+	// or reveal) tells the operator "yes, hover is registered — hold N
+	// more seconds". Without it a slow reveal reads as "hover not working".
+	//
+	// Applies to: .csmcpforj-token-mark (the pasted-token pill inside the
+	// prompt preview — but NOT its .csmcpforj-token-mark-empty placeholder
+	// variant, which is intentionally always readable) AND #pro-email when
+	// it's readonly (the post-activation email; editable form variant is
+	// empty and needs no protection).
+	(function () {
+		// Both timing values PHP-interpolated at render time from the
+		// component options (Dashboard HtmlView reads
+		// hover_reveal_delay_seconds + hover_reveal_hide_seconds). Countdown
+		// label template is also PHP-interpolated so translators can localise
+		// it. No body attributes / no window globals, just baked-in constants.
+		var DELAY_SECONDS = <?php echo (int) $this->hoverRevealDelay; ?>;
+		var HIDE_SECONDS  = <?php echo (int) $this->hoverRevealHide; ?>;
+		var COUNTDOWN_LABEL = <?php echo json_encode(Text::_('COM_CSMCPFORJ_DASHBOARD_HOVER_REVEAL_COUNTDOWN')); ?>;
+
+		// Attaches hover-with-delay behaviour to a single blurred element.
+		// The behaviour is stateful per-element: entering starts the timer,
+		// leaving cancels it. If the timer completes, the element is marked
+		// revealed and stays revealed for as long as the pointer is inside;
+		// leaving re-blurs and the next entry starts a fresh countdown.
+		function attachRevealBehaviour(el) {
+			if (!el || el.dataset.csmcpforjRevealBound === '1') { return; }
+			el.dataset.csmcpforjRevealBound = '1';
+
+			// Both element types get wrapped in a scope span whose bounding
+			// box exactly matches the element itself — that way the
+			// absolute-positioned countdown pill can center on the element
+			// (left: 50%, top: 50%, transform: translate(-50%, -50%))
+			// regardless of type or size. Earlier version anchored the
+			// input's countdown to the containing column which was much
+			// bigger than the input; the pill positioned to the far right
+			// of the column and off-screen (Tim 2026-08-21 caught this).
+			var host = el;
+			var isInput = el.tagName === 'INPUT';
+			var scope = document.createElement('span');
+			scope.className = 'csmcpforj-secret-hover-scope';
+			// Block layout for the input so the wrapper matches the input's
+			// full-width form-control layout; inline-block (default) for the
+			// <mark> pill so it stays inline with surrounding prompt text.
+			if (isInput) { scope.style.display = 'block'; }
+			el.parentNode.insertBefore(scope, el);
+			scope.appendChild(el);
+			host = scope;
+
+			var countdown = document.createElement('span');
+			countdown.className = 'csmcpforj-secret-countdown';
+			countdown.setAttribute('aria-hidden', 'true');
+			host.appendChild(countdown);
+
+			var tickTimer = null;    // per-second countdown display update
+			var revealTimer = null;  // fires once, at end of delay, to reveal
+			var hideTimer = null;    // fires once, after HIDE_SECONDS, to auto-blur back
+			var remaining = 0;
+
+			// Full teardown: cancel any pending timers, clear the countdown
+			// pill, re-blur. Called on mouseleave AND on auto-hide firing.
+			// The auto-hide case triggers a full teardown so re-entering
+			// requires a fresh full-length countdown — this is the point
+			// of auto-hide (unattended sessions shouldn't stay revealed).
+			function cancel() {
+				if (tickTimer !== null)   { clearInterval(tickTimer); tickTimer = null; }
+				if (revealTimer !== null) { clearTimeout(revealTimer); revealTimer = null; }
+				if (hideTimer !== null)   { clearTimeout(hideTimer);   hideTimer = null; }
+				countdown.classList.remove('is-visible');
+				countdown.textContent = '';
+				el.classList.remove('csmcpforj-secret-revealed');
+			}
+
+			// Called at the end of the pre-reveal countdown. Applies the
+			// reveal, hides the countdown pill, and — if auto-hide is
+			// configured (HIDE_SECONDS > 0) — schedules the tear-down
+			// that re-blurs after HIDE_SECONDS. If auto-hide is 0, the
+			// reveal persists until mouseleave (pre-auto-hide behaviour).
+			function performReveal() {
+				if (tickTimer !== null) { clearInterval(tickTimer); tickTimer = null; }
+				countdown.classList.remove('is-visible');
+				countdown.textContent = '';
+				el.classList.add('csmcpforj-secret-revealed');
+				revealTimer = null;
+				if (HIDE_SECONDS > 0) {
+					hideTimer = setTimeout(function () {
+						el.classList.remove('csmcpforj-secret-revealed');
+						hideTimer = null;
+					}, HIDE_SECONDS * 1000);
+				}
+			}
+
+			function beginCountdown() {
+				// Immediate-reveal mode (delay=0) skips the pre-reveal
+				// countdown but still respects the auto-hide timer.
+				if (DELAY_SECONDS <= 0) {
+					cancel();
+					performReveal();
+					return;
+				}
+				// Skip empty/placeholder variants — they're not real secrets.
+				if (el.classList.contains('csmcpforj-token-mark-empty')) { return; }
+				// Reset any prior countdown state (defensive; mouseleave
+				// should have cleared it already, but also handles the case
+				// of re-entering while the auto-hide timer is still ticking).
+				cancel();
+				remaining = DELAY_SECONDS;
+				countdown.textContent = COUNTDOWN_LABEL.replace('{seconds}', String(remaining));
+				countdown.classList.add('is-visible');
+				tickTimer = setInterval(function () {
+					remaining -= 1;
+					if (remaining <= 0) {
+						countdown.textContent = '';
+						countdown.classList.remove('is-visible');
+					} else {
+						countdown.textContent = COUNTDOWN_LABEL.replace('{seconds}', String(remaining));
+					}
+				}, 1000);
+				revealTimer = setTimeout(performReveal, DELAY_SECONDS * 1000);
+			}
+
+			el.addEventListener('mouseenter', beginCountdown);
+			el.addEventListener('mouseleave', cancel);
+			// For the input specifically, focus should also start reveal
+			// (a user tabbing to the field to copy or verify shouldn't
+			// have to also mouse over it).
+			if (isInput) {
+				el.addEventListener('focus', beginCountdown);
+				el.addEventListener('blur', cancel);
+			}
+		}
+
+		// Bind now (for elements present at load) and re-bind whenever the
+		// prompt preview repaints (the token mark gets re-created by the
+		// token-input handler above whenever the operator types a new token).
+		function bindAll() {
+			document.querySelectorAll('.csmcpforj-token-mark:not(.csmcpforj-token-mark-empty)').forEach(attachRevealBehaviour);
+			document.querySelectorAll('#pro-email[readonly]').forEach(attachRevealBehaviour);
+		}
+		bindAll();
+
+		// Re-bind after the prompt preview's innerHTML gets rewritten by
+		// the token-input handler. Cheap approach: observe the prompt
+		// element (if present) for childList mutations and re-bind.
+		var promptEl = document.getElementById('csmcpforj-prompt-preview')
+			|| document.querySelector('[data-csmcpforj-prompt-preview]')
+			|| document.getElementById('csmcpforj-prompt');
+		if (promptEl && 'MutationObserver' in window) {
+			var observer = new MutationObserver(bindAll);
+			observer.observe(promptEl, { childList: true, subtree: true });
+		}
+	})();
 });
 </script>

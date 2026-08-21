@@ -1,5 +1,39 @@
 # Changelog
 
+## 🚀 Version 2.6.0 (August 21, 2026)
+
+Ships two new capability classes: a **Support** admin view for submitting questions and ideas directly to `support@cybersalt.com` with tier-aware routing, and a **screencasting-safe secret-reveal system** for the Dashboard's Joomla API token and Pro membership email — blur by default with configurable hover-with-delay + auto-hide.
+
+### 📮 New — Support view
+
+Fourth admin submenu item alongside Dashboard / Browse MCP Add-Ons / Setup Guide. Cross-view toolbar buttons on all three existing views also link here.
+
+- **Tier-aware banner** at the top drives the framing:
+  - **Pro members** see a green priority-support banner: *"You have an active MCP for J Pro membership — thank you! Pro members get priority support. Ask us anything — bug reports, feature requests, questions, ideas — all welcome."*
+  - **Community (Free) users** see a friendly blue banner: *"We love hearing from you. Support for the free version is on a best-effort basis... If you need guaranteed response times or priority attention, consider [an MCP for J Pro membership](https://www.cybersalt.com/membership-plans)"* &mdash; with a real hotlink to the OS Membership Pro plans page where users actually buy.
+- **Form fields**: type picker (🐛 Bug / ✨ Feature / ❓ Question / 💡 Idea / 💬 Other), subject (3-200 chars), message (10-5000 chars), reply-to email (pre-filled from Joomla user).
+- **Backend**: `SupportController::submit()` validates + sends via Joomla's Mailer to `support@cybersalt.com`. `Reply-To` set to the submitter's email so replies from the operator land in their inbox, not the site's noreply.
+- **Subject-line tier tag** for Gmail-side triage: `[MCP for J Pro Support]` or `[MCP for J Community Support]` + type label + user's subject. Filter/label rules on the receiving inbox become trivial.
+- **Auto-attached metadata** (visible to the user in the right sidebar for full transparency): site URL, cs-mcp-for-j version, Joomla version, PHP version, installed csmcpforj-family add-ons + their enabled state, Pro membership status, submitting user's name + email. Answers the environment questions any first-reply would otherwise have to ping-pong for.
+- **HTML-entity decode on the subject line** — type labels in the language file use `&mdash;` for HTML rendering in the form UI, but email subjects are plain-text. Controller now runs `html_entity_decode(..., ENT_QUOTES | ENT_HTML5)` on the type label before composing the subject so the em-dash lands as an actual character, not a literal `&mdash;` string.
+
+### 🔒 New — Screencasting-safe secret reveal system
+
+The Dashboard's Joomla API token pill (in the copy-prompt preview) and Pro membership email input are now blurred by default with an intentional-reveal interaction, safe for live demos and screencasts.
+
+- **Blur by default** via `filter: blur(5px)` &mdash; DOM `textContent` stays intact so clipboard copy still works; only the visual rendering is obscured. The empty-state placeholder variants (`<PASTE YOUR JOOMLA API TOKEN HERE>` and the empty pre-activation email field) are explicitly NOT blurred &mdash; nothing to hide there.
+- **Hover-with-delay reveal**: user must hold hover over the blurred element for N seconds before the blur comes off. A **centered countdown pill** overlays the element reading *"Revealing in 3s"* → *"Revealing in 2s"* → *"Revealing in 1s"* so the operator knows the timer is running (without it, a slow reveal reads as "hover not working").
+- **Mouse-off resets** &mdash; leaving the element cancels any in-progress countdown AND removes the reveal if it had happened. Re-entering starts a fresh full-length countdown. Makes reveal an intentional act; a mouse pointer transiting the element on the way to click something else never triggers exposure.
+- **Auto-hide after reveal** &mdash; once revealed, N seconds later the blur automatically returns even if the mouse is still over the element. Belt-and-braces for the "glanced, read it, then got distracted" case where an unattended browser could otherwise leave the secret exposed indefinitely.
+- **Two new component options** under a new **Screencasting privacy** fieldset (Components → MCP for Joomla → Options):
+  - `hover_reveal_delay_seconds` (integer 0-60, default 3) &mdash; hold-hover duration before reveal. `0` = immediate reveal (removes the anti-accidental-hover protection, restores classic single-hover behaviour).
+  - `hover_reveal_hide_seconds` (integer 0-300, default 8) &mdash; auto-hide duration after reveal. `0` = no auto-hide (reveal persists until mouseleave).
+- Design pattern locked in project auto-memory (`feedback_screencasting_safe_secret_reveal_pattern.md`) as the canonical secret-display style for all future Cybersalt Joomla extension admin UIs. Sibling to `feedback_advisory_box_design_pattern`.
+
+### 🔧 Miscellaneous polish
+
+- **Admin sidebar translation fix** &mdash; the `.sys.ini` was missing keys for `SUBMENU_SETUPGUIDE` (added in v2.5.0) and `SUBMENU_SUPPORT` (added in this release). The Joomla sidebar loads `.sys.ini`, not the regular `.ini`, when rendering menu-item labels outside the currently-active component &mdash; so both submenu items were showing their raw `COM_CSMCPFORJ_SUBMENU_SE...` / `COM_CSMCPFORJ_SUBMENU_SU...` constants when navigating from other admin pages. Now both keys are duplicated into `.sys.ini` and both render as *Setup Guide* / *Support*.
+
 ## 🚀 Version 2.5.0 (August 15, 2026)
 
 Biggest release since v2.0.0. Ships a brand-new admin **Setup Guide** view, a full-component **AI-neutrality repositioning** (welcomes every major AI client, not just Claude), and a critical **Claude Desktop compatibility fix** that unblocks a Zod-validation regression on Claude Desktop 1.30096+.

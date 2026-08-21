@@ -6,6 +6,7 @@ namespace Cybersalt\Component\Csmcpforj\Administrator\View\Dashboard;
 
 \defined('_JEXEC') or die;
 
+use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
@@ -35,6 +36,24 @@ final class HtmlView extends BaseHtmlView
 
 	public string $mcpConfigJson = '';
 	public string $claudePrompt  = '';
+
+	/**
+	 * Seconds an operator must hover a blurred secret (Joomla API token
+	 * or Pro membership email) before it reveals. 0 = immediate reveal
+	 * (pre-Aug-2026 behaviour). Read from component options with a sane
+	 * default so brand-new installs with no saved value still get the
+	 * protection. PHP-interpolated into the template's <script> block.
+	 */
+	public int $hoverRevealDelay = 3;
+
+	/**
+	 * Once a secret is revealed, how many seconds it stays visible
+	 * before auto-hiding back to the blurred state — belt-and-braces
+	 * for the case where the operator gets distracted mid-glance. 0 =
+	 * no auto-hide (reveal persists until mouseleave). Read from
+	 * component options.
+	 */
+	public int $hoverRevealHide = 8;
 
 	/**
 	 * Deep-link to the currently-logged-in admin's own profile edit page.
@@ -95,6 +114,13 @@ final class HtmlView extends BaseHtmlView
 	{
 		$this->siteUrl     = rtrim(Uri::root(), '/');
 		$this->endpointUrl = $this->siteUrl . '/api/index.php/v1/mcp';
+
+		// Hover-reveal delay + auto-hide timing for blurred secrets — read
+		// from component options. Both clamped to their config-XML ranges to
+		// defend against a hand-edited params.php putting nonsense in.
+		$params = ComponentHelper::getParams('com_csmcpforj');
+		$this->hoverRevealDelay = max(0, min(60,  (int) $params->get('hover_reveal_delay_seconds', 3)));
+		$this->hoverRevealHide  = max(0, min(300, (int) $params->get('hover_reveal_hide_seconds',  8)));
 		$this->host        = parse_url($this->endpointUrl, PHP_URL_HOST) ?: 'site';
 
 		$this->buildToolGroups();
@@ -144,6 +170,9 @@ final class HtmlView extends BaseHtmlView
 		$toolbar->linkButton('setupguide', 'COM_CSMCPFORJ_TOOLBAR_SETUPGUIDE')
 			->url(Route::_('index.php?option=com_csmcpforj&view=setupguide'))
 			->icon('icon-help');
+		$toolbar->linkButton('support', 'COM_CSMCPFORJ_TOOLBAR_SUPPORT')
+			->url(Route::_('index.php?option=com_csmcpforj&view=support'))
+			->icon('icon-envelope');
 
 		// Component options — same gear-icon button the Browse Add-ons view shows.
 		// Operators expect it on the dashboard too; this is the canonical Joomla

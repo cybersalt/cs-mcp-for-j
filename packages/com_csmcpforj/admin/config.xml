@@ -68,6 +68,61 @@
 		</field>
 	</fieldset>
 
+	<fieldset
+		name="privacy"
+		label="COM_CSMCPFORJ_CONFIG_PRIVACY_FIELDSET_LABEL"
+		description="COM_CSMCPFORJ_CONFIG_PRIVACY_FIELDSET_DESC"
+	>
+		<!--
+		Controls how long an operator has to hover a blurred secret (Joomla
+		API token on the Dashboard, Pro membership email) before it reveals.
+		The blur exists so accidental screen shares / screencasts don't leak
+		either. A short hover-then-reveal delay makes accidental reveal from
+		a mouse-passing-through even less likely: users have to intentionally
+		hold hover for the full delay before the secret becomes readable.
+
+		default=3 — enough to defeat a casual mouse-over, short enough to
+		feel snappy when you're deliberately trying to see it. Set to 0
+		to disable the delay entirely (immediate reveal on hover, current
+		behavior before the delay was added). Max 60 keeps the input honest.
+		-->
+		<field
+			name="hover_reveal_delay_seconds"
+			type="integer"
+			label="COM_CSMCPFORJ_CONFIG_HOVER_REVEAL_DELAY_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_HOVER_REVEAL_DELAY_DESC"
+			default="3"
+			first="0"
+			last="60"
+			step="1"
+		/>
+
+		<!--
+		Once a secret is revealed via hover-with-delay, this controls how
+		many seconds it stays visible before auto-hiding back to the blurred
+		state (without waiting for the operator to move the mouse away).
+		Belt-and-braces for the screencasting use case: even if you glanced,
+		read the token, and then got distracted while your mouse was still
+		over it, the reveal doesn't stay open indefinitely.
+
+		default=8 — long enough to read a full base64 token comfortably
+		but short enough that an unattended session doesn't leave the
+		secret exposed for minutes. Set to 0 to disable auto-hide (reveal
+		persists until mouseleave, current pre-auto-hide behaviour). Max
+		300 = five minutes; longer than that is functionally "no auto-hide".
+		-->
+		<field
+			name="hover_reveal_hide_seconds"
+			type="integer"
+			label="COM_CSMCPFORJ_CONFIG_HOVER_REVEAL_HIDE_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_HOVER_REVEAL_HIDE_DESC"
+			default="8"
+			first="0"
+			last="300"
+			step="1"
+		/>
+	</fieldset>
+
 	<!--
 	Pro Membership / Activation — set by the Activate Pro flow in the dashboard,
 	NOT meant to be edited by hand here. Listed for completeness so an operator
