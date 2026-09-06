@@ -1,8 +1,8 @@
 # Cybersalt MCP for Joomla (`cs-mcp-for-j`)
 
-Turns a Joomla 5/6 site into its own MCP server. Connect any conformant MCP client — Claude (Desktop, Code, claude.ai), Cursor, Cline, Continue, ChatGPT custom connectors, GitHub Copilot (agent mode), Gemini CLI, Windsurf, mcp-cli, etc. — directly to your site using a Joomla API token. No local Node/Python/WSL install, no MCP server process to babysit.
+Turns a Joomla 5/6 site into its own MCP server. Connect any conformant MCP client — Codex, Claude (Desktop, Code, claude.ai), Cursor, Cline, Continue, ChatGPT custom connectors, GitHub Copilot (agent mode), Gemini CLI, Windsurf, mcp-cli, etc. — directly to your site using a Joomla API token. No local Node/Python/WSL install, no MCP server process to babysit.
 
-> **Status:** v1.8.1 — 110 built-in tools across 14 domains. Self-installing copy-paste prompt with token-substitute UI + manual MCP connector setup. Includes a **4SEO add-on (19 tools)** for sites running the Weeblr 4SEO extension — typed wrappers for per-page meta overrides, site-wide LocalBusiness profile, and config, plus generic CRUD escape hatches. v1.8.0 added a **RSTicketsPro add-on (20 tools)** for sites running RSJoomla!'s helpdesk extension — full ticket workflow (list / get / reply / note / update / close / reopen / flag / notify / delete) calling into RST's own AdminModel so every email notification, ticket_history audit entry, dept-change code regeneration, and staff-access validation happens automatically. v1.8.1 fills out the **Custom Fields domain** with full CRUD over both fields (incl. `update_custom_field` / `delete_custom_field`) and a new field-groups sub-domain (5 tools) so programmatic setup of a clean field group on an article context is one call rather than 6+ admin clicks.
+> **Status:** v2.7.0 — native Codex Streamable HTTP setup, server-wide MCP safety instructions, a self-installing copy-paste prompt, and manual connector setup for other clients. Optional add-ons extend the core tools for supported third-party Joomla extensions.
 
 ## What it ships
 
@@ -19,6 +19,36 @@ All three are bundled in `pkg_csmcpforj` and enabled automatically on install.
 1. **Generate a Joomla API token** for the user account that should perform the actions. (Joomla admin → System → Users → My Profile → Joomla API Token, click the eye icon.)
 2. **Permissions** — Super Users, Administrators, and Managers all work out of the box. For any other user group, grant `Use MCP endpoint` and/or `Write through MCP endpoint` in System → Permissions on the component.
 3. **Configure your MCP client.** The endpoint speaks Streamable-HTTP MCP over JSON-RPC 2.0 and accepts either an `Authorization: Bearer` or an `X-Joomla-Token` header. The same underlying config works for every conformant client — only the config file location and wrapper JSON shape change per client:
+
+   **Codex** (CLI, IDE extension, and desktop host) supports the endpoint natively. Keep the token in an environment variable instead of writing it into Codex configuration:
+
+   ```powershell
+   [Environment]::SetEnvironmentVariable('JOOMLA_YOURSITE_COM_MCP_TOKEN', '<your-token>', 'User')
+   ```
+
+   Open a new terminal after setting a persistent Windows variable. On macOS/Linux, set it for the current terminal with:
+
+   ```sh
+   export JOOMLA_YOURSITE_COM_MCP_TOKEN='<your-token>'
+   ```
+
+   Register and verify the server:
+
+   ```sh
+   codex mcp add yoursite-com-joomla --url 'https://yoursite.com/api/index.php/v1/mcp' --bearer-token-env-var JOOMLA_YOURSITE_COM_MCP_TOKEN
+   codex mcp list
+   ```
+
+   Restart Codex (or check its MCP status UI), then call the read-only `get_joomla_version` tool. If a cPanel/PHP-FPM host strips `Authorization`, replace the server entry in `~/.codex/config.toml` with:
+
+   ```toml
+   [mcp_servers.yoursite-com-joomla]
+   url = "https://yoursite.com/api/index.php/v1/mcp"
+   env_http_headers = { "X-Joomla-Token" = "JOOMLA_YOURSITE_COM_MCP_TOKEN" }
+   default_tools_approval_mode = "writes"
+   ```
+
+   The token inherits its Joomla user's permissions. Use a least-privileged user where practical. For a read-only connection, enable the extension's server-side read-only mode too; client approval settings cannot grant or remove Joomla permissions.
 
    **Claude Desktop** (`claude_desktop_config.json`) / **Claude Code** (`claude mcp add …`) / **claude.ai** (Settings → Connectors → Add custom connector):
    ```json

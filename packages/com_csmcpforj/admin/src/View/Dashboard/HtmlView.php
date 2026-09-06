@@ -26,7 +26,7 @@ use Joomla\CMS\Uri\Uri;
  *
  * Generates two setup payloads:
  *  - $mcpConfigJson — JSON snippet to paste into Claude Desktop / claude.ai
- *  - $claudePrompt  — copy-paste instruction prompt for Claude Code
+ *  - $clientPrompt  — copy-paste instruction prompt for any shell-capable agent
  */
 final class HtmlView extends BaseHtmlView
 {
@@ -35,7 +35,7 @@ final class HtmlView extends BaseHtmlView
 	public string $host        = '';
 
 	public string $mcpConfigJson = '';
-	public string $claudePrompt  = '';
+	public string $clientPrompt  = '';
 
 	/**
 	 * Seconds an operator must hover a blurred secret (Joomla API token
@@ -125,7 +125,7 @@ final class HtmlView extends BaseHtmlView
 
 		$this->buildToolGroups();
 		$this->mcpConfigJson   = $this->buildMcpConfigJson();
-		$this->claudePrompt    = $this->buildClaudePrompt();
+		$this->clientPrompt    = $this->buildClientPrompt();
 		$this->tokenProfileUrl = $this->buildTokenProfileUrl();
 
 		// Pro Membership state — driven by ProActivationHelper, persisted in
@@ -273,15 +273,21 @@ final class HtmlView extends BaseHtmlView
 	}
 
 	/**
-	 * Method 2 payload — copy-paste prompt for Claude Code or any agent with
-	 * curl/HTTP capability. Teaches Claude how to talk to the MCP endpoint
+	 * Method 2 payload — copy-paste prompt for Codex, Claude Code, or any agent
+	 * with curl/HTTP capability. Teaches the client how to use the MCP endpoint
 	 * directly via JSON-RPC, no MCP client setup required.
 	 */
-	private function buildClaudePrompt(): string
+	private function buildClientPrompt(): string
 	{
 		$site         = $this->siteUrl;
 		$endpoint     = $this->endpointUrl;
-		$serverName   = 'joomla-' . $this->host;
+		$hostSlug     = strtolower($this->host);
+		$hostSlug     = preg_replace('/[^a-z0-9]+/', '-', $hostSlug) ?? '';
+		$hostSlug     = trim($hostSlug, '-');
+		$serverName   = $hostSlug === '' ? 'joomla-site' : $hostSlug . '-joomla';
+		$codexEnvName = $hostSlug === ''
+			? 'JOOMLA_SITE_MCP_TOKEN'
+			: 'JOOMLA_' . strtoupper(str_replace('-', '_', $hostSlug)) . '_MCP_TOKEN';
 		$tokenPlaceholder = '<PASTE YOUR JOOMLA API TOKEN HERE>';
 
 		$domainSummary = '';
@@ -363,13 +369,33 @@ final class HtmlView extends BaseHtmlView
 
 		----
 
-		**MAKING THIS PERMANENT** (Claude Code only — skip if I'm using
-		Claude Desktop or claude.ai):
+		**MAKING THIS PERMANENT** (Codex or Claude Code):
 
-		After you confirm the connection works, end your reply by offering to
-		install this site as a permanent MCP connector in my Claude Code
-		config. If I say yes ("make it permanent", "install it", "yes please"
-		or anything in that direction), run:
+		After you confirm the connection works, identify which client I am using
+		and offer to install this site as a permanent MCP connector. Do not make
+		any persistent configuration change until I agree.
+
+		If I am using Codex and agree, store the token in an environment variable
+		named {$codexEnvName}; do not put the token in config.toml. Then run:
+
+		    codex mcp add {$serverName} --url "{$endpoint}" --bearer-token-env-var {$codexEnvName}
+		    codex mcp list
+
+		On Windows, a persistent user environment variable requires a new terminal
+		before the registration command runs. On macOS/Linux, set the variable in
+		the current shell or the user's secure shell environment. After registration,
+		tell me to restart Codex and use /mcp to verify the server, then call the
+		read-only get_joomla_version tool as the harmless acceptance test.
+
+		If Codex authentication fails because a cPanel/PHP-FPM host strips the
+		Authorization header, replace the server entry in ~/.codex/config.toml with:
+
+		    [mcp_servers.{$serverName}]
+		    url = "{$endpoint}"
+		    env_http_headers = { "X-Joomla-Token" = "{$codexEnvName}" }
+		    default_tools_approval_mode = "writes"
+
+		If I am using Claude Code and agree, run:
 
 		    claude mcp add {$serverName} {$endpoint} --transport http \\
 		        --header "Authorization: Bearer <my-token-from-above>"
@@ -382,7 +408,7 @@ final class HtmlView extends BaseHtmlView
 		edited copy of this prompt could redirect the install to a hostile
 		endpoint. If the host doesn't match, abort and tell me.
 
-		Once that succeeds, tell me to restart Claude Code (or just exit and
+		Once that succeeds, tell me to restart the client (or just exit and
 		re-open this session). The next conversation will see this site's
 		tools as native MCP tools — no prompt needed, no curl, just direct
 		tool calls. After that I'll never paste this prompt again.

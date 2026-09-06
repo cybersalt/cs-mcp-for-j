@@ -2,6 +2,25 @@
 	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
 
 	<h2>
+		<span class="version-badge">v2.7.0</span>
+		<span class="date">2026-09-05</span>
+	</h2>
+
+	<p>Adds a native, environment-variable-based Codex connection flow while retaining the Joomla 5/6 three-extension package architecture.</p>
+
+	<h3><span class="section-icon">🔌</span>New Features</h3>
+	<ul>
+		<li><strong>Native Codex setup</strong>: the Setup Guide now generates site-specific Windows PowerShell, macOS/Linux, <code>codex mcp add</code>, and <code>X-Joomla-Token</code> fallback snippets.</li>
+		<li><strong>MCP initialize instructions</strong>: Codex receives server-wide prompt-injection and write-approval guidance during the handshake.</li>
+		<li><strong>Client-neutral Dashboard prompt</strong>: permanent connection instructions now cover Codex as well as Claude Code.</li>
+	</ul>
+
+	<h3><span class="section-icon">📦</span>Build</h3>
+	<ul>
+		<li>Package and component manifests bumped to 2.7.0 and the System plugin to 1.15.0; the package still installs the component plus the required System and Web Services plugins.</li>
+	</ul>
+
+	<h2>
 		<span class="version-badge">v1.8.1</span>
 		<span class="date">2026-05-25</span>
 	</h2>

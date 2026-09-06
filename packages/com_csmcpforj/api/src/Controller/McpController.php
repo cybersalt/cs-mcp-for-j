@@ -129,7 +129,7 @@ final class McpController extends BaseController
 
 		$payload = [
 			'service'           => 'cs-mcp-for-j',
-			'description'       => 'Model Context Protocol (MCP) endpoint for this Joomla site. Lets any conformant MCP client (Claude, Cursor, Cline, Continue, ChatGPT custom connectors, GitHub Copilot, Gemini CLI, mcp-cli, etc.) call the site\'s registered tools over JSON-RPC 2.0.',
+			'description'       => 'Model Context Protocol (MCP) endpoint for this Joomla site. Lets Codex and other conformant MCP clients (Claude, Cursor, Cline, Continue, ChatGPT custom connectors, GitHub Copilot, Gemini CLI, mcp-cli, etc.) call the site\'s registered tools over JSON-RPC 2.0.',
 			'endpoint'          => $root . '/api/index.php/v1/mcp',
 			'protocol'          => 'JSON-RPC 2.0 over HTTP',
 			'method'            => 'POST (only — GET returns this info response)',

@@ -1,5 +1,19 @@
 # Changelog
 
+## 🚀 Version 2.7.0 (September 5, 2026)
+
+### 🔌 New — Native Codex connection support
+
+- Added a dedicated **Codex** tab to the Setup Guide with site-specific Windows PowerShell, macOS/Linux, `codex mcp add`, and `X-Joomla-Token` fallback snippets.
+- Tokens are referenced by a generated environment-variable name instead of being stored in Codex's `config.toml`; the existing browser-only copy substitution remains available for the environment setup commands.
+- Added concise server-wide `instructions` to the MCP `initialize` response so Codex receives prompt-injection and write-approval guidance during the native handshake.
+- Made the Dashboard setup prompt client-neutral and added a permanent Codex registration path alongside Claude Code.
+- Documented Codex registration, verification, least-privilege access, read-only mode, and the cPanel/PHP-FPM fallback in the README.
+
+### 📦 Build
+
+- Bumped the package and component manifests to 2.7.0 and the System plugin to 1.15.0. The installable package continues to bundle the component plus the required System and Web Services plugins.
+
 ## 🚀 Version 2.6.0 (August 21, 2026)
 
 Ships two new capability classes: a **Support** admin view for submitting questions and ideas directly to `support@cybersalt.com` with tier-aware routing, and a **screencasting-safe secret-reveal system** for the Dashboard's Joomla API token and Pro membership email — blur by default with configurable hover-with-delay + auto-hide.

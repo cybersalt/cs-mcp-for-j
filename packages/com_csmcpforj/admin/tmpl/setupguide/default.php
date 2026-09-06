@@ -14,6 +14,8 @@ $endpoint     = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 $host         = htmlspecialchars($this->host, ENT_QUOTES, 'UTF-8');
 $dashboardUrl = htmlspecialchars($this->dashboardUrl, ENT_QUOTES, 'UTF-8');
 $tokenUrl     = htmlspecialchars($this->tokenProfileUrl, ENT_QUOTES, 'UTF-8');
+$codexServerName = $this->codexServerName;
+$codexEnvName    = $this->codexTokenEnvironmentName;
 
 // Raw angle brackets on purpose. The whole snippet gets run through
 // htmlspecialchars() below when it's echoed into the <code> element, which
@@ -80,6 +82,25 @@ URL:    {$endpoint}
 Header: Authorization
 Value:  Bearer {$tokenPlaceholder}
 HTML;
+
+$snippetCodexWindows = <<<POWERSHELL
+[Environment]::SetEnvironmentVariable('{$codexEnvName}', '{$tokenPlaceholder}', 'User')
+POWERSHELL;
+
+$snippetCodexUnix = <<<SHELL
+export {$codexEnvName}='{$tokenPlaceholder}'
+SHELL;
+
+$snippetCodexCli = <<<SHELL
+codex mcp add {$codexServerName} --url '{$this->endpointUrl}' --bearer-token-env-var {$codexEnvName}
+SHELL;
+
+$snippetCodexToml = <<<TOML
+[mcp_servers.{$codexServerName}]
+url = "{$this->endpointUrl}"
+env_http_headers = { "X-Joomla-Token" = "{$codexEnvName}" }
+default_tools_approval_mode = "writes"
+TOML;
 ?>
 <style>
 /* Setup Guide layout — restructured 2026-08-13 to lead with the easy
@@ -279,7 +300,10 @@ details.csmcpforj-setup-advanced[open] summary::before {
 
 						<ul class="nav nav-tabs mb-3" role="tablist">
 							<li class="nav-item" role="presentation">
-								<button class="nav-link active" id="tab-claude" data-bs-toggle="tab" data-bs-target="#pane-claude" type="button" role="tab"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_TAB_CLAUDE'); ?></button>
+								<button class="nav-link active" id="tab-codex" data-bs-toggle="tab" data-bs-target="#pane-codex" type="button" role="tab"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_TAB_CODEX'); ?></button>
+							</li>
+							<li class="nav-item" role="presentation">
+								<button class="nav-link" id="tab-claude" data-bs-toggle="tab" data-bs-target="#pane-claude" type="button" role="tab"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_TAB_CLAUDE'); ?></button>
 							</li>
 							<li class="nav-item" role="presentation">
 								<button class="nav-link" id="tab-cursor" data-bs-toggle="tab" data-bs-target="#pane-cursor" type="button" role="tab"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_TAB_CURSOR'); ?></button>
@@ -290,8 +314,49 @@ details.csmcpforj-setup-advanced[open] summary::before {
 						</ul>
 
 						<div class="tab-content">
+							<div class="tab-pane fade show active" id="pane-codex" role="tabpanel">
+								<h5><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CODEX_HEADING'); ?></h5>
+								<p class="mb-3"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CODEX_BODY'); ?></p>
 
-							<div class="tab-pane fade show active" id="pane-claude" role="tabpanel">
+								<p class="mb-1"><strong><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CODEX_WINDOWS'); ?></strong></p>
+								<div class="position-relative">
+									<pre id="csmcpforj-snippet-codex-windows" data-csmcpforj-snippet><code><?php echo htmlspecialchars($snippetCodexWindows, ENT_QUOTES, 'UTF-8'); ?></code></pre>
+									<button type="button" class="btn btn-sm btn-primary text-white csmcpforj-setup-copy-btn position-absolute top-0 end-0 m-2" data-csmcpforj-copy="csmcpforj-snippet-codex-windows" data-csmcpforj-token-substitute="1" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED')); ?>" data-copied-substituted-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED_WITH_TOKEN')); ?>">
+										<span class="icon-copy" aria-hidden="true"></span> <?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY'); ?>
+									</button>
+								</div>
+								<p class="mb-3"><small class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CODEX_WINDOWS_HINT'); ?></small></p>
+
+								<p class="mb-1"><strong><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CODEX_UNIX'); ?></strong></p>
+								<div class="position-relative">
+									<pre id="csmcpforj-snippet-codex-unix" data-csmcpforj-snippet><code><?php echo htmlspecialchars($snippetCodexUnix, ENT_QUOTES, 'UTF-8'); ?></code></pre>
+									<button type="button" class="btn btn-sm btn-primary text-white csmcpforj-setup-copy-btn position-absolute top-0 end-0 m-2" data-csmcpforj-copy="csmcpforj-snippet-codex-unix" data-csmcpforj-token-substitute="1" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED')); ?>" data-copied-substituted-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED_WITH_TOKEN')); ?>">
+										<span class="icon-copy" aria-hidden="true"></span> <?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY'); ?>
+									</button>
+								</div>
+
+								<p class="mt-3 mb-1"><strong><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CODEX_ADD'); ?></strong></p>
+								<div class="position-relative">
+									<pre id="csmcpforj-snippet-codex-cli" data-csmcpforj-snippet><code><?php echo htmlspecialchars($snippetCodexCli, ENT_QUOTES, 'UTF-8'); ?></code></pre>
+									<button type="button" class="btn btn-sm btn-primary text-white csmcpforj-setup-copy-btn position-absolute top-0 end-0 m-2" data-csmcpforj-copy="csmcpforj-snippet-codex-cli" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED')); ?>" data-copied-substituted-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED_WITH_TOKEN')); ?>">
+										<span class="icon-copy" aria-hidden="true"></span> <?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY'); ?>
+									</button>
+								</div>
+								<p class="mb-3"><small class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CODEX_VERIFY'); ?></small></p>
+
+								<div class="csmcpforj-token-warning mb-2">
+									<strong><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CODEX_FALLBACK_TITLE'); ?></strong>
+									<span><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CODEX_FALLBACK_BODY'); ?></span>
+								</div>
+								<div class="position-relative">
+									<pre id="csmcpforj-snippet-codex-toml" data-csmcpforj-snippet><code><?php echo htmlspecialchars($snippetCodexToml, ENT_QUOTES, 'UTF-8'); ?></code></pre>
+									<button type="button" class="btn btn-sm btn-primary text-white csmcpforj-setup-copy-btn position-absolute top-0 end-0 m-2" data-csmcpforj-copy="csmcpforj-snippet-codex-toml" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED')); ?>" data-copied-substituted-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED_WITH_TOKEN')); ?>">
+										<span class="icon-copy" aria-hidden="true"></span> <?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY'); ?>
+									</button>
+								</div>
+							</div>
+
+							<div class="tab-pane fade" id="pane-claude" role="tabpanel">
 
 								<div class="csmcpforj-token-warning mb-3">
 									<strong><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CLAUDE_HEADS_UP_TITLE'); ?></strong>

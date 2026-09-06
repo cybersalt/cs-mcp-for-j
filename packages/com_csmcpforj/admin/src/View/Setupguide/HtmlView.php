@@ -16,7 +16,7 @@ use Joomla\CMS\Uri\Uri;
 
 /**
  * Setup Guide view — vendor-neutral setup + troubleshooting reference for
- * every conformant MCP client (Claude, Cursor, ChatGPT, and — as coverage
+ * every conformant MCP client (Codex, Claude, Cursor, ChatGPT, and — as coverage
  * grows — Cline, Continue, Copilot, Gemini CLI, Windsurf, etc.).
  *
  * Design intent (2026-08-13, v2.4.1 MVP scope):
@@ -24,7 +24,7 @@ use Joomla\CMS\Uri\Uri;
  *    the standard component submenu.
  *  - Universal section (what is MCP, connection recipe, token generation,
  *    security model) rendered once, not per client.
- *  - Per-client tabs — Claude / Cursor / ChatGPT for the MVP release. Adding
+ *  - Per-client tabs — Codex / Claude / Cursor / ChatGPT. Adding
  *    more clients later is a language-string + template addition, no PHP
  *    changes required.
  *  - Token localStorage backed by the SAME key the Dashboard uses so a token
@@ -39,6 +39,8 @@ final class HtmlView extends BaseHtmlView
 	public string $endpointUrl = '';
 	public string $siteUrl     = '';
 	public string $host        = '';
+	public string $codexServerName = '';
+	public string $codexTokenEnvironmentName = '';
 
 	/**
 	 * Deep-link to the Dashboard view — the Easy Setup section links here
@@ -62,6 +64,7 @@ final class HtmlView extends BaseHtmlView
 		$this->siteUrl         = rtrim(Uri::root(), '/');
 		$this->endpointUrl     = $this->siteUrl . '/api/index.php/v1/mcp';
 		$this->host            = parse_url($this->endpointUrl, PHP_URL_HOST) ?: 'site';
+		$this->buildCodexIdentity();
 		$this->dashboardUrl    = Route::_('index.php?option=com_csmcpforj&view=dashboard');
 		$this->tokenProfileUrl = $this->buildTokenProfileUrl();
 
@@ -89,6 +92,25 @@ final class HtmlView extends BaseHtmlView
 		}
 
 		parent::display($tpl);
+	}
+
+	/**
+	 * Build shell/TOML-safe, site-specific identifiers for Codex setup.
+	 */
+	private function buildCodexIdentity(): void
+	{
+		$slug = strtolower($this->host);
+		$slug = preg_replace('/[^a-z0-9]+/', '-', $slug) ?? '';
+		$slug = trim($slug, '-');
+
+		if ($slug === '') {
+			$this->codexServerName           = 'joomla-site';
+			$this->codexTokenEnvironmentName = 'JOOMLA_SITE_MCP_TOKEN';
+			return;
+		}
+
+		$this->codexServerName           = $slug . '-joomla';
+		$this->codexTokenEnvironmentName = 'JOOMLA_' . strtoupper(str_replace('-', '_', $slug)) . '_MCP_TOKEN';
 	}
 
 	/**
