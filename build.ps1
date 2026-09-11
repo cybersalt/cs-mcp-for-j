@@ -35,6 +35,40 @@ if ([string]::IsNullOrWhiteSpace($version)) {
     throw 'Could not read <version> from pkg_csmcpforj.xml.'
 }
 
+# ---------------------------------------------------------------------------
+# Refresh the bundled fallback catalog from the live cs-release-manager
+# catalog so it can never drift out of date.
+#
+# Background (Dragan, GitHub #20): the committed fallback pinned the 4SEO/RST
+# add-ons at v1.8.0 in their download_url, but the release server only ever
+# had v1.10.2 — so any catalog install that fell back to the bundled file
+# asked for a version that did not exist and 404'd ("Requested version not
+# found"). Dropping the &version= param pulls the latest and works.
+#
+# So on every build we pull the live catalog, strip the &version= pin off
+# every download_url (fallback always installs latest, drift-proof), and
+# relabel source as bundled-fallback. If the fetch fails or looks wrong we
+# KEEP the committed file and warn — the build never breaks over this.
+# ---------------------------------------------------------------------------
+$fallbackPath = Join-Path $root 'packages\com_csmcpforj\admin\catalog.fallback.json'
+$catalogUrl   = 'https://www.cybersalt.com/index.php?option=com_csreleasemanager&task=api.catalog&format=json&catalog=cs-mcp-for-j'
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $resp = Invoke-WebRequest -Uri $catalogUrl -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+    $body = [string]$resp.Content
+    $body = $body -replace '&version=[^&"]*', ''
+    $body = $body -replace '"source":\s*"cs-release-manager"', '"source": "bundled-fallback"'
+    $parsed = $body | ConvertFrom-Json -ErrorAction Stop
+    if ($parsed.addons -and $parsed.addons.Count -gt 0) {
+        [System.IO.File]::WriteAllText($fallbackPath, $body, (New-Object System.Text.UTF8Encoding($false)))
+        Write-Host "  refreshed fallback catalog from live ($($parsed.addons.Count) add-ons)" -ForegroundColor Gray
+    } else {
+        Write-Warning "Live catalog returned no add-ons; keeping committed catalog.fallback.json."
+    }
+} catch {
+    Write-Warning "Could not refresh fallback catalog from live ($($_.Exception.Message)); keeping committed catalog.fallback.json."
+}
+
 if ($Release) {
     $pkgZip = Join-Path $root "pkg_csmcpforj_v${version}.zip"
     Write-Host "Building cs-mcp-for-j v$version (RELEASE - stable filename)" -ForegroundColor Cyan

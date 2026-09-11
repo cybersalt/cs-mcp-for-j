@@ -507,6 +507,24 @@ if ($this->fetchedAt) {
 										</p>
 									<?php endif; ?>
 
+									<?php
+									// Vendor-dependency notice (Phase 1): every Pro add-on wraps a
+									// third-party extension the buyer must own separately. Surface it
+									// on the card so nobody installs a Pro add-on expecting the
+									// vendor's product to come with it.
+									if (!empty($addon['requires_pro_membership'])) :
+										$depExt    = htmlspecialchars((string) ($addon['target_extension']['display_name'] ?? ''), ENT_QUOTES, 'UTF-8');
+										$depVendor = htmlspecialchars((string) ($addon['target_extension']['vendor_name'] ?? ''), ENT_QUOTES, 'UTF-8');
+										if ($depExt !== '' && $depVendor !== '') :
+									?>
+										<p class="card-text mb-2">
+											<small class="text-warning-emphasis">
+												<span class="icon-warning-2" aria-hidden="true"></span>
+												<?php echo Text::sprintf('COM_CSMCPFORJ_CATALOG_VENDOR_DEPENDENCY', $depExt, $depVendor); ?>
+											</small>
+										</p>
+									<?php endif; endif; ?>
+
 									<div class="d-flex gap-1 flex-wrap">
 										<?php if ($isInstalled) : ?>
 											<a href="<?php echo $toggleUrl; ?>" class="btn btn-sm <?php echo $toggleBtnClass; ?>">
@@ -552,21 +570,21 @@ if ($this->fetchedAt) {
 											</a>
 										<?php elseif ($proLocked) : ?>
 											<?php
-											// `btn-outline-warning disabled` was unreadable in BOTH light
-											// (pale yellow text on white) and dark (faded outline on charcoal)
-											// Atum modes — Tim flagged it on the 2026-06-12 catalog walkthrough.
-											// Fix: a solid bright-yellow pill with dark text + a bold lock icon
-											// + opacity overrides so Bootstrap's `disabled` fade (default 0.65 via
-											// --bs-btn-disabled-opacity) doesn't dim it back into invisibility.
-											// Explicit hex `#ffd60a` is one notch brighter than Bootstrap's
-											// `--bs-warning` (#ffc107) — pops on both Atum themes.
+											// Not entitled to this Pro add-on (not part of the linked
+											// account's plan, or no account linked yet). Per-add-on
+											// entitlement (#25) makes this an actionable "Get it" link to
+											// the membership store rather than a dead locked pill.
+											// Solid bright-yellow #ffd60a (one notch above Bootstrap's
+											// --bs-warning) stays readable in both Atum light + dark.
 											?>
-											<span class="btn btn-sm fw-bold"
-												style="background-color: #ffd60a; color: #1f1f1f; border-color: #d4b106; cursor: not-allowed; pointer-events: none;"
+											<a href="https://www.cybersalt.com/membership-plans"
+												target="_blank" rel="noopener"
+												class="btn btn-sm fw-bold"
+												style="background-color: #ffd60a; color: #1f1f1f; border-color: #d4b106;"
 												title="<?php echo Text::_('COM_CSMCPFORJ_CATALOG_PRO_MANUAL_HINT'); ?>">
-												<span class="icon-lock" aria-hidden="true"></span>
+												<span class="icon-cart" aria-hidden="true"></span>
 												<?php echo Text::_('COM_CSMCPFORJ_CATALOG_PRO_MANUAL_INSTALL'); ?>
-											</span>
+											</a>
 										<?php elseif ($canUpdate) : ?>
 											<?php $isPro = !empty($addon['requires_pro_membership']); ?>
 											<a href="<?php echo $installUrl; ?>"

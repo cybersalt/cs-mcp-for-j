@@ -101,6 +101,23 @@ url = "{$this->endpointUrl}"
 env_http_headers = { "X-Joomla-Token" = "{$codexEnvName}" }
 default_tools_approval_mode = "writes"
 TOML;
+
+// Gemini CLI / Gemini Code Assist — reads ~/.gemini/settings.json.
+// Uses `httpUrl` (not `url` — Cursor and Claude Desktop use `url` for
+// stdio-bridged servers; Gemini's native HTTP MCP client uses `httpUrl`
+// as a distinct key). Bearer token goes into the same `headers` block.
+$snippetGemini = <<<HTML
+{
+  "mcpServers": {
+    "joomla-{$host}": {
+      "httpUrl": "{$endpoint}",
+      "headers": {
+        "Authorization": "Bearer {$tokenPlaceholder}"
+      }
+    }
+  }
+}
+HTML;
 ?>
 <style>
 /* Setup Guide layout — restructured 2026-08-13 to lead with the easy
@@ -311,6 +328,9 @@ details.csmcpforj-setup-advanced[open] summary::before {
 							<li class="nav-item" role="presentation">
 								<button class="nav-link" id="tab-chatgpt" data-bs-toggle="tab" data-bs-target="#pane-chatgpt" type="button" role="tab"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_TAB_CHATGPT'); ?></button>
 							</li>
+							<li class="nav-item" role="presentation">
+								<button class="nav-link" id="tab-gemini" data-bs-toggle="tab" data-bs-target="#pane-gemini" type="button" role="tab"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_TAB_GEMINI'); ?></button>
+							</li>
 						</ul>
 
 						<div class="tab-content">
@@ -437,6 +457,34 @@ details.csmcpforj-setup-advanced[open] summary::before {
 										<span class="icon-copy" aria-hidden="true"></span> <?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY'); ?>
 									</button>
 								</div>
+							</div>
+
+							<div class="tab-pane fade" id="pane-gemini" role="tabpanel">
+								<h5><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_GEMINI_HEADING'); ?></h5>
+								<p class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_GEMINI_BODY'); ?></p>
+								<p class="mb-2"><small class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_GEMINI_SCOPE_NOTE'); ?></small></p>
+
+								<p class="mb-1"><strong><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_GEMINI_STEP1_HEADING'); ?></strong></p>
+								<p class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_GEMINI_STEP1_BODY'); ?></p>
+								<ul class="mb-3">
+									<li class="mb-1"><strong><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_GEMINI_GLOBAL_LABEL'); ?></strong> <code><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_GEMINI_GLOBAL_PATH'); ?></code></li>
+									<li class="mb-1"><strong><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_GEMINI_PROJECT_LABEL'); ?></strong> <code><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_GEMINI_PROJECT_PATH'); ?></code></li>
+								</ul>
+
+								<p class="mb-1"><strong><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_GEMINI_STEP2_HEADING'); ?></strong></p>
+								<p class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_GEMINI_STEP2_BODY'); ?></p>
+								<div class="position-relative">
+									<pre id="csmcpforj-snippet-gemini" data-csmcpforj-snippet><code><?php echo htmlspecialchars($snippetGemini, ENT_QUOTES, 'UTF-8'); ?></code></pre>
+									<button type="button" class="btn btn-sm btn-primary text-white csmcpforj-setup-copy-btn position-absolute top-0 end-0 m-2" data-csmcpforj-copy="csmcpforj-snippet-gemini" data-csmcpforj-token-substitute="1" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED')); ?>" data-copied-substituted-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED_WITH_TOKEN')); ?>">
+										<span class="icon-copy" aria-hidden="true"></span> <?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY'); ?>
+									</button>
+								</div>
+								<p class="mb-3"><small class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_GEMINI_STEP2_HINT'); ?></small></p>
+
+								<p class="mb-1"><strong><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_GEMINI_STEP3_HEADING'); ?></strong></p>
+								<p class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_GEMINI_STEP3_BODY'); ?></p>
+
+								<p class="mt-3 mb-0"><small class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_GEMINI_WEB_UI_NOTE'); ?></small></p>
 							</div>
 
 						</div>

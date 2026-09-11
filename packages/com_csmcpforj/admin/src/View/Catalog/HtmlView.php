@@ -66,15 +66,28 @@ final class HtmlView extends BaseHtmlView
 		$this->independenceNoticeUrl = (string) ($catalog['independence_notice_url']
 			?? 'https://www.cybersalt.com/extensions/mcp-for-j-independent-development');
 
-		// Enrich each Pro-tier addon with the local site's Pro membership state
-		// so the template can decide between the Install button (membership
-		// active) and the locked "Pro Manual Install" pill (no membership).
-		// The flag lookup talks to ProActivationHelper, which reads the saved
-		// pro_status from the component params bypassing ComponentHelper's
-		// stale cache (see readPro() and the 2026-06-12 cache-bust fix).
-		$hasPro = ProActivationHelper::isActivated();
+		// Enrich each Pro-tier addon with PER-ADD-ON entitlement so the template
+		// can decide between the Install button (this account owns this add-on —
+		// à-la-carte OR All-Access) and the locked "Get it" state (not entitled).
+		// getEntitledElements() is the list cs-release-manager's verifyaccess
+		// returned for the linked account (v1.11.5+); free add-ons are always in
+		// it. Replaces the old single isActivated() boolean that gated every Pro
+		// add-on together and told à-la-carte buyers they had no membership (#21).
+		// Keep entitlement fresh even when the user opens the catalog without
+		// hitting the Dashboard first (refreshIfStale is throttled + idempotent
+		// per request). Then self-heal: if we're linked but have no entitlement
+		// list yet (verified under a pre-entitlement build, or first load after
+		// upgrade), force one refresh so owned add-ons don't wrongly show "Get it".
+		ProActivationHelper::refreshIfStale();
+		$entitled = ProActivationHelper::getEntitledElements();
+		if (empty($entitled) && ProActivationHelper::isLinked()) {
+			ProActivationHelper::forceRefresh();
+			$entitled = ProActivationHelper::getEntitledElements();
+		}
 		foreach ($this->addons as $i => $addon) {
-			$this->addons[$i]['has_pro_membership'] = $hasPro && !empty($addon['requires_pro_membership']);
+			$element = (string) ($addon['addon_extension']['element'] ?? '');
+			$this->addons[$i]['has_pro_membership'] = !empty($addon['requires_pro_membership'])
+				&& $element !== '' && in_array($element, $entitled, true);
 		}
 
 		if (!$this->showProUnavailable) {

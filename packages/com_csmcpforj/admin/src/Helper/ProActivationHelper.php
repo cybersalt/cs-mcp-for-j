@@ -131,7 +131,35 @@ final class ProActivationHelper
 			'package_title'   => (string) ($data['pro_package_title'] ?? ''),
 			'last_verified'   => (string) ($data['pro_last_verified'] ?? ''),
 			'recheck_seconds' => (string) ($data['pro_recheck_seconds'] ?? '86400'),
+			// Per-add-on entitlement: the extension_elements this linked account
+			// can install, from cs-release-manager's verifyaccess (v1.11.5+).
+			// JSON-encoded in the param; decoded to an array here. Empty until a
+			// verifyaccess round-trip populates it.
+			'entitled_elements' => (array) (json_decode((string) ($data['pro_entitled_elements'] ?? '[]'), true) ?: []),
 		];
+	}
+
+	/**
+	 * The extension_elements this linked account is entitled to install, per
+	 * cs-release-manager's per-add-on entitlement. Free add-ons are always
+	 * included; owned Pro add-ons (à-la-carte OR All-Access) are added by the
+	 * server based on the account's group memberships.
+	 *
+	 * @return string[]
+	 */
+	public static function getEntitledElements(): array
+	{
+		return self::readPro()['entitled_elements'];
+	}
+
+	/**
+	 * True when the linked account is entitled to install the given add-on
+	 * element (e.g. "csmcpforj4seo"). Drives the catalog's per-add-on
+	 * Install-vs-"Get it" state instead of one umbrella Pro verdict.
+	 */
+	public static function isEntitledTo(string $element): bool
+	{
+		return $element !== '' && in_array($element, self::getEntitledElements(), true);
 	}
 
 	/**
@@ -192,6 +220,19 @@ final class ProActivationHelper
 		return $pro['installation_id'] !== ''
 			&& $pro['email_hash'] !== ''
 			&& $pro['status'] === 'active';
+	}
+
+	/**
+	 * True when this site has been linked to a Cybersalt account (installation
+	 * registered + an email linked), REGARDLESS of the anchor membership status.
+	 * An à-la-carte buyer is linked but has status 'lapsed' against the
+	 * All-Access anchor — so use this, not isActivated(), when deciding whether
+	 * to trust/refresh the per-add-on entitlement list.
+	 */
+	public static function isLinked(): bool
+	{
+		$pro = self::readPro();
+		return $pro['installation_id'] !== '' && $pro['email_hash'] !== '';
 	}
 
 	/**
@@ -343,6 +384,7 @@ final class ProActivationHelper
 		self::saveParam('pro_signup_url', (string) $verifyResult['signup_url']);
 		self::saveParam('pro_message', (string) $verifyResult['message']);
 		self::saveParam('pro_package_title', (string) $verifyResult['package_title']);
+		self::saveParam('pro_entitled_elements', json_encode($verifyResult['entitled_elements'] ?? []));
 		// Timestamp the verification so refreshIfStale() can throttle subsequent
 		// re-checks. Without this, a freshly-activated install would re-verify
 		// on the very next dashboard load.
@@ -390,22 +432,24 @@ final class ProActivationHelper
 			$response = HttpFactory::getHttp()->get($url, [], self::HTTP_TIMEOUT);
 		} catch (\Throwable $e) {
 			return [
-				'state'         => 'denied',
-				'message'       => 'Verification network error: ' . $e->getMessage(),
-				'renewal_url'   => '',
-				'signup_url'    => '',
-				'package_title' => '',
+				'state'             => 'denied',
+				'message'           => 'Verification network error: ' . $e->getMessage(),
+				'renewal_url'       => '',
+				'signup_url'        => '',
+				'package_title'     => '',
+				'entitled_elements' => [],
 			];
 		}
 
 		$payload = json_decode((string) $response->body, true);
 		if (!is_array($payload) || empty($payload['state'])) {
 			return [
-				'state'         => 'denied',
-				'message'       => 'Verification returned an unexpected response (HTTP ' . (int) $response->code . ').',
-				'renewal_url'   => '',
-				'signup_url'    => '',
-				'package_title' => '',
+				'state'             => 'denied',
+				'message'           => 'Verification returned an unexpected response (HTTP ' . (int) $response->code . ').',
+				'renewal_url'       => '',
+				'signup_url'        => '',
+				'package_title'     => '',
+				'entitled_elements' => [],
 			];
 		}
 
@@ -417,11 +461,12 @@ final class ProActivationHelper
 		}
 
 		return [
-			'state'         => $state,
-			'message'       => (string) ($payload['message'] ?? ''),
-			'renewal_url'   => (string) ($payload['renewal_url'] ?? ''),
-			'signup_url'    => (string) ($payload['signup_url'] ?? ''),
-			'package_title' => (string) ($payload['package_title'] ?? ''),
+			'state'             => $state,
+			'message'           => (string) ($payload['message'] ?? ''),
+			'renewal_url'       => (string) ($payload['renewal_url'] ?? ''),
+			'signup_url'        => (string) ($payload['signup_url'] ?? ''),
+			'package_title'     => (string) ($payload['package_title'] ?? ''),
+			'entitled_elements' => (array) ($payload['entitled_elements'] ?? []),
 		];
 	}
 
@@ -469,6 +514,7 @@ final class ProActivationHelper
 		self::saveParam('pro_message', (string) $result['message']);
 		self::saveParam('pro_package_title', (string) $result['package_title']);
 		self::saveParam('pro_status', (string) $result['state']);
+		self::saveParam('pro_entitled_elements', json_encode($result['entitled_elements'] ?? []));
 		self::saveParam('pro_last_verified', (string) time());
 
 		return (string) $result['state'];
@@ -513,6 +559,7 @@ final class ProActivationHelper
 		self::saveParam('pro_message', (string) $result['message']);
 		self::saveParam('pro_package_title', (string) $result['package_title']);
 		self::saveParam('pro_status', (string) $result['state']);
+		self::saveParam('pro_entitled_elements', json_encode($result['entitled_elements'] ?? []));
 		self::saveParam('pro_last_verified', (string) $now);
 	}
 
@@ -544,6 +591,7 @@ final class ProActivationHelper
 		self::saveParam('pro_signup_url', '');
 		self::saveParam('pro_message', '');
 		self::saveParam('pro_package_title', '');
+		self::saveParam('pro_entitled_elements', '');
 		self::saveParam('pro_last_verified', '');
 
 		// Clear the per-request memo so the very next call to ensureInstallationId()

@@ -1,5 +1,28 @@
 # Changelog
 
+## 🚀 Version 2.7.1 (September 11, 2026)
+
+Add-on catalog + licensing refinements: the catalog now understands **per-add-on entitlement** (Install vs "Get it →" per add-on, so à-la-carte buyers see exactly what they own), the Pro-activation card is reframed as **"Link your Cybersalt Extensions account,"** every Pro add-on card carries a **vendor-dependency notice**, and the bundled fallback catalog no longer 404s installs. Builds on 2.7.0 (Codex support). Companion release: cs-release-manager 1.11.6.
+
+### ✨ New — per-add-on entitlement in the catalog (GitHub #21 / #25, Phase 2)
+
+- **Browse MCP Add-Ons now shows Install vs "Get it →" per add-on**, based on what the linked account actually owns — not one umbrella Pro verdict. An à-la-carte buyer (e.g. only "MCP for 4SEO") sees 4SEO as installable and the other Pro add-ons as **"Get it →"** (linking to the membership store), and is no longer told they have no membership (#21, the "four denials in thirteen minutes" bug).
+- **cs-release-manager `api.verifyaccess` gained an additive `entitled_elements` list** — the extension_elements the account can install, resolved across the whole catalog from the account's group memberships (free add-ons always included; owned Pro add-ons via à-la-carte plan group OR All-Access). Backward-compatible: old clients ignore the field. Verified end-to-end: Dragan (à-la-carte) → 4SEO + free only; an All-Access account → all 16.
+- **cs-mcp-for-j** stores/exposes it (`ProActivationHelper::getEntitledElements()` / `isEntitledTo()` / `isLinked()`); the catalog view keys per-add-on `has_pro_membership` off it and **self-heals** a stale/empty list on load (so an existing install verified under the pre-entitlement build fixes itself on first catalog view).
+- The dead "Pro — manual install" locked pill is now an actionable **"Get it →"** link to `/membership-plans`.
+- **Companion release: cs-release-manager v1.11.6** (the `entitled_elements` resolver in `AccessCheckHelper`).
+
+### ✨ Changed — "Link your Cybersalt Extensions account" + Pro add-on vendor-dependency notice (GitHub #21 / #25, Phase 1)
+
+- **Dashboard rename.** The "Pro Membership Activation" card is now **"Link your Cybersalt Extensions account"** (button "Activate Pro" → **"Link account"**, "Membership email" → **"Purchase email"**), and the intro is reworded so a customer who bought a single à-la-carte add-on is no longer told they need a "Pro membership." One link step (enter the email you purchased with) covers both All-Access and individual-add-on buyers.
+- **Vendor-dependency notice on Pro add-on cards.** Every Pro add-on in Browse MCP Add-Ons now shows: *"Adds MCP tools for &lt;Extension&gt; (from &lt;Vendor&gt;). You'll need that extension itself — a separate product purchased from the vendor — installed on your site for these tools to work."* Rendered from each add-on's `target_extension` (name + vendor). Prevents the "I bought the add-on, where's the extension?" confusion (Leandro / customer feedback).
+
+### 🐛 Fixed — catalog fallback pinned dead add-on versions (GitHub #20)
+
+- **Bundled fallback catalog no longer 404s add-on installs.** `catalog.fallback.json` had hardcoded the 4SEO and RSTicketsPro add-ons at **v1.8.0** in their `download_url`, but cs-release-manager only ever published **v1.10.2** for both — so any catalog install that fell back to the bundled file (when the live `api.catalog` fetch failed or was cache-stale) asked cs-release-manager for a version that did not exist and got *"Requested version not found."* Reported by Dragan Subotic (first MCP for 4SEO customer); his workaround was to drop the version parameter, which pulls the latest and works.
+- **Fix is structural, not a version bump.** The `&version=` pin is now stripped from every `download_url` in the fallback so it always installs the latest — matching the proven workaround and immune to future drift. The bundled file was also **regenerated from the live catalog**, so it now carries all current add-ons (16, was 4) with the AI-neutral *"Adds MCP tools for…"* descriptions instead of the stale *"Adds Claude tools for…"* text.
+- **build.ps1 now refreshes the fallback from the live catalog on every build** (fetch → strip version pins → relabel source → validate → write), with a graceful keep-the-committed-file fallback if the fetch fails. The bundled fallback can no longer silently drift out of date.
+
 ## 🚀 Version 2.7.0 (September 5, 2026)
 
 ### 🔌 New — Native Codex connection support

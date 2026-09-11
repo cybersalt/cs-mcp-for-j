@@ -141,6 +141,18 @@ final class InstallExtensionTool extends AbstractTool
 			);
 		}
 
+		// The install wrote new extension files and (for anything with a
+		// <namespace>) regenerated administrator/cache/autoload_psr4.php. But
+		// PHP-FPM's opcache keeps serving its pre-install compiled copies to
+		// every worker, so the just-installed extension's PSR-4 prefix is absent
+		// from the map the running workers actually use. Its classes then fail
+		// to autoload and — for a plugin — it silently never subscribes to any
+		// event, so its tools/handlers appear to "not exist" until opcache
+		// happens to cycle (TTL, revalidation, or an FPM restart). Reset opcache
+		// now so the install is usable on the very next request, matching what a
+		// human sees after an admin-GUI install on a freshly-reloaded page.
+		$opcache = $this->resetOpcache();
+
 		return ToolResult::json([
 			'ok'      => true,
 			'name'    => $name,
@@ -148,7 +160,30 @@ final class InstallExtensionTool extends AbstractTool
 			'type'    => $type,
 			'version' => $version,
 			'source'  => $url !== '' ? 'url' : 'path',
+			'opcache_reset' => $opcache,
 		]);
+	}
+
+	/**
+	 * Flush the shared opcode cache after an install so the new files and the
+	 * regenerated PSR-4 autoload map are visible to every FPM worker on the
+	 * next request. Returns a short status string for the tool result rather
+	 * than throwing: on hosts where opcache.restrict_api blocks the call, or
+	 * where opcache is off entirely, the install still succeeded — the caller
+	 * may just need one more request (or an FPM reload) before the new
+	 * extension's classes resolve.
+	 */
+	private function resetOpcache(): string
+	{
+		if (!function_exists('opcache_reset')) {
+			return 'unavailable';
+		}
+
+		// opcache.restrict_api can throw/emit a warning when called from a path
+		// outside the configured prefix; treat any failure as a soft no-op.
+		$done = @opcache_reset();
+
+		return $done ? 'reset' : 'blocked';
 	}
 
 	/**
