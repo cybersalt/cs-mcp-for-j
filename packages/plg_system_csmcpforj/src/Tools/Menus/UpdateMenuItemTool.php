@@ -34,7 +34,21 @@ final class UpdateMenuItemTool extends AbstractTool
 		'secure'             => 'secure',
 	];
 
-	private const VALID_ROBOTS = ['', 'index,follow', 'noindex,follow', 'index,nofollow', 'noindex,nofollow'];
+	/**
+	 * No empty-string member, deliberately. Google's Gemini API validates tool
+	 * schemas against a strict OpenAPI subset and rejects the ENTIRE catalogue
+	 * at parse time if any enum contains "" — HTTP 400 before a prompt even
+	 * runs, so no Gemini-backed client could use this server at all. Anthropic
+	 * tolerates it, which is why it went unnoticed.
+	 *
+	 * Nothing is lost: this constant is advertised in the schema only and is
+	 * never validated against at run time, and clearing the directive already
+	 * has a better route — params_unset: ["robots"] removes the key outright
+	 * rather than storing an empty string.
+	 *
+	 * Reported 2026-09-16 by Mathew John via Cline/gemini-2.5-flash. See #29.
+	 */
+	private const VALID_ROBOTS = ['index,follow', 'noindex,follow', 'index,nofollow', 'noindex,nofollow'];
 
 	public function getName(): string { return 'update_menu_item'; }
 
@@ -44,8 +58,9 @@ final class UpdateMenuItemTool extends AbstractTool
 			. 'parent_id, link, published, home, language, access, note, browserNav, '
 			. 'template_style_id. PARAMS (the JSON blob templates and SEO plugins read): use '
 			. 'named args browser_page_title (the <title> tag override), meta_description, '
-			. 'meta_keywords, robots ("", "index,follow", "noindex,follow", "index,nofollow", '
-			. '"noindex,nofollow"), page_heading, show_page_heading, page_class_sfx, '
+			. 'meta_keywords, robots ("index,follow", "noindex,follow", "index,nofollow", '
+			. '"noindex,nofollow" — to clear it use params_unset: ["robots"]), '
+			. 'page_heading, show_page_heading, page_class_sfx, '
 			. 'menu_anchor_title, secure (0=off, 1=HTTPS, 2=HTTP). For any params key NOT in '
 			. 'the named list, use params_set: object — merged into the existing params. To '
 			. 'delete a key, list it in params_unset: string[]. Existing params keys you don\'t '

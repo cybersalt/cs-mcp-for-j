@@ -1,5 +1,22 @@
 # Changelog
 
+## 🚀 Version 2.7.6 (September 17, 2026)
+
+### 🐛 Fixed — Gemini-backed clients could not use the server at all
+
+- **`update_menu_item` offered an empty string in its `robots` enum.** Google's Gemini API validates the whole tool catalogue against a strict OpenAPI subset and rejects **all of it** at parse time over a single empty enum member — `GenerateContentRequest.tools[0].function_declarations[N].parameters.properties[robots].enum[0]: cannot be empty`, HTTP 400 before any prompt runs. Not one broken tool: no usable server for any Gemini client. Anthropic tolerates empty enum members, which is why this shipped unnoticed.
+- The empty member is gone. Nothing is lost — it was advertised in the schema only and never validated against at run time, and clearing the directive already had a better route in `params_unset: ["robots"]`, which removes the key outright instead of storing an empty string.
+- Reported by **Mathew John**, testing via Cline + `gemini-2.5-flash`. Confirmed independently against our own live catalogue before changing anything. (#29)
+
+### ✅ Added — a guard so this cannot recur silently
+
+- **`tests/enum-guard.php`** scans this repo and the sibling add-on repos for any enum advertising an empty-string member, resolving both inline enums and `self::CONST` references. Exit code 1 on a hit.
+- Deliberately a build-time check rather than a runtime filter. Stripping `""` as the catalogue serialises would have silently broken the Events Booking add-on, where `""` legitimately means *inherit the global setting* — a third state distinct from `"0"` and `"1"`. That case needed an explicit `"inherit"` sentinel instead, which is a decision a human has to make per field. The guard fails loudly and makes someone choose.
+
+### 🧹 Housekeeping
+
+- Removed `admin/src/Model/cat.json`, an 8.5 KB debug dump of a catalog response that was never source. It sat inside the package tree, so the build swept it into the shipped zip from at least 2.7.5. Public catalog data only — no addresses, download ids or hashes — so litter rather than a leak.
+
 ## 🚀 Version 2.7.5 (September 14, 2026)
 
 ### 🐛 Fixed — the download id now reaches the update server, not just the download

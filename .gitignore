@@ -17,3 +17,9 @@ Thumbs.db
 vendor/
 composer.lock
 .phpunit.result.cache
+
+# Debug dumps and scratch (never release material)
+mcplist.txt
+cat.json
+smoke-canary.py
+smoke-test-runner.py
