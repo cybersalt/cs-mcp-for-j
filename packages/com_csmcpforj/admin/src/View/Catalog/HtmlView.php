@@ -84,6 +84,23 @@ final class HtmlView extends BaseHtmlView
 			ProActivationHelper::forceRefresh();
 			$entitled = ProActivationHelper::getEntitledElements();
 		}
+
+		// Second self-heal, for the case the first one cannot see: a list that is
+		// populated but OUT OF DATE. entitled_elements is a snapshot taken when
+		// the account was linked, so every Pro add-on published afterwards shows
+		// as "Get it →" on an already-linked site — including on All-Access
+		// accounts that own it outright. Re-verify when the catalog offers a Pro
+		// element this site has never heard of. Fingerprinted internally, so a
+		// site that genuinely does not own an add-on asks once and then stops
+		// rather than re-verifying on every page view.
+		$entitled = ProActivationHelper::refreshIfCatalogOffersUnknown(
+			array_values(array_filter(array_map(
+				static fn(array $addon): string => !empty($addon['requires_pro_membership'])
+					? (string) ($addon['addon_extension']['element'] ?? '')
+					: '',
+				$this->addons
+			)))
+		);
 		foreach ($this->addons as $i => $addon) {
 			$element = (string) ($addon['addon_extension']['element'] ?? '');
 			$this->addons[$i]['has_pro_membership'] = !empty($addon['requires_pro_membership'])

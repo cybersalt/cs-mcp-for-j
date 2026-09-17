@@ -1,5 +1,44 @@
 # Changelog
 
+## 🚀 Version 2.7.5 (September 14, 2026)
+
+### 🐛 Fixed — the download id now reaches the update server, not just the download
+
+- 2.7.4 stamped the dlid into `#__update_sites.extra_query`, which fixed downloads. It did **not** fix update *discovery*, because **Joomla never appends `extra_query` to the update-XML request** — only to the download URL. `Updater::findUpdates()` copies `extra_query` onto the parsed update record for the installer to use afterwards; the XML itself is fetched from the bare `location`.
+- The consequence was invisible until cs-release-manager started using the dlid: with no identity on the XML request, the update server could not tell an entitled site from an unentitled one, and briefly told **every** polling site its update was unavailable (fixed on that side in cs-release-manager 1.12.2).
+- `syncUpdateSiteDlid()` now writes the dlid into the update site's **`location`** as well as `extra_query` — location for discovery, extra_query for the download. Any existing `dlid=` in the location is stripped first, so re-linking with a different account cannot leave two.
+- Downloads were already working from 2.7.4; this restores an accurate answer to *"why can't I install this?"* for sites that genuinely cannot.
+
+## 🚀 Version 2.7.4 (September 14, 2026)
+
+### 🐛 Fixed — 2.7.3's update-site stamping did not actually run on most sites
+
+- 2.7.3 added `syncUpdateSiteDlid()` but called it only *after* a successful re-verification. `refreshIfStale()` returns early whenever the throttle window has not elapsed — which is the normal state for any site verified in the last 24 hours — so on those sites the stamp never happened and Pro add-on updates stayed broken.
+- The dlid does not depend on verification being due. The stamp now runs as soon as the site is known to be linked, before the throttle check. The write is guarded so it is a no-op when the value already matches.
+- Caught by blanking `extra_query` on a live site, loading the dashboard, and finding it still empty — the fix 2.7.3 shipped was real but unreachable.
+
+## 🚀 Version 2.7.3 (September 14, 2026) — superseded by 2.7.4, see above
+
+### 🐛 Fixed — Pro add-on updates failed for EVERY site, entitled or not
+
+- **Extensions → Update could not download any Pro add-on, on any site.** Joomla reported its own `COM_INSTALLER_PACKAGE_DOWNLOAD_FAILED` — *"Failed to download package. Download it and install manually from &lt;url&gt;"* — quoting a URL that also fails, because it is the same credential-less URL that just refused.
+- **Cause: `#__update_sites.extra_query` was never populated.** Our update XML's `<downloadurl>` carries no credentials — it cannot, since the XML is generated per-element, not per-site. Joomla's mechanism for exactly this is `extra_query`, which it appends both to the update-XML request and to the download URL; it is how every commercial Joomla extension ships a download ID. Leaving it empty meant `api.download` was called with no `dlid` and returned **HTTP 400**. cs-release-manager was behaving as designed — its own code comment says members-only packages *"rely on Joomla appending extra_query"* — the client side simply never wrote it.
+- **This was not an entitlement bug.** It hit paying, fully entitled customers identically. It stayed hidden because the in-admin catalog installs through `install_extension` with an explicit `dlid` URL, which bypasses Joomla's updater entirely — so the catalog worked while Joomla's own update screen did not.
+- **New `ProActivationHelper::syncUpdateSiteDlid()`** stamps `dlid=<installation_id>:<email_hash>` onto every cs-mcp-for-j add-on update site, and is called whenever the dlid can change: on activation, on entitlement refresh, and on deactivate (where it clears the credential rather than leaving a stale one behind). Update sites are matched on the same location pattern `checkUpdatesNow()` uses, so add-ons installed by any route are covered — including a manual Install-from-URL that never went through the catalog.
+- Existing sites self-heal on their next dashboard or catalog load after updating. Verified against a live entitled site: the download Joomla will now perform returns **HTTP 200, `application/zip`, 305,620 bytes**.
+
+> Companion release: **cs-release-manager 1.12.1**, which uses the now-arriving `dlid` to explain in the update XML *why* a site that still cannot download is being refused — rather than leaving Joomla to show a dead end.
+
+## 🚀 Version 2.7.2 (September 14, 2026)
+
+### 🐛 Fixed — newly published Pro add-ons showed as "Get it →" on sites that already own them
+
+- **Every time a new Pro add-on ships, already-linked sites showed it as needing purchase** — including All-Access accounts unambiguously entitled to it. Not a licensing bug: `api.verifyaccess` returned the correct, larger list the whole time. The stale copy was local.
+- `entitled_elements` is a **snapshot**, computed server-side when the account is linked and cached in component params. Anything published afterwards is simply not in it. Confirmed in the field 2026-09-14 while shipping the EasyBlog add-on: a site linked at 18:49 could not see an add-on published at 20:35 until its cached list was refreshed by hand — 16 elements cached, 17 actually entitled.
+- **2.7.1's self-heal could not catch this.** It fires only when the cached list is *empty* (verified under a pre-entitlement build). A list that is populated but out of date looks healthy, and that is precisely the case that recurs on every release.
+- **New: `ProActivationHelper::refreshIfCatalogOffersUnknown()`.** The catalog view now re-verifies when the catalog offers a Pro element this site has never heard of. The unknown set is fingerprinted and the fingerprint stored, so the probe is **self-limiting**: a newly published add-on changes the fingerprint exactly once and costs exactly one round trip, while a site that genuinely does not own an add-on asks once and then stops — rather than re-verifying on every page view for an answer that will not change.
+- The fingerprint is cleared on deactivate alongside the other Pro params, so an unlink → re-link with a different or upgraded account re-probes instead of trusting the old answer.
+
 ## 🚀 Version 2.7.1 (September 11, 2026)
 
 Add-on catalog + licensing refinements: the catalog now understands **per-add-on entitlement** (Install vs "Get it →" per add-on, so à-la-carte buyers see exactly what they own), the Pro-activation card is reframed as **"Link your Cybersalt Extensions account,"** every Pro add-on card carries a **vendor-dependency notice**, and the bundled fallback catalog no longer 404s installs. Builds on 2.7.0 (Codex support). Companion release: cs-release-manager 1.11.6.

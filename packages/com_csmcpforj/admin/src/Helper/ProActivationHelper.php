@@ -153,6 +153,87 @@ final class ProActivationHelper
 	}
 
 	/**
+	 * Re-verify entitlement when the catalog offers a Pro add-on this site has
+	 * never heard of, and return the (possibly refreshed) entitled list.
+	 *
+	 * WHY. `entitled_elements` is computed server-side at link/verify time and
+	 * cached here. It is a snapshot. **Publishing a new Pro add-on therefore
+	 * makes it show as "Get it →" on every already-linked site**, including
+	 * All-Access accounts that are unambiguously entitled to it — because their
+	 * cached list was written before the add-on existed. Confirmed in the field
+	 * 2026-09-14: a site linked at 18:49 could not see an add-on published at
+	 * 20:35 until its list was refreshed by hand, while `api.verifyaccess`
+	 * returned the correct, larger list the whole time.
+	 *
+	 * The existing self-heal only covers an EMPTY list (verified under a
+	 * pre-entitlement build). An outdated-but-non-empty list looked fine and was
+	 * left alone, which is exactly the case that bites every time we ship.
+	 *
+	 * WHY IT IS SAFE TO CALL ON EVERY CATALOG LOAD. A site that is genuinely not
+	 * entitled to an add-on would otherwise re-verify forever, hammering
+	 * cs-release-manager on every page view for an answer that will not change.
+	 * So the unknown set is fingerprinted and the fingerprint stored: we
+	 * re-verify once per distinct set of unrecognised elements and then stop.
+	 * A newly published add-on changes the fingerprint exactly once and costs
+	 * exactly one round trip; an à-la-carte buyer who simply does not own
+	 * something pays that cost once and never again.
+	 *
+	 * @param  string[] $proElements Pro-tier add-on elements offered by the catalog.
+	 * @return string[] The entitled elements, refreshed if this call triggered one.
+	 */
+	public static function refreshIfCatalogOffersUnknown(array $proElements): array
+	{
+		$entitled = self::getEntitledElements();
+
+		if (!self::isLinked()) {
+			return $entitled;
+		}
+
+		$unknown = array_values(array_diff(
+			array_filter(array_unique($proElements)),
+			$entitled
+		));
+
+		if ($unknown === []) {
+			return $entitled;
+		}
+
+		sort($unknown);
+		$fingerprint = md5(implode(',', $unknown));
+
+		if ($fingerprint === self::readRawParam('pro_entitlement_probe')) {
+			// Already asked about exactly this set and the answer did not
+			// include them. Do not ask again until the catalog changes.
+			return $entitled;
+		}
+
+		self::saveParam('pro_entitlement_probe', $fingerprint);
+		self::forceRefresh();
+
+		return self::getEntitledElements();
+	}
+
+	/**
+	 * Read one raw value out of the component params, direct from the database.
+	 *
+	 * Same reasoning as readPro(): ComponentHelper's static cache can hand back
+	 * values that predate a save committed earlier in the same request.
+	 */
+	private static function readRawParam(string $key): string
+	{
+		$db = Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class);
+		$q  = $db->getQuery(true)
+			->select($db->quoteName('params'))
+			->from($db->quoteName('#__extensions'))
+			->where($db->quoteName('type') . ' = ' . $db->quote('component'))
+			->where($db->quoteName('element') . ' = ' . $db->quote('com_csmcpforj'));
+
+		$data = json_decode((string) ($db->setQuery($q)->loadResult() ?? ''), true) ?: [];
+
+		return (string) ($data[$key] ?? '');
+	}
+
+	/**
 	 * True when the linked account is entitled to install the given add-on
 	 * element (e.g. "csmcpforj4seo"). Drives the catalog's per-add-on
 	 * Install-vs-"Get it" state instead of one umbrella Pro verdict.
@@ -247,6 +328,95 @@ final class ProActivationHelper
 			return '';
 		}
 		return $pro['installation_id'] . ':' . $pro['email_hash'];
+	}
+
+	/**
+	 * Push the current dlid into `extra_query` on every cs-mcp-for-j add-on
+	 * update site, so Joomla's own Extensions → Update can download Pro add-ons.
+	 *
+	 * WHY THIS IS NEEDED. Our update XML's `<downloadurl>` carries no
+	 * credentials — it cannot, because the XML is generated per-element, not
+	 * per-site. Joomla's mechanism for exactly this is `extra_query`: whatever
+	 * is stored on the update-site row gets appended both to the update-XML
+	 * request and to the download URL. It is how every commercial Joomla
+	 * extension ships a download ID (4SEO carries its Weeblr key the same way,
+	 * on this very fleet).
+	 *
+	 * Leaving it empty means `api.download` is called with no dlid, returns
+	 * **HTTP 400**, and Joomla reports its own
+	 * `COM_INSTALLER_PACKAGE_DOWNLOAD_FAILED` — *"Failed to download package.
+	 * Download it and install manually from &lt;url&gt;"* — quoting a URL that
+	 * also 400s, because it is the same credential-less URL. That message is a
+	 * core string an extension cannot rewrite, so the only real fix is to stop
+	 * the download failing in the first place.
+	 *
+	 * **This affected entitled sites too**, not just unentitled ones: before
+	 * this, updating any Pro add-on through Extensions → Update failed for
+	 * everybody. Found 2026-09-14.
+	 *
+	 * Matching on the location pattern rather than a stored id list is
+	 * deliberate — it is the same selector `checkUpdatesNow()` uses, and it
+	 * picks up add-ons installed by any route, including a manual
+	 * Install-from-URL that never went through our catalog.
+	 *
+	 * @return int Number of update-site rows written.
+	 */
+	public static function syncUpdateSiteDlid(): int
+	{
+		$dlid = self::getDlid();
+
+		// Not linked → clear rather than leave a stale credential behind.
+		$extraQuery = $dlid === '' ? '' : 'dlid=' . $dlid;
+
+		$db = Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class);
+
+		$written = 0;
+
+		try {
+			$rows = $db->setQuery(
+				$db->getQuery(true)
+					->select($db->quoteName(['update_site_id', 'location', 'extra_query']))
+					->from($db->quoteName('#__update_sites'))
+					->where($db->quoteName('location') . ' LIKE ' . $db->quote('%cybersalt.com%task=api.updatexml%'))
+			)->loadAssocList() ?: [];
+
+			foreach ($rows as $row) {
+				// The `location` also carries the dlid — and this is NOT belt
+				// and braces, it is the only channel that reaches the update
+				// XML. Joomla appends `extra_query` to the DOWNLOAD url only;
+				// the XML itself is fetched from the bare `location`
+				// (Updater::findUpdates() copies extra_query onto the parsed
+				// update record for the installer to use afterwards). So
+				// without this, cs-release-manager cannot tell who is polling
+				// and cannot say why a download would be refused.
+				$location = (string) $row['location'];
+				$location = (string) preg_replace('/([?&])dlid=[^&]*/', '', $location);
+				$location = rtrim($location, '?&');
+
+				if ($dlid !== '') {
+					$location .= (str_contains($location, '?') ? '&' : '?') . 'dlid=' . $dlid;
+				}
+
+				if ($location === (string) $row['location'] && (string) $row['extra_query'] === $extraQuery) {
+					continue;
+				}
+
+				$db->setQuery(
+					$db->getQuery(true)
+						->update($db->quoteName('#__update_sites'))
+						->set($db->quoteName('extra_query') . ' = ' . $db->quote($extraQuery))
+						->set($db->quoteName('location') . ' = ' . $db->quote($location))
+						->where($db->quoteName('update_site_id') . ' = ' . (int) $row['update_site_id'])
+				)->execute();
+
+				$written++;
+			}
+		} catch (\Throwable $e) {
+			// Never let a bookkeeping write break activation or a catalog load.
+			return $written;
+		}
+
+		return $written;
 	}
 
 	/**
@@ -390,6 +560,11 @@ final class ProActivationHelper
 		// on the very next dashboard load.
 		self::saveParam('pro_last_verified', (string) time());
 
+		// The dlid only exists once we are linked, so stamp it onto the add-on
+		// update sites now — otherwise Extensions > Update downloads Pro add-ons
+		// with no credentials and Joomla reports a failure it cannot explain.
+		self::syncUpdateSiteDlid();
+
 		return [
 			'ok'            => $verifyResult['state'] === 'active',
 			'state'         => $verifyResult['state'],
@@ -517,6 +692,11 @@ final class ProActivationHelper
 		self::saveParam('pro_entitled_elements', json_encode($result['entitled_elements'] ?? []));
 		self::saveParam('pro_last_verified', (string) time());
 
+		// The dlid only exists once we are linked, so stamp it onto the add-on
+		// update sites now — otherwise Extensions > Update downloads Pro add-ons
+		// with no credentials and Joomla reports a failure it cannot explain.
+		self::syncUpdateSiteDlid();
+
 		return (string) $result['state'];
 	}
 
@@ -537,6 +717,14 @@ final class ProActivationHelper
 		if ($pro['installation_id'] === '' || $pro['email_hash'] === '') {
 			return;
 		}
+
+		// Stamp the update sites BEFORE the throttle check, not after a
+		// successful re-verify. The dlid does not depend on verification being
+		// due — an already-linked site whose entitlement was checked an hour ago
+		// still needs its extra_query populated, and gating this behind the
+		// throttle meant a site that never happened to be due simply never got
+		// stamped. The write is a no-op when the value already matches.
+		self::syncUpdateSiteDlid();
 
 		$throttleSeconds = (int) $pro['recheck_seconds'];
 		$lastVerified    = (int) $pro['last_verified'];
@@ -561,6 +749,7 @@ final class ProActivationHelper
 		self::saveParam('pro_status', (string) $result['state']);
 		self::saveParam('pro_entitled_elements', json_encode($result['entitled_elements'] ?? []));
 		self::saveParam('pro_last_verified', (string) $now);
+		self::syncUpdateSiteDlid();
 	}
 
 	/**
@@ -593,6 +782,16 @@ final class ProActivationHelper
 		self::saveParam('pro_package_title', '');
 		self::saveParam('pro_entitled_elements', '');
 		self::saveParam('pro_last_verified', '');
+		// Clear the unknown-element fingerprint too. Leaving it would make the
+		// catalog's second self-heal think it had already asked about those
+		// add-ons, so a re-link with a different (or upgraded) account would not
+		// re-probe and the newly owned add-ons would stay locked.
+		self::saveParam('pro_entitlement_probe', '');
+
+		// Clear the credential off the update sites too. Leaving a dlid for an
+		// account this site is no longer linked to would keep working until the
+		// membership lapsed, which is not what "deactivate" should mean.
+		self::syncUpdateSiteDlid();
 
 		// Clear the per-request memo so the very next call to ensureInstallationId()
 		// (e.g. if Tim deactivates then re-activates in the same browser session
