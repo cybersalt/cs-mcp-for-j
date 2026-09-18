@@ -125,6 +125,37 @@ final class UpdateMenuItemTool extends AbstractTool
 			}
 		}
 
+		/*
+		 * com_menus' ItemModel::save() is NOT partial-payload safe. It reads
+		 * three keys off $data unconditionally, before any bind:
+		 *
+		 *     if ($table->parent_id == $data['parent_id']) { ...
+		 *     if ($data['menuordering'] == -1)             { ...
+		 *     if ($data['menutype'] != $table->menutype)   { ...
+		 *
+		 * Omit them and PHP 8 evaluates each to null, so the model concludes the
+		 * item is being moved to a menu called "" and stores it that way. The
+		 * item survives in #__menu but belongs to no menu: it renders nowhere and
+		 * disappears from the Menus manager, while still holding its alias — so
+		 * the obvious recovery ("it's gone, I'll recreate it") then collides with
+		 * that orphan and, before the guard below existed, died on
+		 * ApiRouter::build() with an error naming neither cause.
+		 *
+		 * So: re-supply them from the row we already loaded whenever the caller
+		 * did not. A caller who DOES pass menutype or parent_id still moves the
+		 * item, which is the documented behaviour.
+		 *
+		 * menuordering 0 means "leave the position alone" — we never reorder on a
+		 * field update, because the caller did not ask us to.
+		 */
+		if (!array_key_exists('menutype', $data)) {
+			$data['menutype'] = $existing->menutype;
+		}
+		if (!array_key_exists('parent_id', $data)) {
+			$data['parent_id'] = (int) $existing->parent_id;
+		}
+		$data['menuordering'] = 0;
+
 		// Decide whether any params-touching arg was supplied. If not, skip
 		// params handling entirely so the existing blob isn't re-serialised
 		// (matches Joomla's own "don't touch what you didn't change" feel).

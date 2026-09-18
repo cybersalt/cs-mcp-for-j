@@ -105,6 +105,38 @@ final class CreateMenuItemTool extends AbstractTool
 			'client_id'         => 0,
 		];
 
+		/*
+		 * Refuse an alias collision ourselves, because letting Joomla detect it
+		 * is fatal under the API application.
+		 *
+		 * Table\Menu::check() spots the clash and then, to build a friendly
+		 * "edit the conflicting item" link for its error message, calls
+		 * Route::_(). Under the API application that resolves to ApiRouter,
+		 * which has no build(), so the request dies with
+		 * "Call to undefined method Joomla\CMS\Router\ApiRouter::build()" — an
+		 * error that names neither the alias nor the conflict.
+		 *
+		 * The collision is scoped to (menutype, parent_id, alias) and INCLUDES
+		 * TRASHED items: core has a dedicated string for that case
+		 * (JLIB_DATABASE_ERROR_MENU_UNIQUE_ALIAS_TRASHED), which is exactly the
+		 * case that wastes the most time, because a trashed item is invisible in
+		 * the Menus manager. So we report the state too.
+		 */
+		if ($clash = $this->findAliasClash($menutype, (int) $data['parent_id'], $alias)) {
+			$state = (int) $clash['published'] === -2
+				? 'in the TRASH (which is why you cannot see it in the Menus manager — '
+					. 'empty the menu trash, or pick a different alias)'
+				: 'published/unpublished but present';
+
+			return ToolResult::error(
+				'A menu item with alias "' . $alias . '" already exists under parent '
+				. (int) $data['parent_id'] . ' in menu "' . $menutype . '": id '
+				. (int) $clash['id'] . ', titled "' . $clash['title'] . '", currently ' . $state . '. '
+				. 'Joomla scopes menu aliases to (menu, parent, alias). Either choose a different '
+				. 'alias, or edit item ' . (int) $clash['id'] . ' instead of creating a new one.'
+			);
+		}
+
 		$model  = $this->getModel('com_menus', 'Item');
 		$result = $this->saveAdminModel($model, $data);
 
@@ -117,5 +149,32 @@ final class CreateMenuItemTool extends AbstractTool
 			$response['post_save_warning'] = $result['error'];
 		}
 		return ToolResult::json($response);
+	}
+
+	/**
+	 * Find an existing menu item occupying (menutype, parent_id, alias), in ANY
+	 * state including trashed.
+	 *
+	 * Deliberately a direct query rather than a model call: this runs before the
+	 * save specifically to avoid the code path that fatals, so it must not
+	 * depend on anything that might route a URL.
+	 *
+	 * @return array{id:int,title:string,published:int}|null
+	 */
+	private function findAliasClash(string $menutype, int $parentId, string $alias): ?array
+	{
+		$q = $this->db->getQuery(true)
+			->select([$this->db->quoteName('id'), $this->db->quoteName('title'), $this->db->quoteName('published')])
+			->from($this->db->quoteName('#__menu'))
+			->where($this->db->quoteName('menutype') . ' = :menutype')
+			->where($this->db->quoteName('parent_id') . ' = :parent')
+			->where($this->db->quoteName('alias') . ' = :alias')
+			->bind(':menutype', $menutype)
+			->bind(':parent', $parentId, \Joomla\Database\ParameterType::INTEGER)
+			->bind(':alias', $alias);
+
+		$row = $this->db->setQuery($q, 0, 1)->loadAssoc();
+
+		return $row ?: null;
 	}
 }

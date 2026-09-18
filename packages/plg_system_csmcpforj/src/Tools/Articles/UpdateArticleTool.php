@@ -10,6 +10,23 @@ use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\User\User;
 
+/**
+ * @partial-save-safe com_content's ArticleModel::save() binds only the keys it is
+ *   given; it does not read absent keys off $data the way com_menus' ItemModel
+ *   does. Verified behaviourally 2026-09-18 on a live Joomla 5 site in an
+ *   America/Vancouver (UTC-7) timezone: created an article, read the full row,
+ *   ran update_article twice with ONLY `title`, re-read after each. `created`,
+ *   `publish_up` and every untouched column were byte-identical; only `modified`
+ *   advanced, which is correct.
+ *
+ *   ⚠️ Do NOT use Joomla's core web-services API (PATCH /v1/content/articles/<id>)
+ *   as a substitute for this tool. The same test against that endpoint shifted
+ *   BOTH `created` and `publish_up` forward by the site's UTC offset on EVERY
+ *   call — two PATCHes put an article 14 hours into the future, at which point
+ *   Joomla stops publishing it while `state` still reads 1 and the body reads
+ *   correct. That is a core bug, not ours, and this tool is the safe path.
+ *   See cs-mcp-for-j#32.
+ */
 final class UpdateArticleTool extends AbstractTool
 {
 	private const UPDATABLE_SCALARS = [
