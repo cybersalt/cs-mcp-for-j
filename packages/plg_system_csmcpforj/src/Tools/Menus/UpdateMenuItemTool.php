@@ -156,6 +156,30 @@ final class UpdateMenuItemTool extends AbstractTool
 		}
 		$data['menuordering'] = 0;
 
+		/*
+		 * Issue #18: when the link changes, component_id has to follow it.
+		 * ItemModel::save() takes component_id from $data as given, so turning a
+		 * com_content link into e.g. com_gantry5 kept the old component_id and
+		 * the item resolved to the wrong component. Derive it from the new
+		 * link's option=.
+		 */
+		if (isset($arguments['link']) && $arguments['link'] !== $existing->link) {
+			parse_str((string) parse_url((string) $arguments['link'], PHP_URL_QUERY), $query);
+			if (!empty($query['option'])) {
+				$db  = $this->db;
+				$cid = (int) $db->setQuery(
+					$db->getQuery(true)
+						->select($db->quoteName('extension_id'))
+						->from($db->quoteName('#__extensions'))
+						->where($db->quoteName('type') . ' = ' . $db->quote('component'))
+						->where($db->quoteName('element') . ' = ' . $db->quote((string) $query['option']))
+				)->loadResult();
+				if ($cid > 0) {
+					$data['component_id'] = $cid;
+				}
+			}
+		}
+
 		// Decide whether any params-touching arg was supplied. If not, skip
 		// params handling entirely so the existing blob isn't re-serialised
 		// (matches Joomla's own "don't touch what you didn't change" feel).
@@ -205,8 +229,23 @@ final class UpdateMenuItemTool extends AbstractTool
 			$data['params'] = $merged;
 		}
 
-		if (!$model->save($data)) {
-			return ToolResult::error('com_menus rejected the update: ' . $model->getError());
+		/*
+		 * Issue #18: run the save in a transaction. ItemModel::save() can fail
+		 * after some columns are already written (the reported case returned an
+		 * error but had changed the link anyway); a rollback leaves the item
+		 * exactly as it was.
+		 */
+		$db = $this->db;
+		$db->transactionStart();
+		try {
+			if (!$model->save($data)) {
+				$db->transactionRollback();
+				return ToolResult::error('com_menus rejected the update: ' . $model->getError());
+			}
+			$db->transactionCommit();
+		} catch (\Throwable $e) {
+			$db->transactionRollback();
+			return ToolResult::error('com_menus update failed, nothing was written: ' . $e->getMessage());
 		}
 
 		$response = ['ok' => true, 'id' => $id];
