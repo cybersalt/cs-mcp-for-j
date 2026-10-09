@@ -63,11 +63,26 @@ final class CreateModuleTool extends AbstractTool
 			'client_id' => isset($arguments['client_id']) ? (int) $arguments['client_id'] : 0,
 			'language'  => (string) ($arguments['language'] ?? '*'),
 			'published' => isset($arguments['published']) ? (int) $arguments['published'] : 1,
-			'assigned'  => isset($arguments['assigned']) ? (int) $arguments['assigned'] : -1, // -1 = all pages
-			'assignment' => isset($arguments['assignment']) && is_array($arguments['assignment'])
-				? array_map('intval', $arguments['assignment'])
-				: [],
 		];
+
+		// Issue #17: com_modules' ModuleModel::save() reads $data['assignment'] as
+		// the MODE (0 = all, 1 = only selected, -1 = all except, non-numeric = none)
+		// and $data['assigned'] as the ARRAY of menu item ids. This tool's schema
+		// uses the opposite names, and passing them through unchanged made the
+		// model delete the old #__modules_menu rows and insert nothing.
+		$mode = isset($arguments['assigned']) ? (int) $arguments['assigned'] : -1; // tool: -1 all, 0 none, 1 only, 2 except
+		$ids  = isset($arguments['assignment']) && is_array($arguments['assignment'])
+			? array_map('intval', $arguments['assignment'])
+			: [];
+		if (in_array($mode, [1, 2], true) && $ids === []) {
+			return ToolResult::error('assignment[] (menu item ids) is required when assigned is 1 or 2.');
+		}
+		switch ($mode) {
+			case 0:  $data['assignment'] = '-'; $data['assigned'] = [];   break; // no pages
+			case 1:  $data['assignment'] = 1;   $data['assigned'] = $ids; break; // only selected
+			case 2:  $data['assignment'] = -1;  $data['assigned'] = $ids; break; // all except selected
+			default: $data['assignment'] = 0;   $data['assigned'] = [];   break; // -1: all pages
+		}
 
 		$model  = $this->getModel('com_modules', 'Module');
 		$result = $this->saveAdminModel($model, $data);
