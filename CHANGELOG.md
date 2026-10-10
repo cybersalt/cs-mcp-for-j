@@ -1,5 +1,43 @@
 # Changelog
 
+## 🚀 Version 2.8.0 (October 9, 2026)
+
+**The community release.** Most of this came from one person: **Dragan Subotic** ([gagibeograd](https://github.com/gagibeograd)) filed the reports, wrote patches for three of them, and opened the project's first external pull requests.
+
+### 🐛 Fixed &mdash; menus and modules lost data silently
+
+- **`create_module` / `update_module` dropped menu assignments entirely** ([#17](https://github.com/cybersalt/cs-mcp-for-j/issues/17)). `assigned` and `assignment` were passed to `ModuleModel::save()` the wrong way round, so the existing `#__modules_menu` rows were deleted and nothing was written back. Worse, an `update_module` call that said nothing about assignment reset the module to **all pages**, because the model's default did. A module quietly appearing site-wide is the kind of thing nobody notices until a customer does. Fixed by **PR #34**, Dragan's patch.
+- **`update_menu_item` pointed items at the wrong component after a link change** ([#18](https://github.com/cybersalt/cs-mcp-for-j/issues/18)). `ItemModel::save()` stores `component_id` exactly as handed to it &mdash; only `getItem()` re-derives it from the link, and that runs when the admin form loads, never on save. So switching a menu item from `com_content` to `com_contact` left it rendering as one component while the Menus manager reported another. It is now derived from the new link, for type `component` only; url and alias items keep `component_id` 0 as they should.
+- **`update_menu_item` orphaned the item it was editing** (first half of #18, shipped unreleased in September). `ItemModel::save()` is not partial-payload safe: omit `menutype` or `parent_id` and PHP 8 evaluates them to null, so the model concludes the item belongs to a menu called `""` and stores it that way. The item survived in `#__menu`, rendered nowhere, and vanished from the Menus manager while still holding its alias.
+- **`create_menu_item` died on an alias collision** ([#30](https://github.com/cybersalt/cs-mcp-for-j/issues/30)) with a router error naming neither the alias nor the conflict &mdash; which is exactly what you hit after the orphan above, when you reasonably tried to recreate the item. It now detects the clash itself, **including against trashed items**, and names the id you are colliding with.
+
+### 🐛 Fixed &mdash; Gemini could not use the server at all
+
+- **One empty string in one enum took down the whole catalogue** ([#29](https://github.com/cybersalt/cs-mcp-for-j/issues/29)). `update_menu_item`'s `robots` parameter offered `""` as a choice. Google's Gemini API validates tool schemas against a strict OpenAPI subset and rejects **every** tool at parse time over a single empty member &mdash; HTTP 400 before a prompt runs. Not one broken tool: no usable server for any Gemini-backed client. Anthropic tolerates it, which is why it shipped unnoticed. Reported by Mathew John, who then confirmed the fix.
+- **`tests/enum-guard.php`** now fails the build if any enum advertises an empty member, across this repo and the add-on repos. Deliberately a build-time check rather than a runtime filter: empty string is sometimes load-bearing, and silently stripping it would trade a compatibility bug for a capability regression.
+
+### 🔐 Fixed &mdash; permissions documentation that cost people real time
+
+- **The dashboard claimed Administrator and Manager work "out of the box". They do not.** Both get `403 Forbidden` from every tool until their group has Joomla's **Web Services Login** permission (`core.login.api`), which only Super Users hold by default. The page sent people to check the component's permissions, the token and the endpoint URL &mdash; none of which was the problem. Both rows now say what they need, and a notice above the table states the precondition and points at **System &rarr; Global Configuration &rarr; Permissions**, on the *group*, which is the part people get wrong.
+
+### 🔧 Fixed &mdash; registration and installs
+
+- **Registering from the CLI recorded the site as `localhost`.** `Uri::root()` has no host there, and the fallback wrote that string into the installation id &mdash; which is generated once, saved permanently, and is the unique key on our side. One CLI call registered a site forever as "localhost". It now refuses with an explanation instead of inventing an identity. Scoped to generation only, so an already-registered site still works from CLI.
+- **Installing an add-on could produce an HTTP 500 a minute later.** Joomla's PSR-4 autoload map is written once and reused, so a plugin installed afterwards simply is not in it and the first request that reaches its classes fatals. Every add-on's installer now drops that map, resets opcache and clears Joomla's cache groups. All best-effort &mdash; a cache that will not clear never fails an install.
+
+### 🎨 Changed &mdash; you can now find the fields you type into
+
+- The Joomla API token field could not be found on the dashboard **by someone who knew exactly what he was looking for**. It was a hairline grey card on a page carrying two coloured alerts, a numbered list, a code block and a large button: the only thing meant to be *acted on* was styled more quietly than everything explaining it. Fields you type into now carry a brand-orange rail, and on the dashboard the token field is step 2 of the setup sequence rather than a stray box beside it.
+
+### 📦 Add-ons released alongside
+
+- **4SEO 1.10.3** &mdash; `query_4seo_table` returned the **entire table** when `where` was a string instead of a list of clauses ([#19](https://github.com/cybersalt/cs-mcp-for-j/issues/19)), because "no filter asked for" and "filter asked for but unreadable" took the same branch. A silent superset is worse than an error: nothing failed, the result looked right, and the caller acted on rows that never matched. Reported with a patch by Dragan. This build also finally carries the auto-enable step, so it no longer installs disabled.
+- **Membership Pro** &mdash; the same empty-enum problem as #29, in the coupon tools. Any site with it installed was unusable from Gemini. `subscription_type` now takes `"any"` instead of `""`; the old value is still accepted.
+
+### 🚧 Server-side (cs-release-manager, deployed separately)
+
+- **Free add-ons returned 403 "membership not active"** on the members download route, which ran the group check regardless of whether the package was public. The catalog's own public link worked, so it looked like a client bug. Affected every free-add-on user on that route.
+
 ## 🚀 Version 2.7.6 (September 17, 2026)
 
 ### 🐛 Fixed — Gemini-backed clients could not use the server at all
