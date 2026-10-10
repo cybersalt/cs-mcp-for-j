@@ -8,6 +8,7 @@ namespace Cybersalt\Plugin\System\Csmcpforj\Tools\Categories;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
+use Joomla\CMS\Factory;
 use Joomla\CMS\User\User;
 
 final class DeleteCategoryTool extends AbstractTool
@@ -52,6 +53,28 @@ final class DeleteCategoryTool extends AbstractTool
 		$first = $model->getItem($ids[0]);
 		if ($first && !empty($first->extension)) {
 			$model->setState($model->getName() . '.extension', $first->extension);
+
+			/*
+			 * CategoryModel::publish() reads the extension from the REQUEST, not
+			 * from model state:
+			 *
+			 *     $extension = Factory::getApplication()->getInput()->get('extension');
+			 *
+			 * then hands it to AfterCategoryChangeStateEvent as `context`, which
+			 * is typed `string`. The admin UI always has `&extension=com_content`
+			 * in its URL so this is invisible there — but nothing puts it in the
+			 * input over MCP, so it arrives null and Joomla 6 throws
+			 * `ModelEvent::onSetContext(): Argument #1 ($value) must be of type
+			 * string, null given`. The trash path was therefore broken for every
+			 * category over MCP, while `permanent` worked because delete() does
+			 * not fire that event.
+			 *
+			 * Setting the input is what the admin request does naturally, so this
+			 * puts the model in the state core already expects rather than
+			 * working around it. Same family as #17 and #18: core reading from
+			 * somewhere the MCP path never populates.
+			 */
+			Factory::getApplication()->getInput()->set('extension', $first->extension);
 		}
 
 		if (!empty($arguments['permanent'])) {

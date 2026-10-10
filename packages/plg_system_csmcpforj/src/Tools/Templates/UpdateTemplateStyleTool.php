@@ -24,6 +24,11 @@ use Joomla\Registry\Registry;
  *
  * Does NOT touch home/inheritance/parent/assignment — set_default_template_style
  * is the home-flag tool; per-menu-item assignment is via the menu tools.
+ *
+ * @partial-save-safe StyleModel::save() binds only supplied keys. Verified
+ * behaviourally on Joomla 6.1.4, 2026-10-09 against an existing non-default
+ * style: changed only `title`, diffed all 8 fields, then restored the
+ * original title — nothing else moved.
  */
 final class UpdateTemplateStyleTool extends AbstractTool
 {

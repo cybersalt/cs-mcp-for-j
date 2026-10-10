@@ -1,5 +1,20 @@
 # Changelog
 
+## 🚀 Version 2.8.1 (October 9, 2026)
+
+Four defects found by **running** every Update and Delete tool against a live Joomla 6 site rather than reading them. Three were invisible to static review.
+
+### 🐛 Fixed
+
+- **`create_user` did not work on Joomla 5 or 6 at all** ([#15](https://github.com/cybersalt/cs-mcp-for-j/issues/15)). It passed `params` as the string `'{}'`; `User::bind()` hands that to `Registry::loadArray()`, which is typed `array`, so every call died with a TypeError and no user was created. Now an empty array.
+- **`update_user` could not change anything.** com_users reads `$data['groups']` as the complete group list, so omitting it meant *remove every group* &mdash; and the model then refused the entire save with `CANNOT_SAVE_ACCOUNT_WITHOUT_GROUPS`. Renaming a user, changing an email, blocking an account: all impossible unless the caller happened to re-send the full group list. The existing groups are now re-supplied when the caller does not pass any. Same hazard as #18, different model.
+- **`delete_category` could not trash anything on Joomla 6.** `CategoryModel::publish()` reads the extension from the HTTP request (`getInput()->get('extension')`) and hands it to an event typed `string`. The admin UI always has `&extension=com_content` in its URL, so this is invisible there; over MCP it arrived null and threw. Permanent delete was unaffected, because it does not fire that event.
+- **`delete_module` reported failures with an empty reason.** Joomla refuses to permanently delete a module that is not already trashed &mdash; and signals it by pushing a message onto the application queue and returning `null`, leaving `getError()` untouched. The tool read only `getError()`, so the operator got `Permanent delete rejected:` and nothing else. It now checks the precondition up front and names it, and falls back to the message queue when a model fails silently.
+
+### ✅ Verified rather than assumed
+
+Every `Update*Tool` has now been run through the behavioural partial-save test the guard prescribes &mdash; create fully populated, change exactly one field, re-read, diff everything. Six were confirmed clean (categories, tags, custom fields, field groups, template styles, user groups); `update_user` was not, and is fixed above. Each carries an annotation recording what was observed, including the field count, so the claim is auditable rather than asserted.
+
 ## 🚀 Version 2.8.0 (October 9, 2026)
 
 **The community release.** Most of this came from one person: **Dragan Subotic** ([gagibeograd](https://github.com/gagibeograd)) filed the reports, wrote patches for three of them, and opened the project's first external pull requests.

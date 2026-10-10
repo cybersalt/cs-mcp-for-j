@@ -10,6 +10,13 @@ use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\User\User;
 
+/**
+ * @partial-save-safe TagModel::save() binds only supplied keys. Verified
+ * behaviourally on Joomla 6.1.4, 2026-10-09: created a tag with every field
+ * populated, changed only `title`, diffed all 30 fields — nothing else
+ * moved. Note tags are a nested set like menus, so this was NOT assumed from
+ * #__menu behaviour.
+ */
 final class UpdateTagTool extends AbstractTool
 {
 	private const UPDATABLE = ['title', 'alias', 'parent_id', 'description', 'published', 'language', 'access'];

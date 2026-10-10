@@ -36,6 +36,11 @@ use Joomla\CMS\User\User;
  * Context is intentionally NOT updatable — changing a field's context
  * orphans its existing values; create a new field in the new context
  * instead.
+ *
+ * @partial-save-safe FieldModel::save() binds only supplied keys. Verified
+ * behaviourally on Joomla 6.1.4, 2026-10-09: created a field with every
+ * field populated, changed only `title`, diffed all 26 fields — nothing else
+ * moved.
  */
 final class UpdateCustomFieldTool extends AbstractTool
 {

@@ -10,6 +10,11 @@ use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\User\User;
 
+/**
+ * @partial-save-safe GroupModel::save() binds only supplied keys. Verified
+ * behaviourally on Joomla 6.1.4, 2026-10-09: created a group, changed only
+ * `title`, re-read from list_user_groups and diffed — nothing else moved.
+ */
 final class UpdateUserGroupTool extends AbstractTool
 {
 	public function getName(): string { return 'update_user_group'; }

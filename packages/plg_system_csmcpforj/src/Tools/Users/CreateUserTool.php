@@ -74,7 +74,22 @@ final class CreateUserTool extends AbstractTool
 			'requireReset' => isset($arguments['requireReset']) ? (int) $arguments['requireReset'] : 0,
 			'groups'       => $groups,
 			'registerDate' => gmdate('Y-m-d H:i:s'),
-			'params'       => '{}',
+
+			/*
+			 * An ARRAY, not the string '{}'. Issue #15.
+			 *
+			 * UserModel::save() hands $data straight to User::bind(), which on
+			 * Joomla 5/6 does
+			 *
+			 *     $this->_params->loadArray($array['params']);   // User.php:669
+			 *
+			 * and Registry::loadArray() is typed `array`. A JSON string therefore
+			 * raises `Registry::loadArray(): Argument #1 ($array) must be of type
+			 * array, string given` and no user is created at all. An empty array
+			 * is the correct "no params" value; bind() serialises it on the way
+			 * to the column.
+			 */
+			'params'       => [],
 		];
 
 		$model  = $this->getModel('com_users', 'User');

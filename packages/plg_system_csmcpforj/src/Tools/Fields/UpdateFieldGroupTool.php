@@ -10,6 +10,11 @@ use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\User\User;
 
+/**
+ * @partial-save-safe GroupModel::save() binds only supplied keys. Verified
+ * behaviourally on Joomla 6.1.4, 2026-10-09: created a group, changed only
+ * `title`, diffed all 17 fields — nothing else moved.
+ */
 final class UpdateFieldGroupTool extends AbstractTool
 {
 	private const UPDATABLE = ['title', 'state', 'access', 'language', 'description', 'note', 'ordering'];
