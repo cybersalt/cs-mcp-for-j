@@ -198,6 +198,35 @@ final class FieldStyleHelper
 	font-size: .8125rem;
 }
 
+/* ---- inline notice --------------------------------------------------
+   The estate advisory language (coloured left rail, bold coloured lead,
+   neutral ground) as a plain always-visible block. Distinct from the
+   catalog's .csmcpforj-advisory, which is a collapsible <details> scoped
+   to that page. Hard-coded hex for the same reason the advisories use it:
+   Atum redefines the Bootstrap semantic variables per theme and the
+   result drifts between light and dark. */
+.csmcpforj-notice {
+	border-left: 4px solid #ffc107;
+	background: rgba(255, 193, 7, .08);
+	border-radius: 0 .375rem .375rem 0;
+	padding: .85rem 1.1rem;
+	font-size: .9375rem;
+}
+
+.csmcpforj-notice strong:first-child {
+	color: #9a7400;
+}
+
+[data-bs-theme="dark"] .csmcpforj-notice,
+.atum-dark .csmcpforj-notice {
+	background: rgba(255, 193, 7, .12);
+}
+
+[data-bs-theme="dark"] .csmcpforj-notice strong:first-child,
+.atum-dark .csmcpforj-notice strong:first-child {
+	color: #ffc107;
+}
+
 /* ---- dark ----------------------------------------------------------- */
 
 [data-bs-theme="dark"] .csmcpforj-field-panel,
