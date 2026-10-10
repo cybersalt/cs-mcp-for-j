@@ -264,6 +264,12 @@ final class ProActivationHelper
 	 * The static $memoInstallationId guarantees that within a single PHP request
 	 * we hand back ONE id, regardless of ComponentHelper's param-cache state.
 	 * See the property docblock for why this matters.
+	 *
+	 * @throws \RuntimeException when an id must be generated but no site host is
+	 *                           available (CLI). Callers return their own error
+	 *                           shape rather than letting this reach the UI. An
+	 *                           already-registered site never throws, so CLI
+	 *                           entitlement refreshes keep working.
 	 */
 	public static function ensureInstallationId(): string
 	{
@@ -279,8 +285,37 @@ final class ProActivationHelper
 			return $installationId;
 		}
 
+		/*
+		 * No host means no usable identity for this site.
+		 *
+		 * Uri::root() has no host under CLI, and the old fallback wrote the
+		 * literal string "localhost" into the id. That is not a harmless
+		 * placeholder: the id is saved permanently on first generation and is
+		 * the UNIQUE key in cs-release-manager's #__csrm_installations, so one
+		 * CLI call would register the site forever as "localhost" — colliding
+		 * with every other site that ever did the same, and leaving the real
+		 * domain unrecorded. Registration is only supported from the dashboard,
+		 * so refuse here instead of inventing an identity.
+		 *
+		 * Note this only fires when an id must be GENERATED. A site that has
+		 * already registered returns its saved id above and keeps working from
+		 * CLI, which is what scheduled entitlement refreshes rely on.
+		 *
+		 * A genuine local dev site is unaffected: served over HTTP its host
+		 * really is "localhost", which is a true answer rather than a guess.
+		 */
+		$host = strtolower((string) (parse_url((string) Uri::root(), PHP_URL_HOST) ?: ''));
+
+		if ($host === '') {
+			throw new \RuntimeException(
+				'Cannot register this installation: no site host is available. This usually means '
+				. 'the call came from the CLI, where Joomla cannot know the site URL. Register from '
+				. 'Components -> MCP for Joomla -> Dashboard in the browser instead.'
+			);
+		}
+
 		$timestamp = date('YmdHis');
-		$domain    = strtolower((string) (parse_url((string) Uri::root(), PHP_URL_HOST) ?: 'localhost'));
+		$domain    = $host;
 		$random    = bin2hex(random_bytes(3));
 
 		$installationId = $timestamp . '_' . $domain . '_' . $random;
@@ -430,8 +465,14 @@ final class ProActivationHelper
 	 */
 	public static function registerInstallation(string $packageElement): array
 	{
-		$installationId = self::ensureInstallationId();
-		$domain         = (string) (parse_url((string) Uri::root(), PHP_URL_HOST) ?: '');
+		try {
+			$installationId = self::ensureInstallationId();
+		} catch (\RuntimeException $e) {
+			// No host — CLI. Refuse cleanly rather than registering "localhost".
+			return ['ok' => false, 'status' => 'refused', 'error' => $e->getMessage(), 'http_code' => 0];
+		}
+
+		$domain = (string) (parse_url((string) Uri::root(), PHP_URL_HOST) ?: '');
 
 		$body = json_encode([
 			'installation_id' => $installationId,
@@ -487,9 +528,21 @@ final class ProActivationHelper
 	 */
 	public static function linkEmail(string $email): array
 	{
-		$email          = strtolower(trim($email));
-		$installationId = self::ensureInstallationId();
-		$emailHash      = hash('sha256', $email);
+		$email = strtolower(trim($email));
+
+		try {
+			$installationId = self::ensureInstallationId();
+		} catch (\RuntimeException $e) {
+			return [
+				'ok'            => false,
+				'error'         => $e->getMessage(),
+				'denial_reason' => null,
+				'renewal_url'   => null,
+				'http_code'     => 0,
+			];
+		}
+
+		$emailHash = hash('sha256', $email);
 
 		$body = json_encode([
 			'installation_id' => $installationId,
@@ -599,8 +652,22 @@ final class ProActivationHelper
 	 */
 	private static function verifyAccess(string $emailHash): array
 	{
-		$installationId = self::ensureInstallationId();
-		$dlid           = $installationId . ':' . $emailHash;
+		try {
+			$installationId = self::ensureInstallationId();
+		} catch (\RuntimeException $e) {
+			// Unregistered site called from CLI. Deny rather than fatal — the
+			// dashboard renders this state, and a scheduled task must not die.
+			return [
+				'state'             => 'denied',
+				'message'           => $e->getMessage(),
+				'renewal_url'       => '',
+				'signup_url'        => '',
+				'package_title'     => '',
+				'entitled_elements' => [],
+			];
+		}
+
+		$dlid = $installationId . ':' . $emailHash;
 		$url            = self::VERIFYACCESS_URL . '&dlid=' . rawurlencode($dlid);
 
 		try {
