@@ -156,6 +156,32 @@ final class UpdateMenuItemTool extends AbstractTool
 		}
 		$data['menuordering'] = 0;
 
+		/*
+		 * Issue #18, second half: when the link changes, component_id must follow
+		 * it. ItemModel::save() stores component_id exactly as given — only
+		 * getItem() re-derives it from the link, and that runs when the ADMIN FORM
+		 * loads, not on save. So changing a com_content link to com_contact over
+		 * MCP left component_id pointing at the old component. The item then
+		 * renders from one component while the manager reports another.
+		 *
+		 * Only for type `component`. A url/alias/heading/separator item has
+		 * component_id 0 by definition, and a url item's link can legitimately
+		 * carry an `option=` (an internal link typed by hand) — deriving an id
+		 * from that would give a URL item a component it does not have. `type` is
+		 * not updatable here, so the stored type is authoritative.
+		 */
+		if (
+			array_key_exists('link', $data)
+			&& (string) $existing->type === 'component'
+			&& (string) $data['link'] !== (string) $existing->link
+		) {
+			$componentId = $this->componentIdForLink((string) $data['link']);
+
+			if ($componentId > 0) {
+				$data['component_id'] = $componentId;
+			}
+		}
+
 		// Decide whether any params-touching arg was supplied. If not, skip
 		// params handling entirely so the existing blob isn't re-serialised
 		// (matches Joomla's own "don't touch what you didn't change" feel).
@@ -205,6 +231,22 @@ final class UpdateMenuItemTool extends AbstractTool
 			$data['params'] = $merged;
 		}
 
+		/*
+		 * Deliberately NOT wrapped in a transaction, and please do not add one.
+		 *
+		 * It looks like the obvious guard for "the save failed halfway", but it
+		 * cannot work here: Joomla\CMS\Table\Nested::store() calls _lock() on
+		 * every update, which issues LOCK TABLES — and MySQL/MariaDB implicitly
+		 * COMMIT any open transaction at LOCK TABLES. By the time save() returns
+		 * false there is nothing left to roll back, so the code reads as a safety
+		 * net while providing none. The same applies to #__categories and
+		 * anything else on a nested set.
+		 *
+		 * What actually prevents the partial write is validating BEFORE the save:
+		 * the menutype/parent_id re-supply above, and the component_id derivation,
+		 * both run first precisely so the payload is already complete and correct
+		 * when the model gets it.
+		 */
 		if (!$model->save($data)) {
 			return ToolResult::error('com_menus rejected the update: ' . $model->getError());
 		}
@@ -214,6 +256,35 @@ final class UpdateMenuItemTool extends AbstractTool
 			$response['params_modified'] = array_keys($paramsTouchedKeys);
 		}
 		return ToolResult::json($response);
+	}
+
+	/**
+	 * Resolve `option=` in a menu link to its #__extensions.extension_id.
+	 *
+	 * Returns 0 when the link carries no option, or names a component that is
+	 * not installed — in which case the caller leaves component_id alone rather
+	 * than writing a 0 that would orphan the item from its component.
+	 */
+	private function componentIdForLink(string $link): int
+	{
+		$query = [];
+		parse_str((string) parse_url($link, PHP_URL_QUERY), $query);
+
+		$option = isset($query['option']) ? trim((string) $query['option']) : '';
+
+		if ($option === '') {
+			return 0;
+		}
+
+		$db = $this->db;
+		$q  = $db->getQuery(true)
+			->select($db->quoteName('extension_id'))
+			->from($db->quoteName('#__extensions'))
+			->where($db->quoteName('type') . ' = ' . $db->quote('component'))
+			->where($db->quoteName('element') . ' = :element')
+			->bind(':element', $option);
+
+		return (int) $db->setQuery($q)->loadResult();
 	}
 
 	/**
