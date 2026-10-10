@@ -6,6 +6,7 @@ namespace Cybersalt\Plugin\System\Csmcpforj\Extension;
 
 \defined('_JEXEC') or die;
 
+use Cybersalt\Component\Csmcpforj\Administrator\Helper\ProActivationHelper;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\Event\RegisterToolsEvent;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolRegistry;
 use Joomla\CMS\Plugin\CMSPlugin;
@@ -161,9 +162,89 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 	public static function getSubscribedEvents(): array
 	{
 		return [
-			'onAfterInitialise'            => 'onAfterInitialise',
-			RegisterToolsEvent::EVENT_NAME => 'onRegisterTools',
+			'onAfterInitialise'                => 'onAfterInitialise',
+			RegisterToolsEvent::EVENT_NAME     => 'onRegisterTools',
+			'onInstallerBeforePackageDownload' => 'onInstallerBeforePackageDownload',
+			'onExtensionAfterInstall'          => 'onExtensionAfterInstallOrUpdate',
+			'onExtensionAfterUpdate'           => 'onExtensionAfterInstallOrUpdate',
 		];
+	}
+
+	/**
+	 * Put this site's download ID on any Cybersalt members download that is
+	 * about to go out without one.
+	 *
+	 * Joomla's own Extensions > Update appends the update site's extra_query
+	 * itself, but remote managers do not use that code. mySites.guru's
+	 * connector (bfnetwork, installExtensionFromUrl) downloads exactly the URL
+	 * its server read from our feed, and every paid add-on failed "Missing
+	 * parameters" on every site whose update sites had never been stamped —
+	 * which was most of them, because stamping only happened on a dashboard
+	 * visit. Found 2026-10-09 on a mass update that failed across ten sites.
+	 *
+	 * Every route into the installer funnels through
+	 * InstallerHelper::downloadPackage(), which fires this event, so fixing it
+	 * here covers mySites.guru, Watchful, Install from URL and the core
+	 * updater alike, stamped or not. A URL that already carries a dlid is left
+	 * alone, and nothing is added for any other host or route.
+	 */
+	public function onInstallerBeforePackageDownload($event): void
+	{
+		try {
+			if (!class_exists(ProActivationHelper::class) || !method_exists($event, 'updateUrl')) {
+				return;
+			}
+
+			$url = (string) $event->getUrl();
+
+			if (!self::isCybersaltMembersDownload($url) || preg_match('/(?:[?&]|&amp;)dlid=/', $url)) {
+				return;
+			}
+
+			$dlid = ProActivationHelper::getDlid();
+
+			if ($dlid === '') {
+				return;
+			}
+
+			$event->updateUrl($url . (str_contains($url, '?') ? '&' : '?') . 'dlid=' . rawurlencode($dlid));
+		} catch (\Throwable $e) {
+			// Never break a download over this. The worst case is the
+			// pre-2.8.2 behaviour: the store refuses it and says why.
+		}
+	}
+
+	/**
+	 * Re-stamp the dlid onto Cybersalt update sites whenever any extension is
+	 * installed or updated. An add-on installed after the site was linked
+	 * creates a fresh, unstamped update site; before this it stayed unstamped
+	 * until someone happened to open the MCP for Joomla dashboard. The write
+	 * is a no-op when every row already matches.
+	 */
+	public function onExtensionAfterInstallOrUpdate($event): void
+	{
+		try {
+			if (class_exists(ProActivationHelper::class)) {
+				ProActivationHelper::syncUpdateSiteDlid();
+			}
+		} catch (\Throwable $e) {
+			// Bookkeeping only; never fail someone else's install over it.
+		}
+	}
+
+	private static function isCybersaltMembersDownload(string $url): bool
+	{
+		$parts = parse_url(html_entity_decode($url, ENT_QUOTES | ENT_HTML5));
+		$host  = strtolower((string) ($parts['host'] ?? ''));
+
+		if ($host !== 'cybersalt.com' && $host !== 'www.cybersalt.com') {
+			return false;
+		}
+
+		parse_str((string) ($parts['query'] ?? ''), $query);
+
+		return ($query['option'] ?? '') === 'com_csreleasemanager'
+			&& ($query['task'] ?? '') === 'api.download';
 	}
 
 	/**

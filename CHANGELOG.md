@@ -1,5 +1,14 @@
 # Changelog
 
+## 🚀 Version 2.8.2 (October 9, 2026)
+
+### 🐛 Fixed — paid add-ons could not be updated from mySites.guru
+
+- **Every paid add-on update from mySites.guru failed with "Failed to download package"**, on every site whose update sites had never had the download ID stamped on them. Stamping only happened when someone opened the MCP for Joomla dashboard, so a linked site nobody visited, or an add-on installed after linking, never got it. Joomla's own Extensions > Update adds the ID itself and worked, but mySites.guru downloads the bare URL from the update feed, and the store refused it with "Missing parameters". Free add-ons use a route that needs no ID, which is why only the paid ones failed.
+- **The download ID is now added at download time.** The system plugin listens for `onInstallerBeforePackageDownload`, which every route into the Joomla installer goes through, and adds this site's download ID to any Cybersalt members download that lacks one. That covers mySites.guru, other remote managers, Install from URL and the core updater, whether or not the update sites were ever stamped. Nothing is added for any other host or route, or when a download ID is already present.
+- **Update sites are re-stamped automatically** whenever any extension is installed or updated, and when MCP for Joomla itself is installed or updated. Installing 2.8.2 therefore fixes a linked site immediately, with no dashboard visit.
+- System plugin **1.16.1 → 1.16.2**. Pairs with **cs-release-manager 1.12.5** on the store, which now also puts the ID in the feed's download link for sites that send it.
+
 ## 🚀 Version 2.8.1 (October 9, 2026)
 
 Four defects found by **running** every Update and Delete tool against a live Joomla 6 site rather than reading them. Three were invisible to static review.

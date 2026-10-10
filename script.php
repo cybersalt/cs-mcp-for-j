@@ -58,6 +58,7 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 			$this->ensureUpdateSiteRegistered();
 			$this->ensureApiAuthorizationPreserved();
 			$this->migrateLegacyCatalogUrl();
+			$this->stampDownloadId();
 		} catch (\Throwable $e) {
 			// Surface unexpected install errors instead of silently swallowing.
 			Factory::getApplication()->enqueueMessage(
@@ -69,6 +70,35 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 		$this->showPostInstallMessage($type);
 
 		return true;
+	}
+
+	/**
+	 * Stamp the download ID onto every Cybersalt update site, now.
+	 *
+	 * Until 2.8.2 this only happened when someone opened the MCP for Joomla
+	 * dashboard, so linked sites that nobody visited never got it, and every
+	 * paid add-on update from mySites.guru failed "Missing parameters". MCP
+	 * for Joomla itself is free and updates fine from anywhere, so running the
+	 * stamp here means simply rolling out this version fixes the fleet.
+	 *
+	 * Runs after ensureUpdateSiteRegistered(), which rewrites the package's own
+	 * update-site URL bare. On a fresh install the component's namespace is
+	 * not in the autoload map yet, so register it before calling the helper.
+	 */
+	private function stampDownloadId(): void
+	{
+		$helper = 'Cybersalt\\Component\\Csmcpforj\\Administrator\\Helper\\ProActivationHelper';
+
+		if (!class_exists($helper) && class_exists('JLoader', false)) {
+			\JLoader::registerNamespace(
+				'Cybersalt\\Component\\Csmcpforj\\Administrator',
+				JPATH_ADMINISTRATOR . '/components/com_csmcpforj/src'
+			);
+		}
+
+		if (class_exists($helper)) {
+			$helper::syncUpdateSiteDlid();
+		}
 	}
 
 	private function clearAutoloadCache(): void
