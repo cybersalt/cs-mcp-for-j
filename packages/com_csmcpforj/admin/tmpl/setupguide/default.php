@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 \defined('_JEXEC') or die;
 
+use Cybersalt\Component\Csmcpforj\Administrator\Helper\FieldStyleHelper;
 use Joomla\CMS\Factory;
 use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
@@ -119,6 +120,7 @@ $snippetGemini = <<<HTML
 }
 HTML;
 ?>
+<?php echo FieldStyleHelper::css(); ?>
 <style>
 /* Setup Guide layout — restructured 2026-08-13 to lead with the easy
  * (Dashboard copy-prompt) path per Tim's feedback that the prior version
@@ -284,8 +286,12 @@ details.csmcpforj-setup-advanced[open] summary::before {
 						<span><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TOKEN_WARNING_BODY'); ?></span>
 					</div>
 
-					<label for="csmcpforj-setupguide-token-input" class="form-label fw-bold mb-1">
+					<?php // Lone input surrounded by instructions and code blocks — the exact
+					      // case the field panel exists for. See FieldStyleHelper. ?>
+					<div class="csmcpforj-field-panel">
+					<label for="csmcpforj-setupguide-token-input" class="csmcpforj-field-label">
 						<?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TOKEN_INPUT_LABEL'); ?>
+						<span class="csmcpforj-field-required"><?php echo Text::_('COM_CSMCPFORJ_FIELD_OPTIONAL'); ?></span>
 					</label>
 					<div class="input-group mb-2">
 						<span class="input-group-text"><span class="icon-key" aria-hidden="true"></span></span>
@@ -298,6 +304,7 @@ details.csmcpforj-setup-advanced[open] summary::before {
 						</button>
 					</div>
 					<p class="mb-0"><small class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TOKEN_INPUT_HINT'); ?></small></p>
+					</div><?php // .csmcpforj-field-panel ?>
 				</div>
 			</div>
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 \defined('_JEXEC') or die;
 
+use Cybersalt\Component\Csmcpforj\Administrator\Helper\FieldStyleHelper;
 use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Router\Route;
@@ -25,6 +26,7 @@ $types = ['bug', 'feature', 'question', 'idea', 'other'];
 // priority comes with Pro" banner. Neither gates access to the form.
 $isPro = !empty($this->proActivated);
 ?>
+<?php echo FieldStyleHelper::css(); ?>
 <style>
 /* Tier-aware banner at the top of the Support form. Same "colored left border
  * + colored bold title on neutral bg" pattern as the Setup Guide advisories,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 \defined('_JEXEC') or die;
 
+use Cybersalt\Component\Csmcpforj\Administrator\Helper\FieldStyleHelper;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Router\Route;
 
@@ -17,6 +18,7 @@ $tokenUrl = htmlspecialchars($this->tokenProfileUrl, ENT_QUOTES, 'UTF-8');
 $permsUrl = Route::_('index.php?option=com_config&view=component&component=com_csmcpforj');
 $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 ?>
+<?php echo FieldStyleHelper::css(); ?>
 <style>
 	/* Highlight the placeholder / substituted token inside the copy-paste
 	   prompt so the user can see exactly where their token will land. The
@@ -232,33 +234,53 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_BONUS_BODY'); ?>
 							</div>
 
-							<ol class="mb-3">
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP1'); ?></li>
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP2'); ?></li>
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP3'); ?></li>
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP4'); ?></li>
-							</ol>
+							<?php // ONE list, so the numbering is continuous and every step looks
+							      // like a step. The token field is step 2 because pasting it here
+							      // is what lets the Copy button bake the token into the prompt,
+							      // which is what removes the manual find-and-replace in step 4.
+							      // It stays optional, hence the chip rather than a required marker.
+							      //
+							      // Do not split this back into separate <ol> blocks around the
+							      // field: markers and badges side by side read as one orphaned
+							      // number, and Atum suppresses the markers here regardless.
+							      // See FieldStyleHelper. ?>
+							<ol class="csmcpforj-steps">
+								<li>
+									<div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP1'); ?></div>
+								</li>
 
-							<div class="card mb-3 border-secondary">
-								<div class="card-body py-3">
-									<label for="csmcpforj-token-input" class="form-label fw-bold">
-										<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_LABEL'); ?>
-									</label>
-									<div class="input-group">
-										<input type="password" class="form-control" id="csmcpforj-token-input" placeholder="sha256:42:abc123def456..." autocomplete="off" data-csmcpforj-token-input>
-										<button type="button" class="btn btn-outline-secondary" data-csmcpforj-token-toggle title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_TOGGLE_SHOW')); ?>">
-											<span class="icon-eye" aria-hidden="true"></span>
-										</button>
-										<button type="button" class="btn btn-outline-danger d-none" data-csmcpforj-token-clear title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_CLEAR')); ?>">
-											<span class="icon-trash" aria-hidden="true"></span>
-										</button>
+								<li class="csmcpforj-step-do">
+									<div class="csmcpforj-step-body">
+										<label for="csmcpforj-token-input" class="csmcpforj-field-label">
+											<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_LABEL'); ?>
+											<span class="csmcpforj-field-required"><?php echo Text::_('COM_CSMCPFORJ_FIELD_OPTIONAL'); ?></span>
+										</label>
+										<div class="input-group">
+											<input type="password" class="form-control" id="csmcpforj-token-input" placeholder="sha256:42:abc123def456..." autocomplete="off" data-csmcpforj-token-input>
+											<button type="button" class="btn btn-outline-secondary" data-csmcpforj-token-toggle title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_TOGGLE_SHOW')); ?>">
+												<span class="icon-eye" aria-hidden="true"></span>
+											</button>
+											<button type="button" class="btn btn-outline-danger d-none" data-csmcpforj-token-clear title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_CLEAR')); ?>">
+												<span class="icon-trash" aria-hidden="true"></span>
+											</button>
+										</div>
+										<small class="text-body-secondary csmcpforj-field-hint">
+											<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_HINT'); ?>
+											<span class="d-block mt-1" data-csmcpforj-token-status></span>
+										</small>
 									</div>
-									<small class="text-body-secondary d-block mt-2">
-										<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_HINT'); ?>
-										<span class="d-block mt-1" data-csmcpforj-token-status></span>
-									</small>
-								</div>
-							</div>
+								</li>
+
+								<li>
+									<div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP2'); ?></div>
+								</li>
+								<li>
+									<div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP3'); ?></div>
+								</li>
+								<li>
+									<div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP4'); ?></div>
+								</li>
+							</ol>
 
 							<pre class="p-2 mb-2" style="white-space: pre-wrap; max-height: 400px; overflow: auto;"><code id="csmcpforj-prompt"><?php echo htmlspecialchars($this->clientPrompt, ENT_QUOTES, 'UTF-8'); ?></code></pre>
 							<button type="button" class="btn btn-primary btn-lg" data-csmcpforj-copy="csmcpforj-prompt" data-csmcpforj-token-substitute="1" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_PROMPT_BUTTON')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED')); ?>" data-copied-substituted-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED_WITH_TOKEN')); ?>">
@@ -466,14 +488,20 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 						<form action="<?php echo $proSubmitUrl; ?>" method="post" class="row g-2 align-items-end">
 							<input type="hidden" name="<?php echo $proFormToken; ?>" value="1">
 							<div class="col-12">
-								<label for="pro-email" class="form-label mb-1">
-									<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_EMAIL_LABEL'); ?>
-								</label>
-								<input type="email" id="pro-email" name="email" class="form-control"
-									placeholder="<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_EMAIL_PLACEHOLDER'); ?>"
-									value=""
-									autocomplete="email"
-									required>
+								<?php // Only the EDITABLE variant gets the panel. The readonly branch
+								      // below displays an already-linked address — nothing to type,
+								      // so flagging it as an input field would be a lie. ?>
+								<div class="csmcpforj-field-panel">
+									<label for="pro-email" class="csmcpforj-field-label">
+										<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_EMAIL_LABEL'); ?>
+										<span class="csmcpforj-field-required"><?php echo Text::_('COM_CSMCPFORJ_FIELD_REQUIRED'); ?></span>
+									</label>
+									<input type="email" id="pro-email" name="email" class="form-control"
+										placeholder="<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_EMAIL_PLACEHOLDER'); ?>"
+										value=""
+										autocomplete="email"
+										required>
+								</div>
 							</div>
 							<div class="col-12">
 								<button type="submit" class="btn btn-primary w-100">
