@@ -17,7 +17,7 @@ All three are bundled in `pkg_csmcpforj` and enabled automatically on install.
 ## Connecting a client
 
 1. **Generate a Joomla API token** for the user account that should perform the actions. (Joomla admin → System → Users → My Profile → Joomla API Token, click the eye icon.)
-2. **Permissions** — Super Users, Administrators, and Managers all work out of the box. For any other user group, grant `Use MCP endpoint` and/or `Write through MCP endpoint` in System → Permissions on the component.
+2. **Permissions** — Super Users work out of the box. **Administrators and Managers do not**: their group first needs Joomla's **Web Services Login** permission (`core.login.api`), set on the *group* in System → Global Configuration → Permissions. Without it every tool returns `403 Forbidden`. For any other user group, grant Web Services Login plus `Use MCP endpoint` and/or `Write through MCP endpoint` in System → Permissions on the component.
 3. **Configure your MCP client.** The endpoint speaks Streamable-HTTP MCP over JSON-RPC 2.0 and accepts either an `Authorization: Bearer` or an `X-Joomla-Token` header. The same underlying config works for every conformant client — only the config file location and wrapper JSON shape change per client:
 
    **Codex** (CLI, IDE extension, and desktop host) supports the endpoint natively. Keep the token in an environment variable instead of writing it into Codex configuration:

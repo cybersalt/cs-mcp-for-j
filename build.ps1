@@ -122,6 +122,12 @@ if (Test-Path (Join-Path $root 'LICENSE.txt')) {
     Copy-Item (Join-Path $root 'LICENSE.txt') -Destination $staging -Force
 }
 
+# Every release package carries its full changelog (Joomla-Brain VERSION-BUMP-CHECKLIST).
+foreach ($cl in 'CHANGELOG.md', 'CHANGELOG.html') {
+    if (-not (Test-Path (Join-Path $root $cl))) { throw "$cl missing - every package must ship its changelog." }
+    Copy-Item (Join-Path $root $cl) -Destination $staging -Force
+}
+
 # Final package zip
 if (Test-Path $pkgZip) { Remove-Item $pkgZip -Force }
 

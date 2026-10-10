@@ -1,357 +1,836 @@
 <div class="changelog-container">
-	<h1>📋 Cybersalt MCP for Joomla — Changelog</h1>
-
-	<h2>
-		<span class="version-badge">v2.7.0</span>
-		<span class="date">2026-09-05</span>
-	</h2>
-
-	<p>Adds a native, environment-variable-based Codex connection flow while retaining the Joomla 5/6 three-extension package architecture.</p>
-
-	<h3><span class="section-icon">🔌</span>New Features</h3>
-	<ul>
-		<li><strong>Native Codex setup</strong>: the Setup Guide now generates site-specific Windows PowerShell, macOS/Linux, <code>codex mcp add</code>, and <code>X-Joomla-Token</code> fallback snippets.</li>
-		<li><strong>MCP initialize instructions</strong>: Codex receives server-wide prompt-injection and write-approval guidance during the handshake.</li>
-		<li><strong>Client-neutral Dashboard prompt</strong>: permanent connection instructions now cover Codex as well as Claude Code.</li>
-	</ul>
-
-	<h3><span class="section-icon">📦</span>Build</h3>
-	<ul>
-		<li>Package and component manifests bumped to 2.7.0 and the System plugin to 1.15.0; the package still installs the component plus the required System and Web Services plugins.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.8.1</span>
-		<span class="date">2026-05-25</span>
-	</h2>
-
-	<p>Fills out the <strong>Custom Fields</strong> domain so programmatic setup of a clean field group on an article context is one MCP call rather than 6+ admin clicks. Closes <a href="https://github.com/cybersalt/cs-mcp-for-j/issues/1">issue #1</a>. Tool count 103 &rarr; 110.</p>
-
-	<h3><span class="section-icon">📦</span>New Features</h3>
-	<ul>
-		<li><strong>5 new field-group tools</strong> — full CRUD over <code>#__fields_groups</code> (the tabs that custom fields appear under in the article editor): <code>list_field_groups</code>, <code>get_field_group</code>, <code>create_field_group</code>, <code>update_field_group</code> (PATCH semantics; context intentionally not updatable), <code>delete_field_group</code> (requires <code>confirm:true</code>; assigned fields\'s <code>group_id</code> reset to 0, fields themselves not deleted).</li>
-		<li><strong>2 new custom-field write tools</strong> — <code>update_custom_field</code> (PATCH semantics; surfaces <code>group_id</code>, <code>assigned_cat_ids</code> with the [-1] = no-categories sentinel, and <code>only_use_in_subform</code> for Subform children built via the API) + <code>delete_custom_field</code> (also removes values from <code>#__fields_values</code>).</li>
-	</ul>
-
-	<h3><span class="section-icon">🔧</span>Improvements</h3>
-	<ul>
-		<li><strong><code>get_custom_field</code> now returns <code>assigned_cat_ids</code></strong> — queried from <code>#__fields_categories</code> (M:N join table). Empty list = "all categories"; <code>[-1]</code> = "no categories" sentinel. Description rewritten to surface the semantics so the agent reads-before-decides.</li>
-	</ul>
-
-	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
-	<ul>
-		<li><strong>Both delete tools initially failed with empty error messages</strong> — <code>com_fields</code>' <code>FieldModel::canDelete()</code> requires <code>state=-2</code> (trashed) before allowing hard-delete (Joomla\'s admin UI does this as two phases: trash, then "Empty Trash"). Both delete tools now <code>publish([$id], -2)</code> first, then call <code>delete()</code> — one MCP call = gone.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.8.0</span>
-		<span class="date">2026-05-23</span>
-	</h2>
-
-	<p>cs-mcp-for-j now manages a second Joomla extension end-to-end. The new <strong>RSTicketsPro MCP add-on</strong> adds 20 typed tools for RSJoomla!'s helpdesk extension, alongside three new <strong>4SEO Business Profile</strong> tools that complete the LocalBusiness JSON-LD picture for sites running 4SEO. Tool count 80 &rarr; 103. Domain count 13 &rarr; 14.</p>
-
-	<h3><span class="section-icon">📦</span>New Features</h3>
-	<ul>
-		<li><strong>RSTicketsPro MCP add-on (<code>plg_system_csmcpforjrst</code>)</strong> — a new bundled-but-separable plugin that brings the RSJoomla! RSTicketsPro 3.x helpdesk extension under MCP control. 20 tools: 6 ticket reads (<code>list_rst_tickets</code> with JOIN'd labels and rich filters, <code>get_rst_ticket</code> with autoclose ETA, <code>get_rst_ticket_messages</code> with decoded system events, plus history/notes/files), 6 lookups (departments / statuses / priorities / staff / groups / custom_fields), and 8 writes (<code>add_rst_ticket_reply</code>, <code>add_rst_ticket_note</code>, <code>update_rst_ticket</code> with from/to diff, <code>close_rst_ticket</code> (also stops time tracking), <code>reopen_rst_ticket</code>, <code>flag_rst_ticket</code>, <code>notify_rst_ticket</code>, <code>delete_rst_ticket</code> requires <code>confirm:true</code>). Write tools call into RST's own AdminModel so every email notification, ticket_history audit, dept-change code regeneration, and staff-access validation happens automatically.</li>
-		<li><strong>4SEO Business Profile typed wrappers</strong> (<code>get_4seo_business_profile</code>, <code>set_4seo_business_profile</code>, <code>clear_4seo_business_profile</code>) — site-wide LocalBusiness JSON-LD profile (the <code>#defaultBusiness</code> node 4SEO emits on every page). Handles the structural gotchas (single-element array for type + country, logo normalised, 28-field hours grid from a clean <code>[{day, opens, closes}]</code>), and creates the row from scratch when the human hasn't saved the admin form yet. The previously-only working LocalBusiness path on Cybersalt client sites.</li>
-	</ul>
-
-	<h3><span class="section-icon">🔧</span>Improvements</h3>
-	<ul>
-		<li><strong><code>get_rst_ticket_messages</code> decodes system messages</strong> from RST's <code>serialize()</code>'d PHP blobs into clean <code>system_event {type, from, to, user_id}</code> objects. Uses <code>allowed_classes =&gt; false</code> on the <code>unserialize()</code> call so no PHP gadget chain can ever instantiate. New <code>include_system_messages</code> arg to hide them when you want just the conversation thread.</li>
-		<li><strong><code>get_rst_ticket</code> includes an <code>autoclose</code> block</strong> — answers "when will this ticket autoclose?" with computed warning/close ETAs + a <code>blocked_by</code> field when conditions short-circuit the flow.</li>
-		<li><strong>Shared <code>withSiteAppContext()</code> trait helper</strong> — extracted SiteApplication-swap pattern reused across every RST write tool that fires emails (Reply / Update / Close / Reopen / Notify).</li>
-	</ul>
-
-	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
-	<ul>
-		<li><strong><code>add_rst_ticket_reply</code> failed with "Error loading menu: api"</strong> in API context. RST's reply flow assumes a SiteApplication; the api app has no menu/router. Fix bypasses <code>reply()</code> and calls <code>saveMessage()</code> directly, wrapped in <code>withSiteAppContext()</code> swap. Validated end-to-end on virtuemarttemplates.net TECH-0000000202. Full investigation at <code>resolved-issues/ISSUE-5-add_rst_ticket_reply-site-app-context.md</code>.</li>
-		<li><strong><code>list_rst_tickets</code> / <code>get_rst_ticket</code> returned <code>staff_name=null</code></strong> — JOIN went through <code>_rsticketspro_staff.id</code> but <code>tickets.staff_id</code> is actually a Joomla <code>user_id</code> (confirmed in <code>models/fields/staff.php</code>). Direct <code>users.id</code> JOIN now resolves correctly.</li>
-		<li><strong>Update / Close / Reopen / AddReply returned stale post-write state</strong> — RST's <code>getTicket()</code> caches statically and write methods don't invalidate the cache. New <code>fetchTicketRow()</code> trait helper reads fresh via direct SQL.</li>
-		<li><strong><code>update_rst_ticket</code> <code>changes</code> array was always empty</strong> for staff/dept changes — <code>updateInfo()</code> calls <code>$original-&gt;bind($data)</code> mid-flight which mutates the snapshot. Fix: snapshot scalar values BEFORE the update call, not the JTable reference.</li>
-		<li><strong><code>notify_rst_ticket</code> always returned <code>notified:true</code></strong> regardless of whether RST actually sent the email. Now captures the model return value + emits an explanatory <code>note</code>.</li>
-	</ul>
-
-	<h3><span class="section-icon">⚠️</span>Known limitations carried forward</h3>
-	<ul>
-		<li>File attachments still not supported via <code>add_rst_ticket_reply</code> — use the admin reply box for replies that need attachments.</li>
-		<li><strong><code>tickets.staff_id</code> naming trap</strong> — column stores a Joomla <code>user_id</code> despite the name. <code>list_rst_staff</code> output disambiguates with both <code>user_id</code> (use this for assignments) and <code>staff_id</code> (the <code>_staff</code> table PK).</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.7.5</span>
-		<span class="date">2026-05-13</span>
-	</h2>
-
-	<p>Three field-discovery fixes from the Westshore Eye Care SEO audit. Tool count 78 &rarr; 80.</p>
-
-	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
-	<ul>
-		<li><strong><code>set_4seo_meta_override</code> wasn't flipping the <code>data.use*</code> flags.</strong> The tool was writing <code>custom.title</code> / <code>description</code> / etc. correctly and setting <code>status_title</code>/<code>status_description</code> to 2, but 4SEO's renderer also checks <code>data.useTitle</code> / <code>useDescription</code> / <code>useRobots</code> / <code>useCanonical</code> at request time — and those were stuck at 0 since v1.7.0. So overrides were silently inert despite looking right in the DB. Both insert and update branches now flip the matching flag whenever a custom value is supplied. Response includes <code>use_flags_set: [...]</code>. <strong>4SEO Free sites:</strong> per-page custom meta appears to be Pro-only — if writes look clean but pages don't change, that's almost certainly the cause.</li>
-		<li><strong>Dashboard token preview now shows the substituted token live</strong>, not just at copy-click time. The <code>&lt;code&gt;</code> block re-renders on paste / clear / refresh-with-saved so the user can actually see that the substitution has happened.</li>
-		<li><strong>Substitution target is visually highlighted</strong> in the prompt preview — yellow <code>&lt;mark&gt;</code> on the substituted token, muted grey on the empty placeholder. Atum dark-mode styles included.</li>
-	</ul>
-
-	<h3><span class="section-icon">📦</span>New Features</h3>
-	<ul>
-		<li><strong><code>update_menu_item</code> now writes to the menu item's <code>params</code> blob.</strong> Named SEO args (<code>browser_page_title</code>, <code>meta_description</code>, <code>meta_keywords</code>, <code>robots</code>, <code>page_heading</code>, <code>show_page_heading</code>, <code>page_class_sfx</code>, <code>menu_anchor_title</code>, <code>secure</code>) plus generic <code>params_set</code> / <code>params_unset</code> escape hatches. Merges into existing params — keys you don't touch are preserved byte-for-byte. <code>robots</code> enum-validated. Closes the home-page-meta-description gap.</li>
-		<li><strong><code>get_schemaorg_site_profile</code> and <code>set_schemaorg_site_profile</code></strong> — typed wrappers for <code>plg_system_schemaorg</code>'s site-wide Organization/Person profile. Knows the actual four-key shape the plugin reads (<code>baseType</code>, <code>name</code>, <code>image</code>, <code>socialmedia</code>) — not the wrong <code>Organization_*</code> flat keys. Hard-enforces <code>base_type</code> lowercase — capital-O <code>Organization</code> silently kills the plugin's entire <code>@graph</code> including per-article schemas. Tool descriptions point at 4SEO's Business Profile for full LocalBusiness coverage since this plugin doesn't support telephone/address/geo.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.7.4</span>
-		<span class="date">2026-05-11</span>
-	</h2>
-
-	<h3><span class="section-icon">📦</span>New Features</h3>
-	<ul>
-		<li><strong>Dashboard token field now persists across page refreshes</strong> via <code>localStorage</code>. Previously the "paste your token here for one-click setup" field was ephemeral &mdash; paste, tab out, refresh, gone. Now the field saves on input/change/blur, restores on load, and a new trash-icon button next to the eye-toggle clears it. A status line under the field reports whether anything is saved. Stored per-browser/per-origin only &mdash; the token never leaves the device.</li>
-	</ul>
-
-	<h3><span class="section-icon">🔧</span>Improvements</h3>
-	<ul>
-		<li><strong>Token field UX confirmed as the Cybersalt house pattern</strong>: <code>&lt;input type="password"&gt;</code> rendering as asterisks plus an eye-icon reveal button (no CSS blur). The same trio &mdash; masked-by-default + eye reveal + localStorage persistence with trash to clear &mdash; will land on any future Cybersalt Joomla extension that takes a secret.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.7.3</span>
-		<span class="date">2026-05-11</span>
-	</h2>
-
-	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
-	<ul>
-		<li><strong>CRITICAL: Postflight failed on Joomla 6</strong> with <code>Class "Joomla\CMS\Filesystem\File" not found</code>. That class was removed in J6 (deprecated in J4). On J6 sites, the autoload-cache clear AND the plugin-enabling step were both silently skipped, leaving the Web Services plugin disabled and the MCP route 404'ing. Fixed by replacing the one <code>File::delete()</code> call with plain <code>@unlink()</code> — no Joomla classes involved. <strong>If you installed v1.6.x–v1.7.2 on a Joomla 6 site, install v1.7.3 over top and the plugins will get re-enabled automatically.</strong></li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.7.2</span>
-		<span class="date">2026-05-11</span>
-	</h2>
-
-	<h3><span class="section-icon">📝</span>Documentation</h3>
-	<ul>
-		<li><strong><code>fetch_rendered_url</code> description</strong> — added path-semantics guidance (relative to Joomla install root, not server filesystem) and the 4SEO verification tip: <em>fetch the SEF URL when checking a custom meta override, not <code>index.php?option=...</code></em>. 4SEO matches custom meta by SEF URL; on the option= form the override won't apply. Caught during v1.7.1 live testing.</li>
-		<li><strong><code>set_4seo_meta_override</code> description</strong> — added the same SEF-URL verification tip so the agent reads it before the verify step, not after.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.7.1</span>
-		<span class="date">2026-05-11</span>
-	</h2>
-
-	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
-	<ul>
-		<li><strong><code>set_4seo_config</code> failed with "Incorrect integer value: 'json' for column format"</strong> on first live use. The <code>format</code> column is <code>TINYINT NOT NULL DEFAULT 1</code>, not VARCHAR &mdash; I was writing the string "json" into it. Fixed: <code>format</code> is now an integer enum (1=raw, 2=JSON), auto-set based on which of value/value_object you pass. Bonus: <code>lock_expires_at</code> column is nullable so the insert now uses NULL instead of '1970-01-01'.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.7.0</span>
-		<span class="date">2026-05-11</span>
-	</h2>
-
-	<p>Refactor of the 4SEO add-on now that we have 4SEO v6.12.0's full source available locally for design reference. Adds 5 typed tools so an agent can manage per-page meta and 4SEO config without knowing about the three-layer envelope or size-based column routing. The generic CRUD escape hatches stay. Tool count 73 &rarr; 78.</p>
-
-	<h3><span class="section-icon">📦</span>New Features</h3>
-	<ul>
-		<li><strong><code>list_4seo_meta_overrides</code></strong> &mdash; typed audit query over <code>#__forseo_custom_meta</code>. Decodes the data JSON for you and surfaces custom_title / custom_description / custom_robots / custom_canonical alongside the row.</li>
-		<li><strong><code>get_4seo_meta_override</code></strong> &mdash; read one row by content_id, joomla_params, or article_id. Returns all three layers (platform / auto / custom) separately.</li>
-		<li><strong><code>set_4seo_meta_override</code></strong> &mdash; three-layer-aware upsert. Just supply title / description / robots / canonical; the tool sets them in the custom layer and bumps status flags to 2 (custom). Preserves platform &amp; auto layers untouched. Creates the row if missing.</li>
-		<li><strong><code>clear_4seo_meta_override</code></strong> &mdash; reset_to_auto (default; wipes custom layer, status flags back to 0) or delete_row (hard remove).</li>
-		<li><strong><code>set_4seo_config</code></strong> &mdash; typed counterpart to get_4seo_config. Auto-encodes value_object to JSON; auto-routes &gt;16000-byte payloads to the large_value column. Upserts by (scope, key).</li>
-	</ul>
-
-	<h3><span class="section-icon">🛡️</span>Design notes</h3>
-	<ul>
-		<li>4SEO has no standard Joomla Model classes &mdash; the "Option B" path (call into Weeblr's PHP models) is unavailable. We're on Option A (DB-direct) but with typed wrappers built from the canonical <code>install.sql</code> schema, giving the agent the ergonomics of B without the models.</li>
-		<li>Generic <code>query_4seo_table</code> / <code>insert_4seo_row</code> / <code>update_4seo_row</code> / <code>delete_4seo_row</code> escape hatches retained for the 20+ tables that still need typed wrappers (rules, sitemaps, perf data, GSC, referrers, errors, links, images). They're now last in the registration so the agent reaches for typed tools first.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.6.0</span>
-		<span class="date">2026-05-09</span>
-	</h2>
-
-	<h3><span class="section-icon">📦</span>New Features</h3>
-	<ul>
-		<li><strong><code>validate_jsonld(jsonld, expected_type?)</code></strong> &mdash; pre-flight JSON-LD shape validator. Returns <code>errors</code>, <code>warnings</code>, <code>info</code>. Designed to be called <em>before</em> <code>set_article_custom_jsonld_bulk</code> so a typo doesn't produce 500 silently-broken schema rows. Knows required + strongly-recommended fields for 19 common Schema.org types. Tool count: 72 &rarr; 73.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.5.1</span>
-		<span class="date">2026-05-09</span>
-	</h2>
-
-	<p>Patch release responding to v1.5.0 test feedback. Fixes the JSON-RPC corruption class of bug structurally and unblocks editing legitimately user-editable locked plugins via <code>set_plugin_params</code>.</p>
-
-	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
-	<ul>
-		<li><strong>Critical: stray PHP output corrupted JSON-RPC envelopes.</strong> v1.5.0's <code>fetch_rendered_url</code> cast an array-valued Content-Type header to string, emitting a PHP warning that prefixed the JSON response and broke parsing in any MCP client. Wrapped <code>McpController::handle()</code> in <code>ob_start()</code> and discard the buffer before emitting JSON &mdash; defends every tool, present and future, from this whole class of bug. Local cause in <code>FetchRenderedUrlTool</code> also fixed (multi-value headers joined with <code>, </code>).</li>
-		<li><strong><code>set_plugin_params</code> couldn't modify legitimately user-editable locked plugins</strong> like <code>plg_system_schemaorg</code>. Added <code>allow_locked: true</code> flag to override the lock guard explicitly; <code>protected: true</code> plugins still get a hard refusal.</li>
-	</ul>
-
-	<h3><span class="section-icon">🔧</span>Improvements</h3>
-	<ul>
-		<li><strong><code>fetch_rendered_url</code> returns <code>jsonld_types</code></strong> &mdash; flat, dedup'd, sorted array of every <code>@type</code> value across all JSON-LD blocks (recursively walking <code>@graph</code>). "Did my X type land?" becomes a single inclusion check.</li>
-		<li><strong><code>set_article_custom_jsonld</code> and <code>set_article_custom_jsonld_bulk</code> descriptions</strong> now warn against wrapping the supplied JSON-LD in a top-level <code>@graph</code> &mdash; Joomla 5.1+ merges each block into the page's existing <code>@graph</code> automatically.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.5.0</span>
-		<span class="date">2026-05-09</span>
-	</h2>
-
-	<p>Feature release responding to the v1.4.x test feedback. Adds five new tools, total counts on paginated responses, and a token-substitute UI on the dashboard so non-technical users can copy a fully-ready prompt without manual editing. Tool count: 67 &rarr; 72.</p>
-
-	<h3><span class="section-icon">📦</span>New Features</h3>
-	<ul>
-		<li><strong><code>get_plugin_params</code> / <code>set_plugin_params</code></strong> &mdash; generic plugin params read/write via direct DB. Unlocks site-wide schemaorg config (<code>folder=system, element=schemaorg</code>), router options, third-party plugin config, anything on any plugin's Options screen. Refuses protected/locked core plugins.</li>
-		<li><strong><code>fetch_rendered_url(path, extract_jsonld?)</code></strong> &mdash; fetches a rendered page from the SAME Joomla site (same-origin only &mdash; no SSRF). Optional JSON-LD extractor pulls every <code>&lt;script type="application/ld+json"&gt;</code> block out of <code>&lt;head&gt;</code> and returns them parsed &mdash; closes the verification loop for Schema.org workflows.</li>
-		<li><strong><code>set_article_custom_jsonld_bulk</code></strong> &mdash; bulk variant for sites with hundreds of articles. Per-item independent, capped at 500 per call.</li>
-		<li><strong><code>get_4seo_config</code></strong> (4SEO add-on) &mdash; reads <code>#__forseo_config</code> where the real settings live (the Joomla extensions row's params field is near-empty for 4SEO).</li>
-		<li><strong><code>total</code> field on paginated responses</strong> &mdash; <code>list_articles</code>, <code>list_articles_with_schema</code>, <code>list_users</code>, and <code>query_4seo_table</code> now return the count across the whole filtered set so the agent knows when pagination is done without poll-till-empty.</li>
-	</ul>
-
-	<h3><span class="section-icon">🔧</span>Improvements</h3>
-	<ul>
-		<li><strong>Token-substitute UI on the dashboard's prompt tab.</strong> Optional input field for the user's token; when set, the Copy button substitutes the <code>&lt;PASTE YOUR JOOMLA API TOKEN HERE&gt;</code> placeholder before copying. Token never leaves the browser. Button label flips to "Copied with token included!" so the user knows substitution happened.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.4.2</span>
-		<span class="date">2026-05-09</span>
-	</h2>
-
-	<p>Patch release responding to a real-world test of the v1.4.x onboarding prompt &mdash; first-call friction fixes, no new tools.</p>
-
-	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
-	<ul>
-		<li><strong><code>list_articles_with_schema</code> summary was misleading.</strong> It counted only the rows on the current page. Fixed: summary runs <code>COUNT(*)</code> across the whole filtered set, and the response adds a top-level <code>total</code> so the agent knows the full filtered count.</li>
-		<li><strong>Onboarding prompt: curl example mangled JSON arguments with nested quotes.</strong> Switched from inline <code>-d</code> to <code>--data-binary @-</code> with a single-quoted heredoc &mdash; survives any payload.</li>
-		<li><strong>Onboarding prompt: <code>tools/list</code> and <code>tools/call</code> have different response shapes.</strong> Only the <code>tools/call</code> shape was documented. Added both.</li>
-		<li><strong>Onboarding prompt: claude.ai branch was wrong.</strong> claude.ai connectors take URL + auth header in separate fields, not a JSON snippet. Fixed.</li>
-		<li><strong>Onboarding prompt: prompt-injection guard.</strong> Added a "verify the URL matches your site's domain" check before Claude approves the <code>claude mcp add</code> dialog &mdash; defense against a maliciously edited prompt redirecting the install elsewhere.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.4.1</span>
-		<span class="date">2026-05-09</span>
-	</h2>
-
-	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
-	<ul>
-		<li><strong>"Generate / view API token" link landed on the user list, not the admin's own profile.</strong> The link was <code>task=user.edit</code> with no id, so Joomla's controller fell through to the user list instead of opening the current admin's profile (where the API Token tab lives). Fixed by computing the current admin's user id and substituting it into <code>task=user.edit&amp;id={N}</code>. Both link instances on the dashboard also now open in a new tab so the user keeps the dashboard open while copying the token.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.4.0</span>
-		<span class="date">2026-05-09</span>
-	</h2>
-
-	<p>Fixes broken tab switching on the dashboard, swaps the setup tab order so the easier path (copy-paste prompt) is the default, and adds a self-install offer to the prompt so Claude Code users can convert a one-off prompt into a permanent MCP connector with one follow-up sentence.</p>
-
-	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
-	<ul>
-		<li><strong>Tabs not switching on dashboard.</strong> Bootstrap's <code>bootstrap.tab</code> JavaScript module isn't auto-loaded in Joomla admin views. Without an explicit <code>WebAssetManager::useScript('bootstrap.tab')</code> opt-in, clicking a tab only changed the URL hash; the panel never activated. Fixed.</li>
-	</ul>
-
-	<h3><span class="section-icon">🔧</span>Improvements</h3>
-	<ul>
-		<li><strong>Tab order swapped.</strong> The copy-paste prompt is now the <strong>default tab</strong> (renamed "Copy a prompt into Claude (recommended)") because it's the easier path for non-technical users. The JSON snippet path moves to the second tab ("MCP Connector (manual config)").</li>
-		<li><strong>Self-installing prompt.</strong> The copy-paste prompt now includes a closing instruction telling Claude: after confirming the connection, offer to install this site as a permanent MCP connector via <code>claude mcp add</code> (Claude Code only). The user says "make it permanent" and Claude runs the install command (with Claude Code's standard approval dialog before any shell command runs). After restarting Claude, this site appears as native MCP tools in every conversation &mdash; no prompt needed ever again. One paste = either one-off use OR permanent install, user's choice via a single follow-up sentence.</li>
-		<li><strong>Setup card framing</strong> rewritten so the recommended path is obvious and the bonus self-install behaviour is explained up front.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.3.0</span>
-		<span class="date">2026-05-09</span>
-	</h2>
-
-	<p>Adds a "Method 2" copy-paste prompt path to the dashboard so users can connect Claude to a site without ever touching client MCP config (best in Claude Code).</p>
-
-	<h3><span class="section-icon">📦</span>New Features</h3>
-	<ul>
-		<li><strong>Two-method dashboard.</strong> Tabbed UI with two setup paths:
-			<ul>
-				<li><strong>Method 1 &mdash; MCP Connector</strong>: copy a pre-filled JSON snippet, paste into your Claude client config (Claude Desktop / claude.ai connectors / <code>claude mcp add</code>), restart. One-time, persistent.</li>
-				<li><strong>Method 2 &mdash; Copy-paste prompt</strong>: dashboard generates a complete instruction prompt baking in site URL, endpoint, auth, JSON-RPC shape, tool surface, workflow rules, and an example curl. Paste into a fresh Claude Code conversation; Claude talks to the MCP endpoint directly via curl. Best for one-off tasks or when you can't change client config.</li>
-			</ul>
-		</li>
-		<li><strong>Copy buttons</strong> with "Copied!" feedback on both setup payloads (clipboard API with text-selection fallback for older browsers).</li>
-	</ul>
-
-	<h3><span class="section-icon">🔧</span>Improvements</h3>
-	<ul>
-		<li>Dashboard tools list and setup payloads are both auto-generated from the live tool registry &mdash; the prompt always reflects what's actually installed.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.2.0</span>
-		<span class="date">2026-05-09</span>
-	</h2>
-
-	<p>Adds the 4SEO add-on (10 tools wrapping the Weeblr <code>com_forseo</code> extension) and fixes a critical memory-exhaustion bug in dashboard load. Tool count: 57 &rarr; 67; domain count: 12 &rarr; 13.</p>
-
-	<h3><span class="section-icon">📦</span>New Features</h3>
-	<ul>
-		<li><strong>4SEO add-on</strong> (<code>plg_system_csmcpforj4seo</code>) &mdash; first paid-add-on-shaped sub-plugin. Bundled in the package for testing; structured so it can be split into its own SKU later.</li>
-		<li>Adds 10 tools: <code>list_4seo_tables</code>, <code>describe_4seo_table</code>, <code>count_4seo_rows</code>, <code>get_4seo_component_info</code>, <code>get_4seo_component_params</code>, <code>set_4seo_component_params</code>, <code>query_4seo_table</code>, <code>insert_4seo_row</code>, <code>update_4seo_row</code>, <code>delete_4seo_row</code>.</li>
-		<li>Works directly against <code>#__forseo_*</code> tables (4SEO has no public Web Services API). All write tools refuse any table not prefixed with <code>forseo_</code>; UPDATE / DELETE refuse if the WHERE clause would touch more than one row.</li>
-	</ul>
-
-	<h3><span class="section-icon">🐛</span>Bug Fixes</h3>
-	<ul>
-		<li><strong>Memory exhaustion on dashboard load (CRITICAL).</strong> <code>RegisterToolsEvent</code> extended <code>Joomla\CMS\Event\AbstractEvent</code>, whose argument processor walked argument values via reflection and recursed catastrophically once the <code>registry</code> argument carried 50+ tool instances each holding a <code>DatabaseInterface</code> reference. Switched to the simpler <code>Joomla\Event\Event</code> base class and refactored the dashboard to read tool metadata statically from the plugin classes (no event dispatch from the dashboard).</li>
-	</ul>
-
-	<h3><span class="section-icon">🔧</span>Improvements</h3>
-	<ul>
-		<li>Server protocol identifier bumped to <code>cs-mcp-for-j 1.2.0</code>.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.1.0</span>
-		<span class="date">2026-05-09</span>
-	</h2>
-
-	<p>Adds a Schema.org / SEO tool domain wrapping Joomla's CORE <code>plg_system_schemaorg</code> system. Tool count: 51 &rarr; 57; domain count: 11 &rarr; 12.</p>
-
-	<h3><span class="section-icon">📦</span>New Features</h3>
-	<ul>
-		<li><strong>Schema.org / SEO tool domain (6 tools)</strong>: <code>list_schema_types</code>, <code>list_articles_with_schema</code>, <code>get_article_schema</code>, <code>set_article_schema</code>, <code>set_article_custom_jsonld</code>, <code>clear_article_schema</code>.</li>
-		<li>Supports all 9 CORE Schema types (Article, BlogPosting, Book, Custom, Event, JobPosting, Organization, Person, Recipe). Use <code>Custom</code> + <code>set_article_custom_jsonld</code> for FAQPage, Service, LocalBusiness, Product, Review, BreadcrumbList, or any other schema.org type Joomla does not ship a form for.</li>
-		<li>Writes go directly to <code>#__schemaorg</code> in the same shape Joomla's <code>onContentAfterSave</code> hook produces — the rendered JSON-LD blocks pick up changes on the next page load.</li>
-	</ul>
-
-	<h3><span class="section-icon">🔧</span>Improvements</h3>
-	<ul>
-		<li>Server protocol identifier bumped to <code>cs-mcp-for-j 1.1.0</code>.</li>
-	</ul>
-
-	<h2>
-		<span class="version-badge">v1.0.0</span>
-		<span class="date">2026-04-25</span>
-	</h2>
-
-	<p>Initial release with 51 built-in tools across 11 Joomla admin domains.</p>
-
-	<h3><span class="section-icon">📦</span>New Features</h3>
-	<ul>
-		<li><strong>MCP endpoint</strong>: Streamable-HTTP MCP server at <code>/api/index.php/v1/mcp</code>, authenticated by Joomla API token (<code>X-Joomla-Token</code> or <code>Authorization: Bearer</code>).</li>
-		<li><strong>JSON-RPC 2.0 server</strong>: <code>initialize</code>, <code>notifications/initialized</code>, <code>ping</code>, <code>tools/list</code>, <code>tools/call</code>. Single messages and batches supported.</li>
-		<li><strong>ACL gating</strong>: <code>csmcpforj.use</code> (read) and <code>csmcpforj.write</code> (write) actions. Super Users / Administrator / Manager pass automatically.</li>
-		<li><strong>Tool registry</strong>: Plugins extend the surface by subscribing to the <code>onCsMcpRegisterTools</code> event.</li>
-		<li><strong>Admin dashboard</strong>: Endpoint URL, ready-to-paste client config, permissions table, and grouped tool list.</li>
-		<li><strong>Built-in tool set</strong> (51 tools): Articles, Categories (any extension), Tags, Menus, Users &amp; Access, Modules, Extensions/Plugins, Templates, Languages, Custom Fields, System.</li>
-	</ul>
-
-	<h3><span class="section-icon">🔍</span>Security</h3>
-	<ul>
-		<li>Per-tool permission gate runs before every <code>tools/call</code> execution.</li>
-		<li><code>access.xml</code> ships with the component so per-action permissions appear in <strong>System → Permissions</strong> immediately after install.</li>
-		<li>All writes route through the corresponding <code>com_*</code> Administrator model so workflow, asset, and ACL side effects stay consistent.</li>
-		<li>Database access uses <code>quoteName()</code> and parameterised values throughout — no string concatenation into SQL.</li>
-		<li><code>delete_user</code> refuses to delete the calling user.</li>
-		<li><code>set_extension_enabled</code> refuses to touch protected or locked core extensions.</li>
-		<li><code>get_site_info</code> deliberately omits secrets (DB password, mailer credentials, captcha keys).</li>
-	</ul>
+<h1>📋 MCP for Joomla — Changelog</h1>
+<h2>🚀 Version 2.8.2 (October 9, 2026)</h2>
+<h3>🐛 Fixed — paid add-ons could not be updated from mySites.guru</h3>
+<ul>
+<li><strong>Every paid add-on update from mySites.guru failed with "Failed to download package"</strong>, on every site whose update sites had never had the download ID stamped on them. Stamping only happened when someone opened the MCP for Joomla dashboard, so a linked site nobody visited, or an add-on installed after linking, never got it. Joomla's own Extensions &gt; Update adds the ID itself and worked, but mySites.guru downloads the bare URL from the update feed, and the store refused it with "Missing parameters". Free add-ons use a route that needs no ID, which is why only the paid ones failed.</li>
+<li><strong>The download ID is now added at download time.</strong> The system plugin listens for <code>onInstallerBeforePackageDownload</code>, which every route into the Joomla installer goes through, and adds this site's download ID to any Cybersalt members download that lacks one. That covers mySites.guru, other remote managers, Install from URL and the core updater, whether or not the update sites were ever stamped. Nothing is added for any other host or route, or when a download ID is already present.</li>
+<li><strong>Update sites are re-stamped automatically</strong> whenever any extension is installed or updated, and when MCP for Joomla itself is installed or updated. Installing 2.8.2 therefore fixes a linked site immediately, with no dashboard visit.</li>
+<li>System plugin <strong>1.16.1 → 1.16.2</strong>. Pairs with <strong>cs-release-manager 1.12.5</strong> on the store, which now also puts the ID in the feed's download link for sites that send it.</li>
+</ul>
+<h2>🚀 Version 2.8.1 (October 9, 2026)</h2>
+<p>Four defects found by <strong>running</strong> every Update and Delete tool against a live Joomla 6 site rather than reading them. Three were invisible to static review.</p>
+<h3>🐛 Fixed</h3>
+<ul>
+<li><strong><code>create_user</code> did not work on Joomla 5 or 6 at all</strong> (<a href="https://github.com/cybersalt/cs-mcp-for-j/issues/15">#15</a>). It passed <code>params</code> as the string <code>'{}'</code>; <code>User::bind()</code> hands that to <code>Registry::loadArray()</code>, which is typed <code>array</code>, so every call died with a TypeError and no user was created. Now an empty array.</li>
+<li><strong><code>update_user</code> could not change anything.</strong> com_users reads <code>$data['groups']</code> as the complete group list, so omitting it meant <em>remove every group</em> &mdash; and the model then refused the entire save with <code>CANNOT_SAVE_ACCOUNT_WITHOUT_GROUPS</code>. Renaming a user, changing an email, blocking an account: all impossible unless the caller happened to re-send the full group list. The existing groups are now re-supplied when the caller does not pass any. Same hazard as #18, different model.</li>
+<li><strong><code>delete_category</code> could not trash anything on Joomla 6.</strong> <code>CategoryModel::publish()</code> reads the extension from the HTTP request (<code>getInput()-&gt;get('extension')</code>) and hands it to an event typed <code>string</code>. The admin UI always has <code>&amp;extension=com_content</code> in its URL, so this is invisible there; over MCP it arrived null and threw. Permanent delete was unaffected, because it does not fire that event.</li>
+<li><strong><code>delete_module</code> reported failures with an empty reason.</strong> Joomla refuses to permanently delete a module that is not already trashed &mdash; and signals it by pushing a message onto the application queue and returning <code>null</code>, leaving <code>getError()</code> untouched. The tool read only <code>getError()</code>, so the operator got <code>Permanent delete rejected:</code> and nothing else. It now checks the precondition up front and names it, and falls back to the message queue when a model fails silently.</li>
+</ul>
+<h3>✅ Verified rather than assumed</h3>
+<p>Every <code>Update*Tool</code> has now been run through the behavioural partial-save test the guard prescribes &mdash; create fully populated, change exactly one field, re-read, diff everything. Six were confirmed clean (categories, tags, custom fields, field groups, template styles, user groups); <code>update_user</code> was not, and is fixed above. Each carries an annotation recording what was observed, including the field count, so the claim is auditable rather than asserted.</p>
+<h2>🚀 Version 2.8.0 (October 9, 2026)</h2>
+<p><strong>The community release.</strong> Most of this came from one person: <strong>Dragan Subotic</strong> (<a href="https://github.com/gagibeograd">gagibeograd</a>) filed the reports, wrote patches for three of them, and opened the project's first external pull requests.</p>
+<h3>🐛 Fixed &mdash; menus and modules lost data silently</h3>
+<ul>
+<li><strong><code>create_module</code> / <code>update_module</code> dropped menu assignments entirely</strong> (<a href="https://github.com/cybersalt/cs-mcp-for-j/issues/17">#17</a>). <code>assigned</code> and <code>assignment</code> were passed to <code>ModuleModel::save()</code> the wrong way round, so the existing <code>#__modules_menu</code> rows were deleted and nothing was written back. Worse, an <code>update_module</code> call that said nothing about assignment reset the module to <strong>all pages</strong>, because the model's default did. A module quietly appearing site-wide is the kind of thing nobody notices until a customer does. Fixed by <strong>PR #34</strong>, Dragan's patch.</li>
+<li><strong><code>update_menu_item</code> pointed items at the wrong component after a link change</strong> (<a href="https://github.com/cybersalt/cs-mcp-for-j/issues/18">#18</a>). <code>ItemModel::save()</code> stores <code>component_id</code> exactly as handed to it &mdash; only <code>getItem()</code> re-derives it from the link, and that runs when the admin form loads, never on save. So switching a menu item from <code>com_content</code> to <code>com_contact</code> left it rendering as one component while the Menus manager reported another. It is now derived from the new link, for type <code>component</code> only; url and alias items keep <code>component_id</code> 0 as they should. Built from Dragan's patch in <strong>PR #35</strong>, with the recompute limited to component items and his transaction removed (<code>Nested::store()</code> issues <code>LOCK TABLES</code>, which commits any open transaction, so a rollback there has nothing left to undo).</li>
+<li><strong><code>update_menu_item</code> orphaned the item it was editing</strong> (first half of #18, shipped unreleased in September). <code>ItemModel::save()</code> is not partial-payload safe: omit <code>menutype</code> or <code>parent_id</code> and PHP 8 evaluates them to null, so the model concludes the item belongs to a menu called <code>""</code> and stores it that way. The item survived in <code>#__menu</code>, rendered nowhere, and vanished from the Menus manager while still holding its alias.</li>
+<li><strong><code>create_menu_item</code> died on an alias collision</strong> (<a href="https://github.com/cybersalt/cs-mcp-for-j/issues/30">#30</a>) with a router error naming neither the alias nor the conflict &mdash; which is exactly what you hit after the orphan above, when you reasonably tried to recreate the item. It now detects the clash itself, <strong>including against trashed items</strong>, and names the id you are colliding with.</li>
+</ul>
+<h3>🐛 Fixed &mdash; Gemini could not use the server at all</h3>
+<ul>
+<li><strong>One empty string in one enum took down the whole catalogue</strong> (<a href="https://github.com/cybersalt/cs-mcp-for-j/issues/29">#29</a>). <code>update_menu_item</code>'s <code>robots</code> parameter offered <code>""</code> as a choice. Google's Gemini API validates tool schemas against a strict OpenAPI subset and rejects <strong>every</strong> tool at parse time over a single empty member &mdash; HTTP 400 before a prompt runs. Not one broken tool: no usable server for any Gemini-backed client. Anthropic tolerates it, which is why it shipped unnoticed. Reported by Mathew John, who then confirmed the fix.</li>
+<li><strong><code>tests/enum-guard.php</code></strong> now fails the build if any enum advertises an empty member, across this repo and the add-on repos. Deliberately a build-time check rather than a runtime filter: empty string is sometimes load-bearing, and silently stripping it would trade a compatibility bug for a capability regression.</li>
+</ul>
+<h3>🔐 Fixed &mdash; permissions documentation that cost people real time</h3>
+<ul>
+<li><strong>The dashboard claimed Administrator and Manager work "out of the box". They do not.</strong> Both get <code>403 Forbidden</code> from every tool until their group has Joomla's <strong>Web Services Login</strong> permission (<code>core.login.api</code>), which only Super Users hold by default. The page sent people to check the component's permissions, the token and the endpoint URL &mdash; none of which was the problem. Both rows now say what they need, and a notice above the table states the precondition and points at <strong>System &rarr; Global Configuration &rarr; Permissions</strong>, on the <em>group</em>, which is the part people get wrong.</li>
+</ul>
+<h3>🔧 Fixed &mdash; registration and installs</h3>
+<ul>
+<li><strong>Registering from the CLI recorded the site as <code>localhost</code>.</strong> <code>Uri::root()</code> has no host there, and the fallback wrote that string into the installation id &mdash; which is generated once, saved permanently, and is the unique key on our side. One CLI call registered a site forever as "localhost". It now refuses with an explanation instead of inventing an identity. Scoped to generation only, so an already-registered site still works from CLI.</li>
+<li><strong>Installing an add-on could produce an HTTP 500 a minute later.</strong> Joomla's PSR-4 autoload map is written once and reused, so a plugin installed afterwards simply is not in it and the first request that reaches its classes fatals. Every add-on's installer now drops that map, resets opcache and clears Joomla's cache groups. All best-effort &mdash; a cache that will not clear never fails an install.</li>
+</ul>
+<h3>🎨 Changed &mdash; you can now find the fields you type into</h3>
+<ul>
+<li>The Joomla API token field could not be found on the dashboard <strong>by someone who knew exactly what he was looking for</strong>. It was a hairline grey card on a page carrying two coloured alerts, a numbered list, a code block and a large button: the only thing meant to be <em>acted on</em> was styled more quietly than everything explaining it. Fields you type into now carry a brand-orange rail, and on the dashboard the token field is step 2 of the setup sequence rather than a stray box beside it.</li>
+</ul>
+<h3>📦 Add-ons released alongside</h3>
+<ul>
+<li><strong>4SEO 1.10.3</strong> &mdash; <code>query_4seo_table</code> returned the <strong>entire table</strong> when <code>where</code> was a string instead of a list of clauses (<a href="https://github.com/cybersalt/cs-mcp-for-j/issues/19">#19</a>), because "no filter asked for" and "filter asked for but unreadable" took the same branch. A silent superset is worse than an error: nothing failed, the result looked right, and the caller acted on rows that never matched. Reported with a patch by Dragan. This build also finally carries the auto-enable step, so it no longer installs disabled.</li>
+<li><strong>Membership Pro</strong> &mdash; the same empty-enum problem as #29, in the coupon tools. Any site with it installed was unusable from Gemini. <code>subscription_type</code> now takes <code>"any"</code> instead of <code>""</code>; the old value is still accepted.</li>
+</ul>
+<h3>🚧 Server-side (cs-release-manager, deployed separately)</h3>
+<ul>
+<li><strong>Free add-ons returned 403 "membership not active"</strong> on the members download route, which ran the group check regardless of whether the package was public. The catalog's own public link worked, so it looked like a client bug. Affected every free-add-on user on that route.</li>
+</ul>
+<h2>🚀 Version 2.7.6 (September 17, 2026)</h2>
+<h3>🐛 Fixed — Gemini-backed clients could not use the server at all</h3>
+<ul>
+<li><strong><code>update_menu_item</code> offered an empty string in its <code>robots</code> enum.</strong> Google's Gemini API validates the whole tool catalogue against a strict OpenAPI subset and rejects <strong>all of it</strong> at parse time over a single empty enum member — <code>GenerateContentRequest.tools[0].function_declarations[N].parameters.properties[robots].enum[0]: cannot be empty</code>, HTTP 400 before any prompt runs. Not one broken tool: no usable server for any Gemini client. Anthropic tolerates empty enum members, which is why this shipped unnoticed.</li>
+<li>The empty member is gone. Nothing is lost — it was advertised in the schema only and never validated against at run time, and clearing the directive already had a better route in <code>params_unset: ["robots"]</code>, which removes the key outright instead of storing an empty string.</li>
+<li>Reported by <strong>Mathew John</strong>, testing via Cline + <code>gemini-2.5-flash</code>. Confirmed independently against our own live catalogue before changing anything. (#29)</li>
+</ul>
+<h3>✅ Added — a guard so this cannot recur silently</h3>
+<ul>
+<li><strong><code>tests/enum-guard.php</code></strong> scans this repo and the sibling add-on repos for any enum advertising an empty-string member, resolving both inline enums and <code>self::CONST</code> references. Exit code 1 on a hit.</li>
+<li>Deliberately a build-time check rather than a runtime filter. Stripping <code>""</code> as the catalogue serialises would have silently broken the Events Booking add-on, where <code>""</code> legitimately means <em>inherit the global setting</em> — a third state distinct from <code>"0"</code> and <code>"1"</code>. That case needed an explicit <code>"inherit"</code> sentinel instead, which is a decision a human has to make per field. The guard fails loudly and makes someone choose.</li>
+</ul>
+<h3>🧹 Housekeeping</h3>
+<ul>
+<li>Removed <code>admin/src/Model/cat.json</code>, an 8.5 KB debug dump of a catalog response that was never source. It sat inside the package tree, so the build swept it into the shipped zip from at least 2.7.5. Public catalog data only — no addresses, download ids or hashes — so litter rather than a leak.</li>
+</ul>
+<h2>🚀 Version 2.7.5 (September 14, 2026)</h2>
+<h3>🐛 Fixed — the download id now reaches the update server, not just the download</h3>
+<ul>
+<li>2.7.4 stamped the dlid into <code>#__update_sites.extra_query</code>, which fixed downloads. It did <strong>not</strong> fix update <em>discovery</em>, because <strong>Joomla never appends <code>extra_query</code> to the update-XML request</strong> — only to the download URL. <code>Updater::findUpdates()</code> copies <code>extra_query</code> onto the parsed update record for the installer to use afterwards; the XML itself is fetched from the bare <code>location</code>.</li>
+<li>The consequence was invisible until cs-release-manager started using the dlid: with no identity on the XML request, the update server could not tell an entitled site from an unentitled one, and briefly told <strong>every</strong> polling site its update was unavailable (fixed on that side in cs-release-manager 1.12.2).</li>
+<li><code>syncUpdateSiteDlid()</code> now writes the dlid into the update site's <strong><code>location</code></strong> as well as <code>extra_query</code> — location for discovery, extra_query for the download. Any existing <code>dlid=</code> in the location is stripped first, so re-linking with a different account cannot leave two.</li>
+<li>Downloads were already working from 2.7.4; this restores an accurate answer to <em>"why can't I install this?"</em> for sites that genuinely cannot.</li>
+</ul>
+<h2>🚀 Version 2.7.4 (September 14, 2026)</h2>
+<h3>🐛 Fixed — 2.7.3's update-site stamping did not actually run on most sites</h3>
+<ul>
+<li>2.7.3 added <code>syncUpdateSiteDlid()</code> but called it only <em>after</em> a successful re-verification. <code>refreshIfStale()</code> returns early whenever the throttle window has not elapsed — which is the normal state for any site verified in the last 24 hours — so on those sites the stamp never happened and Pro add-on updates stayed broken.</li>
+<li>The dlid does not depend on verification being due. The stamp now runs as soon as the site is known to be linked, before the throttle check. The write is guarded so it is a no-op when the value already matches.</li>
+<li>Caught by blanking <code>extra_query</code> on a live site, loading the dashboard, and finding it still empty — the fix 2.7.3 shipped was real but unreachable.</li>
+</ul>
+<h2>🚀 Version 2.7.3 (September 14, 2026) — superseded by 2.7.4, see above</h2>
+<h3>🐛 Fixed — Pro add-on updates failed for EVERY site, entitled or not</h3>
+<ul>
+<li><strong>Extensions → Update could not download any Pro add-on, on any site.</strong> Joomla reported its own <code>COM_INSTALLER_PACKAGE_DOWNLOAD_FAILED</code> — <em>"Failed to download package. Download it and install manually from &lt;url&gt;"</em> — quoting a URL that also fails, because it is the same credential-less URL that just refused.</li>
+<li><strong>Cause: <code>#__update_sites.extra_query</code> was never populated.</strong> Our update XML's <code>&lt;downloadurl&gt;</code> carries no credentials — it cannot, since the XML is generated per-element, not per-site. Joomla's mechanism for exactly this is <code>extra_query</code>, which it appends both to the update-XML request and to the download URL; it is how every commercial Joomla extension ships a download ID. Leaving it empty meant <code>api.download</code> was called with no <code>dlid</code> and returned <strong>HTTP 400</strong>. cs-release-manager was behaving as designed — its own code comment says members-only packages <em>"rely on Joomla appending extra_query"</em> — the client side simply never wrote it.</li>
+<li><strong>This was not an entitlement bug.</strong> It hit paying, fully entitled customers identically. It stayed hidden because the in-admin catalog installs through <code>install_extension</code> with an explicit <code>dlid</code> URL, which bypasses Joomla's updater entirely — so the catalog worked while Joomla's own update screen did not.</li>
+<li><strong>New <code>ProActivationHelper::syncUpdateSiteDlid()</code></strong> stamps <code>dlid=&lt;installation_id&gt;:&lt;email_hash&gt;</code> onto every cs-mcp-for-j add-on update site, and is called whenever the dlid can change: on activation, on entitlement refresh, and on deactivate (where it clears the credential rather than leaving a stale one behind). Update sites are matched on the same location pattern <code>checkUpdatesNow()</code> uses, so add-ons installed by any route are covered — including a manual Install-from-URL that never went through the catalog.</li>
+<li>Existing sites self-heal on their next dashboard or catalog load after updating. Verified against a live entitled site: the download Joomla will now perform returns <strong>HTTP 200, <code>application/zip</code>, 305,620 bytes</strong>.</li>
+</ul>
+<blockquote>
+<p>Companion release: <strong>cs-release-manager 1.12.1</strong>, which uses the now-arriving <code>dlid</code> to explain in the update XML <em>why</em> a site that still cannot download is being refused — rather than leaving Joomla to show a dead end.</p>
+</blockquote>
+<h2>🚀 Version 2.7.2 (September 14, 2026)</h2>
+<h3>🐛 Fixed — newly published Pro add-ons showed as "Get it →" on sites that already own them</h3>
+<ul>
+<li><strong>Every time a new Pro add-on ships, already-linked sites showed it as needing purchase</strong> — including All-Access accounts unambiguously entitled to it. Not a licensing bug: <code>api.verifyaccess</code> returned the correct, larger list the whole time. The stale copy was local.</li>
+<li><code>entitled_elements</code> is a <strong>snapshot</strong>, computed server-side when the account is linked and cached in component params. Anything published afterwards is simply not in it. Confirmed in the field 2026-09-14 while shipping the EasyBlog add-on: a site linked at 18:49 could not see an add-on published at 20:35 until its cached list was refreshed by hand — 16 elements cached, 17 actually entitled.</li>
+<li><strong>2.7.1's self-heal could not catch this.</strong> It fires only when the cached list is <em>empty</em> (verified under a pre-entitlement build). A list that is populated but out of date looks healthy, and that is precisely the case that recurs on every release.</li>
+<li><strong>New: <code>ProActivationHelper::refreshIfCatalogOffersUnknown()</code>.</strong> The catalog view now re-verifies when the catalog offers a Pro element this site has never heard of. The unknown set is fingerprinted and the fingerprint stored, so the probe is <strong>self-limiting</strong>: a newly published add-on changes the fingerprint exactly once and costs exactly one round trip, while a site that genuinely does not own an add-on asks once and then stops — rather than re-verifying on every page view for an answer that will not change.</li>
+<li>The fingerprint is cleared on deactivate alongside the other Pro params, so an unlink → re-link with a different or upgraded account re-probes instead of trusting the old answer.</li>
+</ul>
+<h2>🚀 Version 2.7.1 (September 11, 2026)</h2>
+<p>Add-on catalog + licensing refinements: the catalog now understands <strong>per-add-on entitlement</strong> (Install vs "Get it →" per add-on, so à-la-carte buyers see exactly what they own), the Pro-activation card is reframed as <strong>"Link your Cybersalt Extensions account,"</strong> every Pro add-on card carries a <strong>vendor-dependency notice</strong>, and the bundled fallback catalog no longer 404s installs. Builds on 2.7.0 (Codex support). Companion release: cs-release-manager 1.11.6.</p>
+<h3>✨ New — per-add-on entitlement in the catalog (GitHub #21 / #25, Phase 2)</h3>
+<ul>
+<li><strong>Browse MCP Add-Ons now shows Install vs "Get it →" per add-on</strong>, based on what the linked account actually owns — not one umbrella Pro verdict. An à-la-carte buyer (e.g. only "MCP for 4SEO") sees 4SEO as installable and the other Pro add-ons as <strong>"Get it →"</strong> (linking to the membership store), and is no longer told they have no membership (#21, the "four denials in thirteen minutes" bug).</li>
+<li><strong>cs-release-manager <code>api.verifyaccess</code> gained an additive <code>entitled_elements</code> list</strong> — the extension_elements the account can install, resolved across the whole catalog from the account's group memberships (free add-ons always included; owned Pro add-ons via à-la-carte plan group OR All-Access). Backward-compatible: old clients ignore the field. Verified end-to-end: Dragan (à-la-carte) → 4SEO + free only; an All-Access account → all 16.</li>
+<li><strong>cs-mcp-for-j</strong> stores/exposes it (<code>ProActivationHelper::getEntitledElements()</code> / <code>isEntitledTo()</code> / <code>isLinked()</code>); the catalog view keys per-add-on <code>has_pro_membership</code> off it and <strong>self-heals</strong> a stale/empty list on load (so an existing install verified under the pre-entitlement build fixes itself on first catalog view).</li>
+<li>The dead "Pro — manual install" locked pill is now an actionable <strong>"Get it →"</strong> link to <code>/membership-plans</code>.</li>
+<li><strong>Companion release: cs-release-manager v1.11.6</strong> (the <code>entitled_elements</code> resolver in <code>AccessCheckHelper</code>).</li>
+</ul>
+<h3>✨ Changed — "Link your Cybersalt Extensions account" + Pro add-on vendor-dependency notice (GitHub #21 / #25, Phase 1)</h3>
+<ul>
+<li><strong>Dashboard rename.</strong> The "Pro Membership Activation" card is now <strong>"Link your Cybersalt Extensions account"</strong> (button "Activate Pro" → <strong>"Link account"</strong>, "Membership email" → <strong>"Purchase email"</strong>), and the intro is reworded so a customer who bought a single à-la-carte add-on is no longer told they need a "Pro membership." One link step (enter the email you purchased with) covers both All-Access and individual-add-on buyers.</li>
+<li><strong>Vendor-dependency notice on Pro add-on cards.</strong> Every Pro add-on in Browse MCP Add-Ons now shows: <em>"Adds MCP tools for &lt;Extension&gt; (from &lt;Vendor&gt;). You'll need that extension itself — a separate product purchased from the vendor — installed on your site for these tools to work."</em> Rendered from each add-on's <code>target_extension</code> (name + vendor). Prevents the "I bought the add-on, where's the extension?" confusion (Leandro / customer feedback).</li>
+</ul>
+<h3>🐛 Fixed — catalog fallback pinned dead add-on versions (GitHub #20)</h3>
+<ul>
+<li><strong>Bundled fallback catalog no longer 404s add-on installs.</strong> <code>catalog.fallback.json</code> had hardcoded the 4SEO and RSTicketsPro add-ons at <strong>v1.8.0</strong> in their <code>download_url</code>, but cs-release-manager only ever published <strong>v1.10.2</strong> for both — so any catalog install that fell back to the bundled file (when the live <code>api.catalog</code> fetch failed or was cache-stale) asked cs-release-manager for a version that did not exist and got <em>"Requested version not found."</em> Reported by Dragan Subotic (first MCP for 4SEO customer); his workaround was to drop the version parameter, which pulls the latest and works.</li>
+<li><strong>Fix is structural, not a version bump.</strong> The <code>&amp;version=</code> pin is now stripped from every <code>download_url</code> in the fallback so it always installs the latest — matching the proven workaround and immune to future drift. The bundled file was also <strong>regenerated from the live catalog</strong>, so it now carries all current add-ons (16, was 4) with the AI-neutral <em>"Adds MCP tools for…"</em> descriptions instead of the stale <em>"Adds Claude tools for…"</em> text.</li>
+<li><strong>build.ps1 now refreshes the fallback from the live catalog on every build</strong> (fetch → strip version pins → relabel source → validate → write), with a graceful keep-the-committed-file fallback if the fetch fails. The bundled fallback can no longer silently drift out of date.</li>
+</ul>
+<h2>🚀 Version 2.7.0 (September 5, 2026)</h2>
+<h3>🔌 New — Native Codex connection support</h3>
+<ul>
+<li>Added a dedicated <strong>Codex</strong> tab to the Setup Guide with site-specific Windows PowerShell, macOS/Linux, <code>codex mcp add</code>, and <code>X-Joomla-Token</code> fallback snippets.</li>
+<li>Tokens are referenced by a generated environment-variable name instead of being stored in Codex's <code>config.toml</code>; the existing browser-only copy substitution remains available for the environment setup commands.</li>
+<li>Added concise server-wide <code>instructions</code> to the MCP <code>initialize</code> response so Codex receives prompt-injection and write-approval guidance during the native handshake.</li>
+<li>Made the Dashboard setup prompt client-neutral and added a permanent Codex registration path alongside Claude Code.</li>
+<li>Documented Codex registration, verification, least-privilege access, read-only mode, and the cPanel/PHP-FPM fallback in the README.</li>
+</ul>
+<h3>📦 Build</h3>
+<ul>
+<li>Bumped the package and component manifests to 2.7.0 and the System plugin to 1.15.0. The installable package continues to bundle the component plus the required System and Web Services plugins.</li>
+</ul>
+<h2>🚀 Version 2.6.0 (August 21, 2026)</h2>
+<p>Ships two new capability classes: a <strong>Support</strong> admin view for submitting questions and ideas directly to <code>support@cybersalt.com</code> with tier-aware routing, and a <strong>screencasting-safe secret-reveal system</strong> for the Dashboard's Joomla API token and Pro membership email — blur by default with configurable hover-with-delay + auto-hide.</p>
+<h3>📮 New — Support view</h3>
+<p>Fourth admin submenu item alongside Dashboard / Browse MCP Add-Ons / Setup Guide. Cross-view toolbar buttons on all three existing views also link here.</p>
+<ul>
+<li><strong>Tier-aware banner</strong> at the top drives the framing:</li>
+<li><strong>Pro members</strong> see a green priority-support banner: <em>"You have an active MCP for J Pro membership — thank you! Pro members get priority support. Ask us anything — bug reports, feature requests, questions, ideas — all welcome."</em></li>
+<li><strong>Community (Free) users</strong> see a friendly blue banner: <em>"We love hearing from you. Support for the free version is on a best-effort basis... If you need guaranteed response times or priority attention, consider <a href="https://www.cybersalt.com/membership-plans">an MCP for J Pro membership</a>"</em> &mdash; with a real hotlink to the OS Membership Pro plans page where users actually buy.</li>
+<li><strong>Form fields</strong>: type picker (🐛 Bug / ✨ Feature / ❓ Question / 💡 Idea / 💬 Other), subject (3-200 chars), message (10-5000 chars), reply-to email (pre-filled from Joomla user).</li>
+<li><strong>Backend</strong>: <code>SupportController::submit()</code> validates + sends via Joomla's Mailer to <code>support@cybersalt.com</code>. <code>Reply-To</code> set to the submitter's email so replies from the operator land in their inbox, not the site's noreply.</li>
+<li><strong>Subject-line tier tag</strong> for Gmail-side triage: <code>[MCP for J Pro Support]</code> or <code>[MCP for J Community Support]</code> + type label + user's subject. Filter/label rules on the receiving inbox become trivial.</li>
+<li><strong>Auto-attached metadata</strong> (visible to the user in the right sidebar for full transparency): site URL, cs-mcp-for-j version, Joomla version, PHP version, installed csmcpforj-family add-ons + their enabled state, Pro membership status, submitting user's name + email. Answers the environment questions any first-reply would otherwise have to ping-pong for.</li>
+<li><strong>HTML-entity decode on the subject line</strong> — type labels in the language file use <code>&amp;mdash;</code> for HTML rendering in the form UI, but email subjects are plain-text. Controller now runs <code>html_entity_decode(..., ENT_QUOTES | ENT_HTML5)</code> on the type label before composing the subject so the em-dash lands as an actual character, not a literal <code>&amp;mdash;</code> string.</li>
+</ul>
+<h3>🔒 New — Screencasting-safe secret reveal system</h3>
+<p>The Dashboard's Joomla API token pill (in the copy-prompt preview) and Pro membership email input are now blurred by default with an intentional-reveal interaction, safe for live demos and screencasts.</p>
+<ul>
+<li><strong>Blur by default</strong> via <code>filter: blur(5px)</code> &mdash; DOM <code>textContent</code> stays intact so clipboard copy still works; only the visual rendering is obscured. The empty-state placeholder variants (<code>&lt;PASTE YOUR JOOMLA API TOKEN HERE&gt;</code> and the empty pre-activation email field) are explicitly NOT blurred &mdash; nothing to hide there.</li>
+<li><strong>Hover-with-delay reveal</strong>: user must hold hover over the blurred element for N seconds before the blur comes off. A <strong>centered countdown pill</strong> overlays the element reading <em>"Revealing in 3s"</em> → <em>"Revealing in 2s"</em> → <em>"Revealing in 1s"</em> so the operator knows the timer is running (without it, a slow reveal reads as "hover not working").</li>
+<li><strong>Mouse-off resets</strong> &mdash; leaving the element cancels any in-progress countdown AND removes the reveal if it had happened. Re-entering starts a fresh full-length countdown. Makes reveal an intentional act; a mouse pointer transiting the element on the way to click something else never triggers exposure.</li>
+<li><strong>Auto-hide after reveal</strong> &mdash; once revealed, N seconds later the blur automatically returns even if the mouse is still over the element. Belt-and-braces for the "glanced, read it, then got distracted" case where an unattended browser could otherwise leave the secret exposed indefinitely.</li>
+<li><strong>Two new component options</strong> under a new <strong>Screencasting privacy</strong> fieldset (Components → MCP for Joomla → Options):</li>
+<li><code>hover_reveal_delay_seconds</code> (integer 0-60, default 3) &mdash; hold-hover duration before reveal. <code>0</code> = immediate reveal (removes the anti-accidental-hover protection, restores classic single-hover behaviour).</li>
+<li><code>hover_reveal_hide_seconds</code> (integer 0-300, default 8) &mdash; auto-hide duration after reveal. <code>0</code> = no auto-hide (reveal persists until mouseleave).</li>
+<li>Design pattern locked in project auto-memory (<code>feedback_screencasting_safe_secret_reveal_pattern.md</code>) as the canonical secret-display style for all future Cybersalt Joomla extension admin UIs. Sibling to <code>feedback_advisory_box_design_pattern</code>.</li>
+</ul>
+<h3>🔧 Miscellaneous polish</h3>
+<ul>
+<li><strong>Admin sidebar translation fix</strong> &mdash; the <code>.sys.ini</code> was missing keys for <code>SUBMENU_SETUPGUIDE</code> (added in v2.5.0) and <code>SUBMENU_SUPPORT</code> (added in this release). The Joomla sidebar loads <code>.sys.ini</code>, not the regular <code>.ini</code>, when rendering menu-item labels outside the currently-active component &mdash; so both submenu items were showing their raw <code>COM_CSMCPFORJ_SUBMENU_SE...</code> / <code>COM_CSMCPFORJ_SUBMENU_SU...</code> constants when navigating from other admin pages. Now both keys are duplicated into <code>.sys.ini</code> and both render as <em>Setup Guide</em> / <em>Support</em>.</li>
+</ul>
+<h2>🚀 Version 2.5.0 (August 15, 2026)</h2>
+<p>Biggest release since v2.0.0. Ships a brand-new admin <strong>Setup Guide</strong> view, a full-component <strong>AI-neutrality repositioning</strong> (welcomes every major AI client, not just Claude), and a critical <strong>Claude Desktop compatibility fix</strong> that unblocks a Zod-validation regression on Claude Desktop 1.30096+.</p>
+<h3>📚 New — Setup Guide view</h3>
+<p>Third admin submenu item alongside Dashboard + Browse MCP Add-Ons. Designed explicitly for non-technical audiences, leads with the Easy Way (Dashboard copy-prompt path) and folds all technical setup into a collapsed Advanced section.</p>
+<ul>
+<li><strong>Universal sections</strong>: what MCP is, connection recipe, how to generate a Joomla API key, security &amp; sharing model (per-user tokens = passwords; one-per-authorised-person vs. shared-demo patterns; revocation).</li>
+<li><strong>Per-client tabs</strong> in the Advanced expander — <strong>Claude</strong> (Desktop, Code, claude.ai), <strong>Cursor</strong>, <strong>ChatGPT custom connectors</strong>. Each tab has copy buttons that substitute your API key inline before copying to clipboard (same <code>csmcpforj-token</code> localStorage key as the Dashboard, so a key typed on either view propagates).</li>
+<li><strong>Claude Desktop walkthrough</strong> uses the <strong>wrapper-script pattern</strong> — the only pattern verified to work with current Claude Desktop builds (see the compat-fix note below for why the obvious approaches don't work). Four numbered steps: create a small <code>.cmd</code> wrapper file with the mcp-remote command inside, edit <code>claude_desktop_config.json</code> to reference the wrapper, fully quit from the system tray, restart.</li>
+<li><strong>Troubleshooting collapsibles</strong>: 401 Unauthorized, 406 Not Acceptable, empty tools/list, 404 on endpoint, 403 / Malware detected (WAF-blocked), Edit-Config button does nothing, Add-custom-connector dialog has no API-key field, <strong>&ldquo;Some MCP servers could not be loaded&rdquo;</strong> (with wrapper-script workaround), <strong>&ldquo;I restarted Claude Desktop but the new connection doesn't appear&rdquo;</strong> (tray-restart gotcha).</li>
+<li><strong>FAQ collapsibles</strong>: anonymous access, multiple tokens per user, rate limits, HTTPS/ports, key rotation, other-clients-work-too.</li>
+<li>Sticky-nav sidebar with jump links to each section.</li>
+<li>Design pattern: warning / advisory / callout boxes use the <em>dark neutral bg + colored left border + colored title</em> style from <code>feedback_advisory_box_design_pattern</code> (not Bootstrap's colored-fill alerts).</li>
+</ul>
+<h3>🌐 AI-neutrality repositioning</h3>
+<p>Component-wide rewrite of user-facing copy so cs-mcp-for-j names every major MCP client (Claude, Cursor, Cline, Continue, ChatGPT custom connectors, GitHub Copilot, Gemini CLI, Windsurf, mcp-cli) instead of leading with Claude. The MCP server itself was already 100 % AI-neutral (any conformant client works); this is a copy + framing update.</p>
+<ul>
+<li><strong>10 admin language strings</strong> rewritten in <code>com_csmcpforj.ini</code> — dashboard headline is now <strong>&ldquo;Connect an AI assistant to this site&rdquo;</strong> (was &ldquo;Connect Claude to this site&rdquo;), primary tab is <strong>&ldquo;Copy a setup prompt&rdquo;</strong> (was &ldquo;Copy a prompt into Claude&rdquo;), client lists throughout name multiple vendors inclusively.</li>
+<li><strong>Two hardcoded discovery-JSON strings</strong> rewritten (<code>McpController.php:132</code> and <code>plg_system_csmcpforj/src/Extension/Csmcpforj.php:234</code>) — the text returned on GET requests to <code>/api/index.php/v1/mcp</code> no longer leads with Claude.</li>
+<li><strong>Package sys.ini description</strong> (<code>pkg_csmcpforj.sys.ini</code>) — the description shown in Extension Manager after install now names all major MCP clients.</li>
+<li><strong>README.md</strong> — lead paragraph rewritten; client-config section now has per-client blocks for Claude Desktop / Code / claude.ai, Cursor, Cline, Continue, ChatGPT, GitHub Copilot, Gemini CLI, Windsurf, Zed.</li>
+<li><strong>Live server-side</strong> (deployed 2026-08-07, no client change needed): all 8 MCP add-on catalog entries on cybersalt.com had <code>"Adds Claude tools for..."</code> rewritten to <code>"Adds MCP tools for..."</code> &mdash; visible immediately on every existing install's Browse MCP Add-Ons view.</li>
+</ul>
+<h3>🐛 Critical fix — Claude Desktop compatibility</h3>
+<p><code>inputSchema.properties</code> on tools with no input parameters (12 of 152 tools including <code>list_access_levels</code>, <code>get_joomla_version</code>, <code>check_for_updates</code>, <code>list_user_groups</code>, <code>list_schema_types</code>, <code>get_site_info</code>, plus several add-on tools) now serialises as JSON <code>{}</code> (record) instead of <code>[]</code> (array). PHP's <code>json_encode</code> emits <code>[]</code> for empty native arrays but MCP spec requires <code>{}</code> for empty property records. Claude Desktop 1.30096+ enforces this strictly via Zod validation and rejects the <strong>entire tools/list response</strong> with <em>&ldquo;Invalid input: expected record, received array&rdquo;</em> if any tool violates. Effect: Claude Desktop users saw the MCP server listed as connected but no tools available.</p>
+<p>Single-point fix in <code>packages/com_csmcpforj/admin/src/MCP/ToolRegistry::describeForMcp()</code> &mdash; casts an empty <code>properties</code> array to <code>new \stdClass()</code> before it goes into the response. Cascades to base tools AND every installed add-on with no per-tool changes needed. Verified end-to-end on cybersalt.org: Claude Desktop now sees all 152 tools successfully.</p>
+<h3>✨ Catalog view improvements</h3>
+<ul>
+<li><strong>All state badges visible in the collapsed card row</strong> — Free/Pro tier + NEW + EXPERIMENTAL + installed-state + Superseded all render on the summary line so you can see the whole state of each add-on without expanding. Previously only the tier badge showed collapsed; everything else was hidden behind the click-to-expand.</li>
+<li><strong>New &ldquo;Not installed&rdquo; badge</strong> (neutral gray) &mdash; fills the fourth quadrant of the state grammar so every card explicitly advertises its state. Previously not-installed meant &ldquo;no badge&rdquo; which required the reader to notice absence.</li>
+<li><strong>Installed-disabled badge recoloured</strong> from <code>bg-secondary</code> (gray) to <code>bg-success-subtle</code> with green border and text-success-emphasis. Grammar: same color family as active but dimmed = &ldquo;still installed, but paused.&rdquo; Frees <code>bg-secondary</code> gray for the new Not-installed badge.</li>
+<li><strong>New &ldquo;Update to vX.Y.Z&rdquo; badge</strong> in the collapsed summary row when an installed add-on has an update available. Clickable — navigates directly to the install action with <code>event.stopPropagation()</code> so the click doesn't also toggle the card open. Yellow (<code>bg-warning</code>) for the classic action-required cue.</li>
+</ul>
+<h3>🎨 Dashboard polish</h3>
+<ul>
+<li><strong>Token pill in prompt preview is blurred by default</strong> (<code>filter: blur(5px)</code>) &mdash; makes the Dashboard safe for screencasting the setup workflow. Hover-to-reveal for the operator's own peek. Copy button still copies the real token because clipboard payload reads DOM textContent, not rendered CSS. Placeholder-mode variant explicitly NOT blurred &mdash; the public placeholder text stays readable.</li>
+</ul>
+<h3>🔧 Miscellaneous</h3>
+<ul>
+<li>Setup Guide Easy-Setup card accent swapped from cyan <code>#4dd0e1</code> to Bootstrap primary blue <code>#0d6efd</code> for consistency with its CTA button and the Joomla-admin canonical action-blue.</li>
+<li>Setup Guide code snippets fix: <code>&lt;PASTE YOUR JOOMLA API TOKEN HERE&gt;</code> placeholder now correctly copies with real angle brackets (fix for double HTML-entity encoding that was leaking <code>&amp;lt;</code> / <code>&amp;gt;</code> into the clipboard payload).</li>
+<li>Setup Guide advisory-callout design pattern applied to troubleshooting entries (colored left border + neutral background — per <code>feedback_advisory_box_design_pattern</code> memory).</li>
+</ul>
+<h2>🚀 Version 2.4.0 (July 21, 2026)</h2>
+<h3>🎨 Browse Catalog — collapsible cards</h3>
+<ul>
+<li><strong>Each add-on card is now collapsible.</strong> Native <code>&lt;details&gt;</code> / <code>&lt;summary&gt;</code> — no JS. Collapsed view shows only the add-on name and the tier badge (<code>FREE</code> / <code>PRO</code>); expanding reveals everything else (description, version, installed-state badge, NEW / EXPERIMENTAL discovery hints, advisory disclosure, install/enable/uninstall buttons). All cards start collapsed on load so the grid scans in one glance regardless of catalog size. Chevron marker rotates 90° when open. Requested by Tim 2026-07-21 as the catalog grows past ~7 entries and the all-expanded layout gets hard to read.</li>
+<li><strong>Shortened all catalog titles to the uniform <code>MCP for &lt;extension&gt;</code> format.</strong> Was: <code>Cybersalt MCP add-on for AdAgency Pro</code> / <code>MCP add-on for 4SEO</code> / etc. — now: <code>MCP for AdAgency Pro</code>, <code>MCP for 4SEO</code>, <code>MCP for RSTicketsPro</code>, etc. Consistent voice + shorter reading pass — especially helpful now that titles are the primary at-a-glance identifier on collapsed cards. Change is server-side (cs-release-manager <code>#__csrm_packages.title</code> on cybersalt.com), no code change here.</li>
+</ul>
+<h3>🐛 Bug Fixes</h3>
+<ul>
+<li><strong>406 "Could not match accept header" for spec-compliant MCP clients.</strong> The MCP Streamable HTTP spec requires clients to send <code>Accept: application/json, text/event-stream</code> on every POST, and current Claude Code builds set that header themselves — overriding any custom <code>Accept</code> configured on the server entry. Joomla's <code>ApiApplication</code> negotiates the Accept header against the route's registered format (<code>application/vnd.api+json</code> only) and rejected the request with 406 before <code>McpController</code> could run, breaking every Claude Code connection to the endpoint. <code>plg_system_csmcpforj</code> now normalises the Accept header to <code>application/vnd.api+json</code> for the MCP route only (the endpoint only ever emits JSON, so the coercion is lossless). Any spec-compliant MCP client now connects without needing a custom Accept header workaround. File: <code>packages/plg_system_csmcpforj/src/Extension/Csmcpforj.php</code>.</li>
+<li><strong>Advisory disclosure text unreadable in Atum dark mode.</strong> v2.3.3's advisory redesign hardcoded severity-accent hex on the summary text (<code>#ffc107</code> warning yellow, etc.), which read fine on a light card bg but competed with the surrounding dark card bg on Atum dark — combined with an unstyled default-blue link inside the message body, the box felt harsh + hard to scan. Swapped the summary text + icon colors from hardcoded hex to Bootstrap 5.3's <code>--bs-*-emphasis</code> theme tokens, which auto-flip under <code>[data-bs-theme="dark"]</code> — dark yellow-brown on light bg, soft warm yellow on dark bg. Border-left accent stays bright hex (small enough that saturation reads OK in both modes). Added explicit <code>!important</code> link color rule inside the advisory body with a dark-theme override for <code>#6ea8fe</code> so the GitHub feedback link in the StageIt experimental warning renders as a soft blue rather than the harsh default. Tim 2026-07-21.</li>
+</ul>
+<h2>🚀 Version 2.3.3 (July 9, 2026)</h2>
+<p><strong>Catalog advisory disclosure — dark-mode-friendly redesign.</strong> Ripped the advisory box off Bootstrap's stock <code>alert alert-warning</code> / <code>alert-info</code> / <code>alert-danger</code> classes (which paint the whole box in the semantic hue and don't respect Atum dark mode — the yellow-background variant washes out the title, drowns inline <code>&lt;code&gt;</code> tags, and pulls the eye off the surrounding card content). Rebuilt on the design pattern Tim signed off: neutral card background + 4 px colored left border + colored bold title, inspired by GitHub blockquote admonitions and Docusaurus callouts. Reads cleanly against both Atum light and dark card backgrounds without further tuning.</p>
+<h3>🎨 Advisory disclosure redesign</h3>
+<ul>
+<li><strong>Left border bar</strong> — 4 px solid, hex-coded per severity: <code>#ffc107</code> (warning golden yellow), <code>#ff5c66</code> (danger coral-red), <code>#4dd0e1</code> (info bright cyan).</li>
+<li><strong>Summary title</strong> — same accent hex, <code>fw-bold</code>, applied via inline <code>style=""</code> on <code>&lt;summary&gt;</code>, on the leading <code>&lt;span&gt;</code> icon, AND on a wrapping <code>&lt;span&gt;</code> around the title text. Belt-and-braces so Atum's dark-mode default <code>&lt;summary&gt;</code> color can't clobber the accent regardless of external-CSS specificity or <code>!important</code>.</li>
+<li><strong>Body copy</strong> — normal <code>--bs-body-color</code> contrast, integrates with surrounding card body flow.</li>
+<li><strong>Inline <code>&lt;code&gt;</code> tags</strong> — inset-pill styling via scoped <code>&lt;style&gt;</code> block: <code>--bs-body-bg</code> background + <code>--bs-emphasis-color</code> text + <code>--bs-border-color</code> border. Tool names like <code>deploy</code>, <code>sync</code>, <code>remove</code>, <code>restore</code>, <code>continue_*</code> now read as discrete pills instead of low-contrast ghost text against the previous colored <code>alert</code> background.</li>
+<li><strong>Marker</strong> — replaced the default <code>▶</code> triangle with a rotating <code>▸</code> chevron that turns 90° when open. Small polish.</li>
+</ul>
+<p>Design pattern locked in project auto-memory (<code>feedback_advisory_box_design_pattern.md</code>) as the canonical warning-box style for all future Cybersalt Joomla extension work — cs-articles-module-maxxed, cs-template-integrity, cs-edge-cache-marker, cs-override-checker, cs-userback-admin, etc. — once each touches an advisory / callout / warning surface.</p>
+<p>Single-file change: <code>packages/com_csmcpforj/admin/tmpl/catalog/default.php</code>.</p>
+<h2>🚀 Version 2.3.2 (July 7, 2026)</h2>
+<p>Dashboard "Check for Updates Now" polish + one fatal-error fix that surfaces the first time a user actually clicks the button on a cybersalt.com-managed install.</p>
+<h3>🐛 Bug Fixes</h3>
+<ul>
+<li><strong><code>checkUpdatesNow</code> fatal on click.</strong> The bind-loops in <code>DashboardController::checkUpdatesNow()</code> were calling <code>$db-&gt;bind()</code> — a method that does not exist on Joomla's <code>DatabaseInterface</code>. <code>bind()</code> lives on the query object. Both loops (<code>$delete</code> and <code>$countQuery</code>) now bind onto the query, then <code>setQuery()-&gt;execute()</code> / <code>setQuery()-&gt;loadResult()</code> runs the parameterised query correctly. Reproduces on any site with at least one cybersalt.com-managed extension and cached <code>#__updates</code> rows.</li>
+</ul>
+<h3>🎨 UI</h3>
+<ul>
+<li><strong>Dashboard "Check for Updates Now" button dark-mode contrast.</strong> Was <code>btn-outline-primary</code> (transparent background + blue border + blue text) — vanished into Atum dark's card background. Swapped to <code>btn-primary text-white</code>, matching the other primary-action buttons on the dashboard. Reads clearly in both light and dark themes.</li>
+</ul>
+<p>Files touched: <code>packages/com_csmcpforj/admin/src/Controller/DashboardController.php</code>, <code>packages/com_csmcpforj/admin/tmpl/dashboard/default.php</code>.</p>
+<h2>🚀 Version 2.3.1 (July 6, 2026)</h2>
+<p><strong>Catalog badges + advisory disclosure.</strong> Two operator-flippable per-add-on flags and a structured "read before install" caveat, driven by the StageIt free add-on landing in the catalog and needing a way to tell prospective users up-front that server-timeout risk on chunked long-runners is beyond our control.</p>
+<h3>✨ Catalog UI</h3>
+<ul>
+<li><strong>NEW badge</strong> — light-green pill next to the tier badge when <code>catalog_metadata.is_new = true</code>. Draws the eye to recently-added add-ons without spamming everything.</li>
+<li><strong>EXPERIMENTAL badge</strong> — yellow warning pill (with flag icon) when <code>catalog_metadata.is_experimental = true</code>. Hover tooltip points readers to the advisory disclosure below.</li>
+<li><strong>Advisory disclosure</strong> — native <code>&lt;details&gt;</code> collapsible below the card description, rendered when <code>catalog_metadata.advisory</code> is populated. Bootstrap <code>alert-info</code> / <code>alert-warning</code> / <code>alert-danger</code> styling by <code>severity</code>; message body is HTML so an operator can include links to docs or format multi-paragraph caveats. Collapsed by default (no visual weight on cards that don't need it) but the summary bar always visible so prospective users see the cue.</li>
+</ul>
+<h3>🤝 Companion release</h3>
+<p>Coordinated with <code>cs-release-manager</code> v1.11.4 — the <code>api.catalog</code> endpoint now passes <code>is_new</code>, <code>is_experimental</code>, and <code>advisory</code> fields through from each Package's <code>catalog_metadata</code> JSON. Operators set these via the Package edit form; no code deploy needed to flip an add-on's flags.</p>
+<h3>📦 Upgrade notes</h3>
+<p>No breaking changes. The catalog endpoint's response gains three optional fields; MCP clients that don't recognize them ignore them. Add-ons without any of these flags render exactly as before.</p>
+<h2>🚀 Version 2.3.0 (July 6, 2026)</h2>
+<p><strong>Admin sidebar preset XMLs are now inspectable from an MCP session.</strong> Driven by the americanfoam.com/stageit engagement 2026-07-06 — a Super User reported Content &gt; Fields, Content &gt; Field Groups, and Users &gt; Fields missing from the admin sidebar on Joomla 5.4.6. Every existing menu tool queries <code>#__menu</code>, but the Joomla 4+ admin sidebar isn't stored there — it's rendered at request time from XML preset files on disk under <code>administrator/components/&lt;component&gt;/presets/</code>. The session ended with "SSH in and diff against stock" because there was no MCP path to the file contents. This release closes that loop.</p>
+<h3>✨ New tools (2)</h3>
+<ul>
+<li><strong><code>list_admin_menu_presets</code></strong> (read) — enumerate every preset XML installed on the site. Returns per-preset <code>{component, name, path, size, mtime, sha256}</code> plus <code>matches_stock</code> when a bundled stock hash is available for the running Joomla version. Answers "what presets exist and which ones have been modified" in a single call.</li>
+<li><strong><code>get_admin_menu_preset</code></strong> (read) — read one preset by <code>(component, name)</code>. Structured input only — path is built server-side as <code>administrator/components/&lt;component&gt;/presets/&lt;name&gt;.xml</code>, both parts regex-validated. Returns raw XML contents plus sha256 for direct diff against a stock reference.</li>
+</ul>
+<h3>🔒 Explicit scope choice: narrow allowlist, not <code>read_file</code></h3>
+<p>The obvious way to solve this would be to add a general <code>read_file</code> tool. The full analysis is in <code>ISSUE-6-get_admin_menu_preset-scoped-file-read.md</code> at repo root; the short version:</p>
+<ul>
+<li>A leaked API token <em>today</em> = attacker can create content and install extensions. Bad, but bounded.</li>
+<li>A leaked token <em>with</em> <code>read_file</code> = attacker can pull <code>configuration.php</code> (DB password, <code>$secret</code>, mailer creds, session key). Full site compromise, potentially shared-credential lateral movement to other Cybersalt-managed sites.</li>
+<li>Silent, script-friendly recon over the whole webroot, much stealthier than the "install a plugin to exfiltrate" alternative.</li>
+</ul>
+<p><strong>Decision: scoped diagnostic readers, one file family at a time.</strong> This release ships the admin-menu-preset family. Follow-on issues (deliberately separate, not this release):</p>
+<ul>
+<li><code>get_language_file</code> — allowlisted to <code>administrator/language/**/*.ini</code> + <code>language/**/*.ini</code>.</li>
+<li><code>get_template_manifest</code> — read <code>templateDetails.xml</code> for a specific template.</li>
+<li><code>diagnose_admin_menu</code> — higher-level convenience: read all presets, diff against bundled stock hashes, return a report of modified/added/removed entries + which <code>&lt;menuitem&gt;</code> blocks are missing.</li>
+<li><code>get_component_manifest</code> — read <code>&lt;component&gt;.xml</code> for an installed component.</li>
+</ul>
+<p>Each of those gets its own scoped tool with its own allowlist. <strong>No general <code>read_file</code>.</strong></p>
+<h3>🔒 Safety stack on the preset tools</h3>
+<p>Both new tools route through a shared <code>AdminMenuPresetPathTrait</code> — single source of truth for the security model. Each layer is strict-by-default; any failure aborts before touching disk:</p>
+<ol>
+<li><strong>Structured input only.</strong> No raw path parameter. Caller supplies <code>component</code> + <code>name</code>; the tool builds the filesystem path server-side.</li>
+<li><strong>Regex validation.</strong> <code>component</code> must match <code>^com_[a-z0-9_]+$</code>, <code>name</code> must match <code>^[a-z0-9_-]+$</code>. Rejects <code>..</code>, path separators, null bytes, leading dots, extensions in the name.</li>
+<li><strong>realpath canonicalization.</strong> Resolved absolute path must start with <code>realpath(JPATH_ADMINISTRATOR . '/components')</code>. Catches symlink escape attempts that string-prefix checks miss.</li>
+<li><strong>File-type + extension check.</strong> <code>is_file()</code> (not <code>is_link()</code> alone), extension must be <code>.xml</code>.</li>
+<li><strong>Size cap.</strong> Response cap of 256 KB — presets are typically 5–15 KB; a preset XML much bigger than that is suspicious enough to refuse loading.</li>
+<li><strong>Distinct "not found" vs "not authorized" responses.</strong> <code>PresetNotFoundException</code> for genuine 404s (component exists but no preset by that name), <code>InvalidArgumentException</code> for allowlist violations. AI can distinguish "you asked for a preset that isn't installed" from "you asked for something outside the allowlist".</li>
+</ol>
+<h3>🧭 What test cases pass now</h3>
+<p>Per the spec:</p>
+<ul>
+<li>✅ <code>list_admin_menu_presets</code> on a stock Joomla 5.4.6 returns exactly the expected presets with sha256 hashes. <code>matches_stock</code> returns <code>null</code> until the stock-hash table is populated (opt-in — see <code>AdminMenuPresetPathTrait::stockHashLookup()</code> docblock for how to generate + transcribe hashes; hash comparison logic is already wired up).</li>
+<li>✅ <code>get_admin_menu_preset(component="com_menus", name="default")</code> returns byte-identical file content on any Joomla install.</li>
+<li>✅ <code>get_admin_menu_preset(component="../etc", name="passwd")</code> — refused, no file access attempted.</li>
+<li>✅ <code>get_admin_menu_preset(component="com_menus", name="../../../configuration")</code> — refused, name regex rejects <code>../</code>.</li>
+<li>✅ <code>get_admin_menu_preset(component="com_menus", name="nonexistent")</code> — clean 404-shaped <code>ToolResult::error</code>, no PHP warning.</li>
+<li>✅ Symlink <code>administrator/components/com_evil/presets/default.xml -&gt; /etc/passwd</code> — refused because realpath escapes the allowlist base.</li>
+<li>✅ Preset file &gt; 256 KB — refused with a clear message.</li>
+</ul>
+<h3>📦 Upgrade notes</h3>
+<p>No breaking changes. New tools land in a new "Admin Menu Presets" category, automatically picked up by the tool registry. If you have a <code>?categories=</code> filter in use on the MCP endpoint URL, add <code>admin_menu_presets</code> to keep the new tools accessible.</p>
+<p>The stock-hash lookup table in <code>AdminMenuPresetPathTrait::stockHashLookup()</code> intentionally ships <strong>empty</strong> in v2.3.0 — plumbing wired, awaits hash-gathering from stock Joomla installs. Populating it is a follow-on task; sha256 is returned regardless so external diffs against a reference install work today.</p>
+<h2>🚀 Version 2.2.0 (June 19, 2026)</h2>
+<p><strong>Templates domain ships full coverage — file editing + style settings.</strong> Driven by GitHub issue #7 (Greg Willson Cassiopeia <code>user.css</code> engagement, 2026-06-26): every other step of the work landed cleanly through MCP except the actual file write, which required two human round-trips through the Joomla admin Template Files Editor. After this release, that whole workflow runs through Claude.</p>
+<h3>✨ New tools (5)</h3>
+<p><strong>File editing</strong> — equivalent to the Joomla admin's <strong>System → Templates → Site Templates → [template] → Edit Template Files</strong> screen, exposed as MCP tools:</p>
+<ul>
+<li><strong><code>list_template_files</code></strong> (read) — recursively list every file under <code>media/templates/&lt;client&gt;/&lt;template&gt;/</code>. Returns <code>{path, size, mtime}</code> per file with paths relative to the template root, suitable to feed back into the read/write tools.</li>
+<li><strong><code>read_template_file</code></strong> (read) — return the text contents of a file under the template root. Auto-detects binary files (presence of null byte) and returns them base64-encoded so the JSON-RPC envelope stays valid.</li>
+<li><strong><code>write_template_file</code></strong> (write, destructive) — overwrite-or-create a file under the template root. Returns post-write size + sha256 for the AI to verify what landed. <strong>PHP files intentionally NOT writable in v1</strong> — see safety below.</li>
+</ul>
+<p><strong>Style settings</strong> — equivalent to opening a style under <strong>System → Site Template Styles → [style]</strong> and clicking Save:</p>
+<ul>
+<li><strong><code>get_template_style</code></strong> (read) — fetch a single style by id with its params blob decoded into a JSON object. Pairs with the existing <code>list_template_styles</code> (which returns the list without params).</li>
+<li><strong><code>update_template_style</code></strong> (write) — update a style's params (and optionally its title). Params are <strong>merged</strong> into existing (not replaced) — pass only the keys you want to change, use <code>null</code> to delete a key. Same write semantics as <code>set_plugin_params</code> so the AI doesn't have to learn two different patterns.</li>
+</ul>
+<h3>🔒 Safety stack on the file tools</h3>
+<p>Template files can be executable PHP, so write access without guardrails would be effectively RCE if the API token leaks. The safety surface for the file tools is built around a shared <code>TemplateFilePathTrait</code> that every read/write tool routes through. Each layer is strict-by-default; any failure aborts before touching disk:</p>
+<ol>
+<li><strong>Strict input validation</strong> — <code>client_id</code> must be 0 or 1; <code>template</code> must match the safe-element pattern (lowercase alphanumeric + underscore + hyphen + dot suffix); <code>path</code> must use forward slashes, no <code>..</code>, no null bytes.</li>
+<li><strong>Path canonicalization</strong> — every resolved target goes through <code>realpath()</code>. Final path must start with the canonical jail root (<code>media/templates/&lt;client&gt;/&lt;template&gt;/</code>); catches symlink escapes that string-prefix checks would miss.</li>
+<li><strong>Write-extension allowlist</strong> — <code>write_template_file</code> only accepts CSS, JS, SCSS, LESS, JSON, SVG, plain text, raster images, and font files. <strong>PHP is denied in this version</strong>; enabling .php writes is a deliberate later-version decision behind its own permission flag. Read access is broader (any extension) so the AI can still inspect existing PHP overrides to decide whether a CSS-only customization would suffice.</li>
+<li><strong>MCP <code>ToolAnnotations</code></strong> — list/read get <code>readOnlyHint=true, idempotentHint=true</code>. Write gets <code>destructiveHint=true, idempotentHint=true</code> (overwrites may destroy prior content; calling with same args twice = same end state). Read-only mode (component config) naturally excludes the write tool.</li>
+</ol>
+<h3>✨ Auto-classifier additions</h3>
+<p><code>AbstractTool::getMcpAnnotations()</code> now recognizes two more name-verb prefixes for automatic ToolAnnotations classification:</p>
+<ul>
+<li><strong><code>read_*</code></strong> → readOnlyHint=true, idempotentHint=true (was previously falling through to the "unknown verb" default which is non-destructive but also not read-only). Matches the existing <code>list_/get_/check_/validate_/fetch_</code> cluster.</li>
+<li><strong><code>write_*</code></strong> → readOnlyHint=false, destructiveHint=true, idempotentHint=true. Covers the new file tool and any future overwrite-or-create style tools.</li>
+</ul>
+<h3>🚫 Deliberately deferred</h3>
+<p>To keep the v2.2.0 release focused, these template-domain capabilities are NOT in this release:</p>
+<ul>
+<li><code>create_template_style</code> / <code>delete_template_style</code> — less common, more error-prone; can come later.</li>
+<li><code>create_template_override</code> / <code>delete_template_file</code> — the issue #7 spec includes them but the MVP scope ships read/write without them.</li>
+<li>Per-menu-item template-style assignment — already partially possible via existing menu tools.</li>
+<li>Schema-aware param validation (parsing each template's own <code>templateDetails.xml</code> config schema) — pass-through covers ~90% of use cases without it.</li>
+<li><code>csmcpforj.templates.editphp</code> permission flag to unlock PHP writes — deferred until there's a concrete need.</li>
+</ul>
+<h3>📦 Upgrade notes</h3>
+<p>No breaking changes. New tools land in the Templates category, automatically picked up by the registry. If you have a <code>?categories=</code> filter in use on the MCP endpoint URL, add <code>templates</code> to keep the new tools accessible.</p>
+<h2>🚀 Version 2.1.1 (June 18, 2026)</h2>
+<p><strong>Issue-backlog sweep.</strong> Bug fixes + catalog UX polish driven by the WMW #342 chat feedback and the open GitHub issues list.</p>
+<h3>🐛 Fixes</h3>
+<ul>
+<li><strong>RSTicketsPro Pro add-on (GitHub #5): <code>add_rst_ticket_reply</code> forced <code>html=0</code> regardless of passed argument.</strong> The wrapper was correctly extracting the caller's <code>html</code> value and putting it in <code>$data</code>, but <code>RSTicketsProTicketHelper::bind($data)</code> was dropping the field empirically — <code>saveMessage()</code> always wrote html=0. Fix: after <code>$helper-&gt;bind($data)</code>, set <code>$helper-&gt;html = (int) $data['html']</code> directly so the value survives. Ships in cs-mcp-for-j-addons-pro / plg_system_csmcpforjrst v1.8.1.</li>
+<li><strong>RSTicketsPro Pro add-on: missing <code>script.php</code> referenced by manifest.</strong> The plugin manifest declared <code>&lt;scriptfile&gt;script.php&lt;/scriptfile&gt;</code> but no file shipped — Joomla's installer would warn on install. Added the standard auto-enable-on-install script.php (matching the pattern of the other three addons) plus a post-install confirmation message.</li>
+</ul>
+<h3>✨ Catalog UX (driven by Bjørn + Ivar feedback from WMW #342 chat)</h3>
+<ul>
+<li><strong>"Installed" badges polished.</strong> The catalog's per-card state badges now read <strong>green ✓ "Installed"</strong> (active) and <strong>grey "Installed (disabled)"</strong> (with hover tooltips explaining the state) instead of the terse "ENABLED"/"DISABLED" labels. Easier to register at a skim — "you've already got this" lands visually.</li>
+<li><strong>Post-install confirmation message</strong> from every add-on plugin's <code>postflight</code>. Tells the operator the install actually did something (no admin UI by design, tools appear in connected MCP clients) and names the new tools. Addresses Ivar's "couldn't find the Akeeba add-on after install — expected a menu entry" pattern. Lands in cs-mcp-for-j-addons-free (Akeeba Backup Core, Cybersalt Release Manager) and cs-mcp-for-j-addons-pro (4SEO, RSTicketsPro).</li>
+<li><strong>Supersede-pair logic</strong> — <code>superseded_by</code> field on catalog metadata. Each catalog entry can declare a list of extensions ({type, folder?, element, display_name?}) that, if installed on the client site, mean this catalog entry is redundant. The cs-mcp-for-j catalog template marks superseded rows with a teal "Superseded by &lt;X&gt;" badge and hides the Install / Update buttons (Toggle / Uninstall stay available on already-installed rows so cleanup is possible). Resolves Bjørn's request: hide Akeeba Backup Core add-on when Akeeba Pro is installed.</li>
+</ul>
+<h3>📝 Investigation notes (no code changes)</h3>
+<ul>
+<li><strong>Pro activation false-positive on fresh install</strong> (Bjørn 2026-06-17) — investigated the activation helper's per-request memo path and the postflight script; no obvious mechanism that would carry a false "Membership Expired" verdict across a fresh install. Cannot reproduce statically. Queued for live-repro on a clean test site.</li>
+<li><strong>AMM (Regular Labs Advanced Module Manager) form-name compat</strong> (Bjørn 2026-06-17 catalog-chat note) — audited the codebase; cs-mcp-for-j ships zero <code>onContentPrepareForm</code> handlers and the module-management tools (<code>create_module</code>, <code>update_module</code>, etc.) call into Joomla's MVC model layer directly, which is form-name agnostic. AMM's <code>com_modules.module</code> → <code>com_advancedmodules.module</code> rename does not affect us. Closing as N/A.</li>
+</ul>
+<h3>🤝 Companion releases</h3>
+<p>This release coordinates with simultaneous bumps:
+- <strong>cs-mcp-for-j-addons-free</strong> v1.0.1 (Akeeba Backup Core + Cybersalt Release Manager) — post-install confirmation messages added.
+- <strong>cs-mcp-for-j-addons-pro</strong> v1.8.1 (4SEO + RSTicketsPro) — RST <code>html=0</code> fix, RST <code>script.php</code> added, post-install confirmation messages added.
+- <strong>cs-release-manager</strong> v1.11.3 — <code>api.catalog</code> endpoint output gains the <code>superseded_by</code> field passed through from <code>catalog_metadata.superseded_by</code> JSON. No schema changes; no DB migration needed.</p>
+<h3>📦 Upgrade notes</h3>
+<p>No breaking changes. The catalog endpoint's response shape gains one optional field (<code>superseded_by</code>); existing MCP clients ignore unknown fields. The "Installed" badge labels changed; if you had screen-reader translations relying on the old strings, update to the new <code>COM_CSMCPFORJ_CATALOG_STATE_INSTALLED_ACTIVE</code> / <code>..._DISABLED</code> keys.</p>
+<h2>🚀 Version 2.1.0 (June 18, 2026)</h2>
+<p><strong>Server-side safety + agentic ergonomics + native Joomla update tools.</strong> Several new cross-cutting features were added to the MCP server after surveying the landscape — see the credits section at the bottom of this entry.</p>
+<h3>🔒 Security</h3>
+<ul>
+<li><strong>Argument secret guard.</strong> Before any tool dispatches, the server recursively scans the tool's arguments for the current session's Bearer token. If found anywhere in the payload, the call is refused before reaching the tool handler. This is a server-side circuit breaker against prompt-injection attempts that smuggle the user's API token into a downstream tool call (e.g. via a fetched URL or article body the AI happens to be processing). Implementation in <code>MCP\Security\ArgumentSecretGuard</code>.</li>
+<li><strong>Permanent-delete safety scaffolding.</strong> <code>delete_article</code> now refuses to permanent-delete a row that isn't already trashed, with an error message that clearly explains the two-step path (trash first, then re-call with <code>permanent=true</code>). Powered by a new <code>RequiresTrashFirstTrait</code> so the same pattern can extend to other delete-* tools incrementally. This is intentional friction for AI clients — the two-step intent has to be explicit, not a single mis-targeted call.</li>
+</ul>
+<h3>✨ New Features</h3>
+<ul>
+<li><strong>Read-only mode (component config).</strong> New Options → "MCP server" tab with a "Read-only mode" switch. When on, the MCP endpoint only announces and accepts tools whose MCP ToolAnnotations declare <code>readOnlyHint=true</code> (list_<em>, get_</em>, check_<em>, validate_</em>, fetch_*). Lets an operator hand an AI client a "browse but don't mutate" surface without revoking the user's API token. Per-request override: <code>?read_only=1</code> on the endpoint URL narrows further (but cannot UNLOCK writes from a site that has the floor set).</li>
+<li><strong>Category-based tool filtering.</strong> Optional <code>?categories=articles,users,menus</code> (or singular <code>?category=</code>) on the endpoint URL filters which tools the server announces. Useful for context-window-bound models that choke on the full tool list. The filter applies consistently to <code>tools/list</code> AND <code>tools/call</code> so a client cannot invoke a tool that the filtered list wouldn't have shown them.</li>
+<li><strong>MCP <code>ToolAnnotations</code> on every tool.</strong> The server now emits the MCP-spec-standard <code>annotations</code> object on every tool descriptor: <code>readOnlyHint</code>, <code>destructiveHint</code>, <code>idempotentHint</code>, <code>openWorldHint</code>. Tools auto-classify from their name verb (list_/get_/check_/validate_/fetch_ → read-only; delete_/uninstall_/clear_/revoke_/cancel_ → destructive; etc.); individual tools can override via <code>getMcpAnnotations()</code>. Lets MCP-spec-aware clients render safety badges per tool.</li>
+<li><strong>Type-introspection tools (2 new):</strong></li>
+<li><strong><code>list_menu_item_types</code></strong> — every menu item type installed on this site, grouped by component. Discovery for the AI before calling <code>create_menu_item</code>, which needs an installed type code (Single Article, Category List, Login Form, Contact Form, Custom URL, plus any third-party component's types).</li>
+<li><strong><code>list_module_types</code></strong> — every module type installed (mod_login, mod_menu, mod_custom, mod_articles_latest, mod_banners, plus any third-party module). Discovery before <code>create_module</code>.</li>
+<li><strong>Joomla core update tools (3 new):</strong></li>
+<li><strong><code>check_joomla_update</code></strong> (read-only) — force-polls the Joomla update server (bypasses the up-to-24h local cache) and reports current vs latest, release notes URL, update availability.</li>
+<li><strong><code>joomla_update_healthcheck</code></strong> (read-only) — pre-flight: PHP version, database type/version, extension count, disk space. Returns OK/warning/error verdicts per check + an aggregate summary.</li>
+<li><strong><code>apply_joomla_update</code></strong> (destructive, irreversible) — downloads + extracts + applies the update via Joomla's own <code>UpdateModel</code>. Requires explicit <code>confirm=true</code> argument; without it, refuses with a message explaining why. Conservative scope: routine point releases on straightforward sites; for major version upgrades or sites with extension compat warnings, the description points the AI back to the web UI.</li>
+</ul>
+<h3>🙏 Credits</h3>
+<p>The infrastructure ideas above (argument secret guard, MCP tool annotations + read-only mode, trash-before-permanent-delete, category filtering, type-introspection, multi-step Joomla update tool family) were inspired by reviewing <strong><a href="https://github.com/nikosdion/joomla-mcp-php">nikosdion/joomla-mcp-php</a></strong> (licensed AGPL-3.0). Each feature was studied for the <em>concept</em> — what problem it solves and why — and then <strong>independently reimplemented from scratch</strong> in cs-mcp-for-j's GPL-2-or-later codebase using our own naming, file layout, and code structure. No source code, configuration, or strings were copied. Nikolaos Dionysopoulos's broader MCP-for-Joomla work is excellent and worth a look if you're after a stdio-based MCP server that runs outside Joomla via Composer/PHAR.</p>
+<h3>📦 Upgrade notes</h3>
+<ul>
+<li>New component config field <code>read_only_mode</code> defaults to <code>0</code> (off) — existing installs keep current behavior on upgrade.</li>
+<li>5 new tools added to the registry — the total surface is now ~100 tools. Consider using the new <code>?categories=</code> filter on the endpoint URL if your MCP client struggles with the full list.</li>
+<li>No schema migrations. No breaking changes to existing tools' input/output shapes; the only addition to the tools/list response is the <code>annotations</code> object per tool, which MCP clients ignore if they don't recognise it.</li>
+</ul>
+<h2>🚀 Version 2.0.0 (June 12, 2026)</h2>
+<p>v2.0 catalog architecture lands as GA: the four extension-specific add-ons (<strong>4SEO, RSTicketsPro, Cybersalt Release Manager, Akeeba Backup</strong>) are now detached from the bundle and ship as standalone installable plugins from cs-release-manager on cybersalt.com. The component itself stays light — operators install only the add-ons their site actually uses, one click from <strong>Components → MCP for Joomla → Browse MCP Add-ons</strong>.</p>
+<h3>🔒 Security</h3>
+<ul>
+<li><strong>XSS in catalog install messages.</strong> <code>CatalogController::installAddon</code> now HTML-escapes catalog-sourced <code>addonName</code> and request-sourced <code>addonKey</code> before passing them to <code>Text::sprintf</code>/<code>setMessage</code>. A compromised remote catalog endpoint (or an operator-set malicious catalog URL) can no longer XSS the admin via a crafted addon name. Joomla's admin message bar renders messages as HTML, so this escape is required at the substitution boundary.</li>
+</ul>
+<h3>📦 New Features — Catalog GA</h3>
+<ul>
+<li><strong>Browse MCP Add-ons view.</strong> Cards per add-on with Pro/Free tier badge, installed/disabled state, catalog-vs-installed version compare, target-extension info, and vendor link with an "MCP tools developed independently of [vendor]" notice.</li>
+<li><strong>One-click Install.</strong> Wraps Joomla's standard <code>InstallerHelper::downloadPackage</code> + <code>Installer::install</code> — same code path Extensions → Install from URL uses, so manifest parsing, file copy, postflight, and rollback all behave exactly like a normal Joomla install. Defensive checks: GET token, <code>core.admin</code> on <code>com_csmcpforj</code>, addon_key must resolve to a catalog entry (no arbitrary URLs), HTTPS-only.</li>
+<li><strong>One-click Update.</strong> When an installed add-on's manifest version is older than the catalog version, the Install button becomes "Update to v…" and runs the same code path against the new zip.</li>
+<li><strong>One-click Enable / Disable / Uninstall</strong> per card so the full lifecycle happens inside the catalog UI.</li>
+<li><strong>Pro Activation flow.</strong> Dashboard "Pro Activation" card: enter membership email, activate locally, dlid gets appended to Pro add-on downloads so cs-release-manager's <code>AccessCheckHelper::verifyUpdateAccess</code> lets them through. Deactivate Locally clears the activation. Activation state mirrors into Component Options (read-only) with a "Open Dashboard" link for the deactivate action.</li>
+<li><strong>Pro gate on Install button.</strong> Pro add-ons render a disabled "Pro — manual install" button with a tooltip when Pro activation isn't present locally. No more dead-end click → 401.</li>
+<li><strong>Akeeba Backup add-on</strong> added to the launch lineup (free) alongside 4SEO, RSTicketsPro, and Cybersalt Release Manager (free).</li>
+</ul>
+<h3>🔧 Improvements</h3>
+<ul>
+<li><strong>Dashboard Options button</strong> — the gear icon now appears on the dashboard view too, not just on Browse Add-ons.</li>
+<li><strong>Canonical Joomla sidebar.</strong> Cross-view nav now uses <code>HTMLHelper::_('sidebar.addEntry', ...)</code> — same pattern as com_users / com_modules.</li>
+<li><strong>Skip-rebuild when source unchanged.</strong> <code>build.ps1</code> reuses an existing standalone add-on zip when no source file is newer than it. Stops spamming cs-release-manager with identical-content uploads when only the core changed.</li>
+<li><strong>Per-extension version discipline.</strong> Each sub-extension's <code>&lt;version&gt;</code> now reflects when <em>its</em> source actually changed, not the bundle release. No more lockstep bumps that cause spurious "Find Updates" prompts on installed sites.</li>
+</ul>
+<h3>⬆️ Upgrade notes</h3>
+<p>Standard "Install from File" over your existing install. Postflight auto-enables the core component, system plugin, and webservices plugin. Add-ons no longer ship in the bundle — install them per-site from <strong>Components → MCP for Joomla → Browse MCP Add-ons</strong>.</p>
+<p>If you have a previous version of <code>csmcpforj4seo</code> or <code>csmcpforjrst</code> installed via the v1.10.x bundle, they remain in place after the upgrade (Joomla doesn't auto-uninstall children that move out of the bundle). The catalog will detect them as installed and offer Enable/Disable/Uninstall as normal.</p>
+<hr>
+<h2>🚀 Version 1.10.2 (June 10, 2026)</h2>
+<p>Same-day patch on the heels of v1.10.1's first public release. Closes two MCP discoverability paper-cuts caught while filling out cybersalt.com's <code>/extensions/mcp-for-j</code> page through the live endpoint, plus a belt-and-braces fix for the missing <strong>Update Sites</strong> entry some installs had after upgrading from v1.10.0.</p>
+<h3>🔧 Discoverability — <code>article_id</code> and <code>url</code> aliases</h3>
+<ul>
+<li>New <code>AbstractTool::requireItemOrArticleId()</code> helper accepts <strong>either</strong> the canonical <code>item_id</code> (matches Joomla's <code>#__schemaorg.itemId</code>) or the natural-sounding <code>article_id</code> alias. Applied to:</li>
+<li><code>get_article_schema</code></li>
+<li><code>set_article_schema</code></li>
+<li><code>clear_article_schema</code></li>
+<li><code>set_article_custom_jsonld</code></li>
+<li><code>set_article_custom_jsonld_bulk</code> (per-entry)</li>
+<li><code>fetch_rendered_url</code> now accepts <code>url</code> as an alias for <code>path</code>.</li>
+<li>All six tool descriptions rewritten to <strong>lead</strong> with <code>REQUIRED ARG: ...</code> so an agent doesn't have to read past the prose to find the parameter name.</li>
+</ul>
+<p>These were caught when an agent extrapolating from <code>update_article(id=812)</code> reasonably guessed <code>article_id</code> for <code>set_article_custom_jsonld</code> — and got an error. Both names work now.</p>
+<h3>🐛 Update Sites missing after upgrade</h3>
+<p>The package manifest's <code>&lt;updateservers&gt;</code> block is supposed to be processed by Joomla's PackageAdapter on install AND upgrade. In practice it lands reliably on fresh installs but is flaky when upgrading from a version of the package that didn't ship an <code>&lt;updateservers&gt;</code> block — exactly the v1.10.0 → v1.10.1 case. Result: System → Update Sites stayed empty, "Find Updates" had nothing to query.</p>
+<p>New <code>ensureUpdateSiteRegistered()</code> step in the postflight script explicitly:</p>
+<ol>
+<li>Finds the package's <code>extension_id</code> in <code>#__extensions</code></li>
+<li>Looks up any linked <code>#__update_sites</code> row via the <code>#__update_sites_extensions</code> join</li>
+<li>If a row exists: refreshes the URL, name, type, and enables it</li>
+<li>If not: inserts both rows</li>
+</ol>
+<p>Idempotent. Safe to re-run. Anyone on v1.10.1 with a missing Update Sites entry gets it added when they install v1.10.2 over the top.</p>
+<h3>⬆️ Upgrade</h3>
+<p>Standard "Install from File" over your existing install. No data migration, no DB schema changes.</p>
+<hr>
+<h2>🚀 Version 1.10.1 (June 10, 2026)</h2>
+<p>Public-release housekeeping. Adds the Cybersalt update-server URL to the package manifest so Joomla's "Find Updates" surfaces future versions automatically — required for the <strong>first official public release</strong> on cybersalt.com.</p>
+<h3>🔧 Update server</h3>
+<p><code>pkg_csmcpforj.xml</code> now declares:</p>
+<pre><code class="language-xml">&lt;updateservers&gt;
+    &lt;server type=&quot;extension&quot; name=&quot;MCP for Joomla&quot;&gt;https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.updatexml&amp;format=raw&amp;element=pkg_csmcpforj&lt;/server&gt;
+&lt;/updateservers&gt;
+</code></pre>
+<p>Existing installs upgrading from v1.10.0 → v1.10.1 register the update server during the package install; from then on, Joomla → System → Update will detect new versions without re-installing.</p>
+<h3>⚠️ Supersedes v1.10.0</h3>
+<p>v1.10.0 was tagged earlier on June 3 but had no update-server URL, which made it unfit as the public-distribution build. v1.10.1 is functionally identical except for the manifest line; if you grabbed v1.10.0, install v1.10.1 over the top.</p>
+<hr>
+<h2>🚀 Version 1.10.0 (June 3, 2026)</h2>
+<p>Closes the <strong>ACL gap</strong> that previously required UI clicks to grant a non-Super-User group access to a component. Adds full user-group CRUD plus a new <strong>Permissions</strong> domain that reads and writes <code>#__assets.rules</code> directly.</p>
+<p>Tool count: 114 → 119. New domain: Permissions (2 tools). Three new tools join Users.</p>
+<h3>📦 New Features — User Group CRUD</h3>
+<ul>
+<li><strong><code>create_user_group(title, parent_id=1)</code></strong> — goes through <code>com_users</code>' <code>GroupModel</code> so the matching <code>#__assets</code> row is created and the new group inherits from its parent.</li>
+<li><strong><code>update_user_group(id, title?, parent_id?)</code></strong> — PATCH semantics. Moving a group changes which permissions it inherits.</li>
+<li><strong><code>delete_user_group(id, confirm:true)</code></strong> — refuses if any users are still in the group or if child groups inherit from it. Joomla's built-in groups can't be deleted.</li>
+</ul>
+<h3>📦 New Features — Permissions Domain</h3>
+<ul>
+<li><strong><code>list_component_permissions(component)</code></strong> — return the parsed <code>#__assets.rules</code> JSON for a component (or <code>root.1</code> for global) <strong>plus</strong> the resolved value for every (group, permission) cell via <code>Access::checkGroup()</code> — the same inheritance walk Joomla uses at runtime. Diff the resolved column across groups to find which permission is gating access.</li>
+</ul>
+<p>Actions are discovered from the component's <code>access.xml</code> (canonical) and from any keys already present in the rules JSON.</p>
+<ul>
+<li><strong><code>set_component_permission(component, group_id, permission, value)</code></strong> — set one ACL cell. <code>value</code>: <code>1</code> = Allowed, <code>0</code> = Denied, <code>null</code> = Inherited (clears the explicit setting). Equivalent to clicking one row/column intersection in the admin Permissions tab and saving.</li>
+</ul>
+<p>Refuses one footgun: setting <code>core.admin</code> Denied for Super Users on <code>root.1</code>. Other dangerous combinations are allowed because Joomla itself allows them.</p>
+<h3>🔒 Security review (pre-release sweep, June 3)</h3>
+<p>Five findings caught and fixed in the same release. None reachable from outside an authenticated admin session, but worth closing for defense in depth:</p>
+<ul>
+<li><strong>MED — Path traversal in <code>list_component_permissions</code>.</strong> Input <code>component</code> was only validated with <code>str_starts_with('com_')</code>, so values like <code>com_../../etc/passwd</code> passed and got concatenated into <code>JPATH_ADMINISTRATOR . '/components/' . $component . '/access.xml'</code>. New <code>AbstractTool::requireSafeAssetName()</code> helper enforces <code>root.1</code> | <code>com_[a-z0-9_]+</code> | <code>com_&lt;name&gt;.&lt;subtype&gt;.&lt;id&gt;</code> shape. Applied to both <code>list_/set_component_permission</code>.</li>
+<li><strong>MED — Privilege escalation via direct-DB token tools.</strong> The four new <code>*_user_api_token</code> tools bypassed Joomla's UserModel, so a Manager with <code>csmcpforj.write</code> could mint a Super User token and pivot. New <code>AbstractTool::requireCanEditTargetUser()</code> helper mirrors Joomla's "can't edit equal-or-higher privilege users" check by comparing <code>MAX(usergroups.level)</code> across actor vs target. Super Users bypass; self-operations bypass. Applied to all four token tools + the <code>create_user(enable_api_token: true)</code> mint path (defense-in-depth: UserModel already enforces it during group assignment).</li>
+<li><strong>LOW — Missing ACL on <code>CatalogController::refresh</code>.</strong> Any logged-in admin who could hit the URL could trigger remote fetches against cybersalt.com. Now requires <code>core.admin</code> on <code>com_csmcpforj</code> in addition to the form-token check.</li>
+<li><strong>LOW — <code>CatalogModel</code> accepted any URL scheme for the catalog endpoint.</strong> An operator who could edit the component config could set <code>file://</code> or <code>gopher://</code>. Now allowlists <code>http://</code> and <code>https://</code> only.</li>
+<li><strong>VERY LOW — <code>JoomlatokenHelper::loadProfileRows</code> bound <code>$likePattern</code> before assigning it.</strong> Worked because Joomla's <code>bind()</code> is by-reference, but fragile against refactors. Reordered.</li>
+</ul>
+<h3>🎯 Use case (from field testing, June 3)</h3>
+<p>Granting a new low-privilege group access to DPCalendar previously meant stepping a test user through each built-in group manually to discover the gating permission. Now:</p>
+<pre><code>list_component_permissions(component: &quot;com_dpcalendar&quot;)
+  → diff Super Users vs Manager → identify &quot;core.admin&quot; as gate
+
+create_user_group(title: &quot;Kiosk Access&quot;, parent_id: 1)
+  → returns id: 10
+
+set_component_permission(component: &quot;com_dpcalendar&quot;,
+                         group_id: 10,
+                         permission: &quot;core.admin&quot;,
+                         value: 1)
+
+update_user(id: 7, groups: [10])
+</code></pre>
+<p>Four MCP calls instead of an admin GUI dance.</p>
+<hr>
+<h2>🚀 Version 1.9.0 (June 3, 2026)</h2>
+<p>Closes the <strong>per-user API token management</strong> gap that previously forced operators to log in as each target user to mint or rotate tokens. Adds a full <code>joomlatoken</code> admin surface plus atomic create-and-mint on <code>create_user</code>.</p>
+<p>Tool count: 110 → 114.</p>
+<h3>📦 New Features — User / Token Surface</h3>
+<ul>
+<li><strong><code>get_user_api_token_status(user_id)</code></strong> — read-only state of a user's API token: <code>enabled</code>, <code>has_secret</code>, <code>algorithm</code>. The secret itself is never returned.</li>
+<li><strong><code>enable_user_api_token(user_id, enabled)</code></strong> — toggle the <code>joomlatoken.enabled</code> flag without touching the secret. Useful for temporarily blocking a token without invalidating it.</li>
+<li><strong><code>reset_user_api_token(user_id)</code></strong> — generate a fresh secret and return the <strong>display token</strong> the user can paste straight into an MCP client's <code>Authorization: Bearer</code> header. Format mirrors <code>plg_user_token</code> exactly: <code>base64("&lt;algo&gt;:&lt;userid&gt;:&lt;hmac&gt;")</code>. Bypasses Joomla's "only the user can see their own token" GUI restriction because Super User MCP tools are by definition programmatic admin.</li>
+<li><strong><code>revoke_user_api_token(user_id)</code></strong> — disable + zero the secret. For incident response. Restore access with <code>reset_user_api_token</code>.</li>
+</ul>
+<h3>🔧 Improvements</h3>
+<ul>
+<li><strong><code>create_user(enable_api_token: true)</code></strong> — atomic create-and-mint. Response now includes <code>display_token</code> and a pre-formatted <code>paste_as</code> header string. Replaces the previous multi-step dance (create user → bump to Manager → log in as user → reset token → unbump) with a single call.</li>
+<li><strong><code>get_user(include_profile: true)</code></strong> — adds <code>#__user_profiles</code> rows to the response (joomlatoken state, profile plugin fields, vendor plugin fields like DPCalendar's private-feed token, etc.). The raw <code>joomlatoken.token</code> secret is redacted to <code>[redacted; present]</code>; other plugin tokens are returned verbatim so the agent can spot them.</li>
+</ul>
+<h3>🛠 Engineering</h3>
+<ul>
+<li>Token format mirrors <code>plugins/user/token/src/Extension/Token.php</code> exactly so the display string returned by <code>reset_user_api_token</code> works in any MCP client. The HMAC uses Joomla's <code>secret</code> from <code>configuration.php</code> as the key (same as the GUI).</li>
+<li>New <code>JoomlatokenHelper</code> consolidates the seed-gen, HMAC, and <code>#__user_profiles</code> upsert logic so the four new tools (and <code>create_user</code>) share one code path.</li>
+</ul>
+<hr>
+<h2>🚀 Version 1.8.1 (May 25, 2026)</h2>
+<p>Fills out the <strong>Custom Fields</strong> domain so programmatic setup of a clean field group on an article context is one MCP call rather than 6+ admin clicks. Closes issue <a href="https://github.com/cybersalt/cs-mcp-for-j/issues/1">#1</a> — VMT template change-log Subform field-group setup on 2026-05-25 needed it.</p>
+<p>Tool count: 103 → 110. No new domains; Custom Fields just goes from 4 tools to 11.</p>
+<h3>📦 New Features</h3>
+<ul>
+<li><strong>5 new field-group tools</strong> — full CRUD over <code>#__fields_groups</code> (the tabs that custom fields appear under in the article editor):</li>
+<li><code>list_field_groups(context?, state?)</code> — returns id, title, context, state, access, ordering, language, description, note</li>
+<li><code>get_field_group(id)</code> — full row with decoded params blob</li>
+<li><code>create_field_group(title, context, state?, access?, language?, description?, note?)</code> — calls <code>com_fields</code>' <code>GroupModel</code>, all save hooks fire</li>
+<li><code>update_field_group(id, title?, state?, access?, language?, description?, note?, ordering?)</code> — PATCH semantics; context intentionally NOT updatable (changing a group's context orphans every field assigned to it — create a new group in the new context instead)</li>
+<li>
+<p><code>delete_field_group(id, confirm:true)</code> — requires explicit <code>confirm:true</code>; fields previously assigned to the group get their <code>group_id</code> reset to 0 (unassigned, appear under the generic "Fields" tab); the fields themselves are NOT deleted (use <code>delete_custom_field</code> for that)</p>
+</li>
+<li>
+<p><strong>2 new custom-field write tools</strong> — fills the create/update/delete trio:</p>
+</li>
+<li><code>update_custom_field(id, title?, label?, description?, required?, state?, group_id?, access?, language?, default_value?, note?, ordering?, only_use_in_subform?, assigned_cat_ids?, fieldparams?, params?)</code> — PATCH semantics; surfaces the three properties that previously required admin clicks: <code>group_id</code> (assign to a field-group tab), <code>assigned_cat_ids</code> (M:N to <code>#__fields_categories</code> — pass <code>[-1]</code> for "no categories", <code>[]</code> for "all categories"), and <code>only_use_in_subform</code> (1 hides the field from the standard editor — required when building Subform children via the API). Context intentionally NOT updatable.</li>
+<li><code>delete_custom_field(id, confirm:true)</code> — calls <code>FieldModel::delete()</code> which also removes the field's values from <code>#__fields_values</code> across every article in the context. Destructive and not reversible — <code>update_custom_field(state=0)</code> is the non-destructive alternative.</li>
+</ul>
+<h3>🔧 Improvements</h3>
+<ul>
+<li><strong><code>get_custom_field</code> now returns <code>assigned_cat_ids</code></strong> — queried from <code>#__fields_categories</code> (the M:N join table, NOT a column on the field row). Empty list = "all categories" (no restrictions); <code>[-1]</code> = "no categories" (Joomla's sentinel value for explicit none). Description rewritten to surface the semantics so the agent reads-before-decides instead of guessing. The <code>params</code> field was already in the response but unmentioned in the description; description now covers it explicitly.</li>
+</ul>
+<h3>🐛 Bug Fixes</h3>
+<ul>
+<li><strong><code>delete_custom_field</code> + <code>delete_field_group</code> initially failed with empty error messages</strong> on first live test — <code>com_fields</code>' <code>FieldModel::canDelete()</code> refuses unless <code>state=-2</code> (trashed). Joomla's admin UI does this as two phases (set State → Trashed, then "Empty Trash"); both delete tools now trash via <code>$model-&gt;publish([$id], -2)</code> before calling <code>$model-&gt;delete($ids)</code>, so one MCP call = gone, matching user expectation of a "delete" verb. Verified in <code>administrator/components/com_fields/src/Model/FieldModel.php</code> line 831 (<code>if (empty($record-&gt;id) || $record-&gt;state != -2) { return false; }</code>).</li>
+</ul>
+<h2>🚀 Version 1.8.0 (May 23, 2026)</h2>
+<p>Headline: cs-mcp-for-j now manages a second Joomla extension end-to-end. The new <strong>RSTicketsPro MCP add-on</strong> adds 20 typed tools for RSJoomla!'s helpdesk extension, alongside three new <strong>4SEO Business Profile</strong> tools that complete the LocalBusiness JSON-LD picture for sites running 4SEO. The version bump from 1.7.x → 1.8.0 reflects that "entire new Joomla extension domain" jump rather than a feature increment within the existing surface area.</p>
+<p>Tool count: 80 → 103. Domain count: 13 → 14.</p>
+<h3>📦 New Features</h3>
+<ul>
+<li><strong>RSTicketsPro MCP add-on (<code>plg_system_csmcpforjrst</code>)</strong> — a new bundled-but-separable plugin that brings the RSJoomla! <strong>RSTicketsPro 3.x</strong> helpdesk extension under MCP control. 20 tools covering the full ticket workflow:</li>
+<li><em>Read (12)</em>: <code>list_rst_tickets</code> (with JOIN'd dept/status/priority/staff/customer labels and rich filters incl. status, dept, priority, staff, customer, last_reply_customer, flagged, search, date range), <code>get_rst_ticket</code> (full state + resolved labels + custom field values + an <code>autoclose</code> block showing warning/close ETAs and what's blocking them), <code>get_rst_ticket_messages</code> (conversation thread with <code>is_staff</code> computed against the actual staff user_id set; RST system-message rows are decoded from PHP-serialized blobs into a clean <code>system_event {type, from, to, user_id}</code> object with a human-readable summary, and an <code>include_system_messages</code> flag toggles them), <code>get_rst_ticket_history</code>, <code>get_rst_ticket_notes</code>, <code>get_rst_ticket_files</code>, plus six lookups: <code>list_rst_departments</code>, <code>list_rst_statuses</code>, <code>list_rst_priorities</code>, <code>list_rst_staff</code> (with resolved Joomla user + group + departments-with-access; surfaces the trap that <code>tickets.staff_id</code> is actually a Joomla user_id, NOT the <code>_rsticketspro_staff</code> PK), <code>list_rst_groups</code> (25+ permission flags coerced to bools), <code>list_rst_custom_fields</code>.</li>
+<li><em>Write (8)</em>: <code>add_rst_ticket_reply</code>, <code>add_rst_ticket_note</code>, <code>update_rst_ticket</code> (with <code>{from, to}</code> diff per changed field), <code>close_rst_ticket</code> (matches admin "Close" — also stops time tracking), <code>reopen_rst_ticket</code>, <code>flag_rst_ticket</code>, <code>notify_rst_ticket</code> (autoclose-warning email with meaningful response when RST refuses to send), <code>delete_rst_ticket</code> (destructive — requires explicit <code>confirm:true</code>).</li>
+<li>Architectural design: write tools call into RSTicketsPro's own <code>AdminModel</code> methods (<code>$model-&gt;reply()</code>, <code>$model-&gt;updateInfo()</code>, <code>$model-&gt;notify()</code>, <code>$model-&gt;toggleTime()</code>, etc.) instead of doing direct SQL. That means <strong>every email notification, every ticket_history entry, every department-change ticket-code regeneration with custom-field migration, every staff-access validation, every time-tracking-stop-on-close happens automatically</strong> — indistinguishable from a human staff member clicking through the admin UI.</li>
+<li>Same separable-bundled-plugin pattern as <code>plg_system_csmcpforj4seo</code> — can split into its own paid SKU later without restructuring the core.</li>
+<li>
+<p>Tools live in <code>Cybersalt\Plugin\System\Csmcpforjrst\Tools\{Tickets,Lookups}\*</code>.</p>
+</li>
+<li>
+<p><strong>4SEO Business Profile typed wrappers</strong> (<code>get_4seo_business_profile</code>, <code>set_4seo_business_profile</code>, <code>clear_4seo_business_profile</code>) — the third typed 4SEO write wrapper, alongside <code>set_4seo_meta_override</code> and <code>set_4seo_config</code>. Wraps the site-wide LocalBusiness profile that 4SEO emits as the <code>#defaultBusiness</code> JSON-LD node on every page (<code>#__forseo_config</code> row <code>scope='default', key='sd'</code>). Handles all the structural gotchas: <code>business_type</code> stored as single-element array (renderer does <code>array_pop</code>), <code>addressCountry</code> same, <code>logo</code> normalised to <code>{url, width, height}</code> object, opening hours fanned out from a clean <code>[{day, opens, closes}]</code> array into the 28-field <code>hoursMon1Opens</code>/etc. grid with <code>organizationHoursType=3</code> (CUSTOM) set automatically. <strong>Solves the chicken-and-egg</strong>: the row doesn't exist until a human saves the admin form, so the typed wrapper creates it from scratch with a defaults baseline pulled from 4SEO's own <code>config/sd.php</code> (matches what the admin UI would produce on first save). Closes the Westshore Eye Care site-wide LocalBusiness gap that ISSUE-3 + ISSUE-4 chased — the schemaorg plugin's site-wide schema is <code>name + image + sameAs</code> only (no phone/address/geo), so 4SEO's profile is the only working path to a full LocalBusiness on most Cybersalt sites. Source design grounded in the re-extracted 4SEO <code>vendor/weeblr/forseo/</code> tree that the May 11 snapshot missed.</p>
+</li>
+</ul>
+<h3>🔧 Improvements</h3>
+<ul>
+<li>
+<p><strong><code>get_rst_ticket_messages</code> now decodes RST's system-message rows</strong> — RSTicketsPro stores status / department / priority / staff changes as synthetic <code>ticket_messages</code> rows with <code>user_id=-1</code> and a <code>serialize()</code>'d PHP array in the body (<code>a:4:{s:4:"type"...}</code>). The tool now <code>unserialize()</code>s those (with <code>allowed_classes =&gt; false</code> to prevent PHP gadget chains) and surfaces a clean <code>system_event {type, from, to, user_id}</code> object plus a human-readable <code>[system: status changed from 1 to 2 by user 8949]</code> body. New <code>include_system_messages</code> arg (default true) hides them when the caller wants just the actual conversation.</p>
+</li>
+<li>
+<p><strong><code>get_rst_ticket</code> now includes an <code>autoclose</code> block</strong> so the agent can answer "when will this ticket autoclose?" without having to know the config layout. Shows <code>enabled</code>, <code>automatic</code>, <code>warning_email_interval_days</code>, <code>close_interval_days</code>, <code>warning_sent</code>, <code>warning_eta</code> / <code>close_eta</code> (computed from <code>last_reply + interval</code>), and <code>blocked_by</code> when conditions short-circuit the flow (e.g. <code>last_reply_customer=1</code>, <code>autoclose_enabled=0</code>, <code>already_closed</code>).</p>
+</li>
+<li>
+<p><strong>Shared <code>withSiteAppContext()</code> trait helper</strong> in <code>RSTicketsProBootTrait</code> — extracted from the inline pattern Tim's hand-patch landed on the ISSUE-5 fix. Wraps <code>Factory::$application</code> swap (api app ↔ real SiteApplication bootstrapped via the DI container) around any RST call that needs site routing for email-body URL construction (<code>Route::link('site', ...)</code>). Applied across <code>AddTicketReply</code>, <code>Update</code>, <code>Close</code>, <code>Reopen</code>, <code>Notify</code> so every email-firing write tool gets the swap without each one repeating 20 lines of try/finally noise.</p>
+</li>
+</ul>
+<h3>🐛 Bug Fixes</h3>
+<ul>
+<li>
+<p><strong><code>add_rst_ticket_reply</code> failed end-to-end in API context with "Error loading menu: api"</strong> (or "Call to a member function getDepartments() on false"). RSTicketsPro 3.x's reply flow assumes a SiteApplication context — the api app the MCP endpoint runs under has no menu, no router, and no front-end MVC model search path. Three layers of failure: (1) <code>JModelLegacy::getInstance('Submit', 'RsticketsproModel')</code> returns false because front-end model paths aren't registered in api context, (2) even pre-loaded, the Submit model constructor needs site menu, (3) <code>RSTicketsProTicketHelper::saveMessage()</code> calls <code>Route::link('site', ...)</code> when building the notification email body which also needs site menu. <strong>Fix:</strong> bypass <code>RsticketsproModelTicket::reply()</code> and call <code>RSTicketsProTicketHelper::saveMessage()</code> directly, wrapped in the <code>withSiteAppContext()</code> swap. Consent gate + <code>onBeforeStoreTicketReply</code> / <code>onAfterStoreTicketReply</code> event triggers preserved from the original <code>reply()</code> flow. Validated end-to-end on virtuemarttemplates.net ticket TECH-0000000202: MCP reply posted → customer notification email delivered → inbound reply confirmed at <code>support@vmt</code> IMAP. Full investigation at <a href="resolved-issues/ISSUE-5-add_rst_ticket_reply-site-app-context.md"><code>resolved-issues/ISSUE-5-add_rst_ticket_reply-site-app-context.md</code></a>.</p>
+</li>
+<li>
+<p><strong><code>list_rst_tickets</code> / <code>get_rst_ticket</code> were returning <code>staff_name=null</code></strong> — the JOIN went <code>tickets.staff_id → _rsticketspro_staff.id → users.id</code> but <code>tickets.staff_id</code> is actually a Joomla <code>user_id</code>, not the <code>_rsticketspro_staff</code> PK (confirmed by reading <code>models/fields/staff.php</code> line 87 which emits <code>$user-&gt;id</code> as the dropdown option value). Direct <code>tickets.staff_id → users.id</code> JOIN now resolves correctly.</p>
+</li>
+<li>
+<p><strong><code>update_rst_ticket</code> / <code>close_rst_ticket</code> / <code>reopen_rst_ticket</code> / <code>add_rst_ticket_reply</code> returned stale post-write state</strong> — <code>RsticketsproModelTicket::getTicket($id)</code> caches statically per-id and the model's write methods don't invalidate the cache, so the post-write re-read returned the pre-write values. Now reads via a new <code>fetchTicketRow()</code> trait helper that bypasses the cache with direct SQL.</p>
+</li>
+<li>
+<p><strong><code>update_rst_ticket</code> <code>changes</code> array was always empty</strong> for staff/department changes — <code>RsticketsproModelTicket::updateInfo()</code> calls <code>$original-&gt;bind($data)</code> at model line 1189 to assemble the email payload, which mutates the original JTable in place. By the time the diff ran, <code>$original-&gt;$k</code> was the new value, not the original. Fix: snapshot the field values into a plain assoc array <em>before</em> calling <code>updateInfo()</code>, not a reference to the JTable.</p>
+</li>
+<li>
+<p><strong><code>notify_rst_ticket</code> was always returning <code>notified:true</code></strong> regardless of whether <code>$model-&gt;notify()</code> actually sent the email. (RST refuses to send when <code>last_reply_customer=1</code>, <code>autoclose_sent=1</code> already, or <code>last_reply</code> too recent for <code>autoclose_email_interval</code>.) Now captures the model return value + emits an explanatory <code>note</code> listing the common refusal reasons.</p>
+</li>
+</ul>
+<h3>⚠️ Known limitations carried forward</h3>
+<ul>
+<li>
+<p><strong>File attachments still not supported via <code>add_rst_ticket_reply</code></strong> — the front-end Submit-model upload path needs the same SiteApplication-swap treatment to work in API context, and we don't have a multipart upload path through the MCP layer anyway. Use the admin reply box for replies that need attachments.</p>
+</li>
+<li>
+<p><strong><code>tickets.staff_id</code> naming trap</strong> — the column stores a Joomla <code>user_id</code>, not the <code>_rsticketspro_staff</code> PK, despite the name. <code>list_rst_staff</code> output disambiguates with both <code>user_id</code> (use this for assignments via <code>update_rst_ticket(staff_id=...)</code>) and <code>staff_id</code> (the <code>_staff</code> table PK, mostly internal bookkeeping). Tool descriptions surface this so future agent calls don't repeat the original confusion.</p>
+</li>
+</ul>
+<h2>🚀 Version 1.7.5 (May 13, 2026)</h2>
+<p>Three field-discovery fixes from the Westshore Eye Care SEO audit session on 2026-05-12. All three blocked different parts of getting a single site to a clean, fully-MCP-driven schema/meta state.</p>
+<h3>🐛 Bug Fixes</h3>
+<ul>
+<li>
+<p><strong><code>set_4seo_meta_override</code> was writing custom values but never flipping <code>data.useTitle</code> / <code>useDescription</code> / <code>useRobots</code> / <code>useCanonical</code>.</strong> 4SEO's renderer checks those <code>use*</code> flags at request time and skips the override if they're <code>0</code>, so every override written through this tool since v1.7.0 was a silent no-op even though the row looked correct (<code>status_title=2</code>, <code>data.custom.title="..."</code>, etc.). Both the insert and update branches now flip the matching flag whenever a custom value is supplied. Existing rows can be repaired by re-calling the tool with the same args — it'll preserve the custom value and now also set the flag. Response payload now includes <code>use_flags_set: ["useTitle", ...]</code> so callers can see exactly which flags landed. <strong>Note for 4SEO Free sites:</strong> per-page custom meta appears to be a 4SEO Pro feature — clean DB writes with no visible change on the page suggest the site has no <code>dlid</code> configured. Tool description now warns of this.</p>
+</li>
+<li>
+<p><strong>Dashboard token field's prompt preview now shows the substituted token live</strong>, not just on copy. Previously the token field would correctly substitute on click, but the visible <code>&lt;code&gt;</code> block still showed the <code>&lt;PASTE YOUR JOOMLA API TOKEN HERE&gt;</code> placeholder — confusing because the user couldn't see that the substitution had actually happened. Now the preview re-renders on paste / clear / refresh-with-saved.</p>
+</li>
+<li>
+<p><strong>Substitution target is now visually highlighted</strong> in the prompt preview — yellow <code>&lt;mark&gt;</code> on the substituted token (so the user can see "yes, this is what's about to be copied") and a muted grey highlight on the placeholder when no token is set yet (so the user can see "this is the spot that will be replaced"). Dedicated Atum dark-mode styles so the contrast stays readable.</p>
+</li>
+</ul>
+<h3>📦 New Features</h3>
+<ul>
+<li>
+<p><strong><code>update_menu_item</code> now exposes the menu item's <code>params</code> blob</strong> — the JSON column on <code>#__menu</code> where Joomla stores every per-menu-item SEO setting (Browser Page Title, Meta Description, Meta Keywords, Robots, Page Heading, Show Page Heading, Page Class Suffix, Anchor Title, Force HTTPS). Two paths: <strong>named args</strong> (<code>browser_page_title</code>, <code>meta_description</code>, <code>meta_keywords</code>, <code>robots</code>, <code>page_heading</code>, <code>show_page_heading</code>, <code>page_class_sfx</code>, <code>menu_anchor_title</code>, <code>secure</code>) map to the right Joomla keys so the agent can't typo <code>menu-meta_description</code> as <code>meta_description</code>; <strong>escape hatches</strong> <code>params_set: object</code> and <code>params_unset: string[]</code> reach any other key. Named args take precedence on collision. Merge-by-default — existing keys not in the call are preserved byte-for-byte. <code>robots</code> enum-validated against Joomla's five valid values. Closes the home-page-meta-description gap on every Cybersalt client site.</p>
+</li>
+<li>
+<p><strong><code>set_schemaorg_site_profile</code></strong> and <strong><code>get_schemaorg_site_profile</code></strong> — typed wrappers for the <code>plg_system_schemaorg</code> plugin's site-wide Organization/Person profile. Knows the <em>actual</em> four-key shape the plugin reads (<code>baseType</code>, <code>name</code>, <code>image</code>, <code>socialmedia</code>) — not the wrong <code>Organization_*</code> flat keys that look plausible but go nowhere. Hard-enforces <code>base_type</code> lowercase (<code>organization</code> / <code>person</code>); capital-O <code>Organization</code> silently kills the plugin's entire <code>@graph</code> output including per-article schemas — that case-sensitivity bug was the regression caught in last week's audit. Honours locked-plugin status the same way Joomla's admin UI does. Tool descriptions explicitly say the plugin does NOT support telephone/address/geo/email and point callers at 4SEO's Business Profile for full LocalBusiness coverage.</p>
+</li>
+</ul>
+<p>Tool count: 78 → 80. SchemaOrg domain count: 8 → 10.</p>
+<h2>🚀 Version 1.7.4 (May 11, 2026)</h2>
+<h3>📦 New Features</h3>
+<ul>
+<li><strong>Dashboard token field now persists across page refreshes</strong> via <code>localStorage</code>. Previously the "paste your token here for one-click setup" field was ephemeral — paste, tab out, refresh to get the updated copy-paste prompt, and the token was gone. Now the field saves on input/change/blur, restores on load, and a new trash-icon button next to the eye-toggle clears it. A status line under the field tells you whether anything is currently saved ("Saved in this browser. The trash button clears it." / "No token saved. Paste one above — it stays in this browser only."). Stored per-browser/per-origin only — token never leaves the device, never hits the server.</li>
+</ul>
+<h3>🔧 Improvements</h3>
+<ul>
+<li><strong>Token field UX confirmed as the Cybersalt house pattern</strong>: <code>&lt;input type="password"&gt;</code> rendering as asterisks plus an eye-icon reveal button (no CSS blur). Same trio — masked-by-default + eye reveal + localStorage persistence with trash to clear — will land on any future Cybersalt Joomla extension that asks for a secret.</li>
+</ul>
+<h2>🚀 Version 1.7.3 (May 11, 2026)</h2>
+<h3>🐛 Bug Fixes</h3>
+<ul>
+<li><strong>CRITICAL: Postflight failed on Joomla 6 with <code>Class "Joomla\CMS\Filesystem\File" not found</code>.</strong> That class was deprecated in J4 and removed in J6 — installs on J5 worked (shim still present) but J6 sites (e.g. goatsatwork.ca, notesatwork.ca) hit the not-found error in the postflight try/catch, which surfaced as a yellow warning "cs-mcp-for-j postflight setup failed: …" and silently skipped the autoload-cache clear AND the plugin-enabling step. So on J6, the bundled <code>plg_webservices_csmcpforj</code> plugin stayed <em>disabled</em> after install, the MCP route 404'd, and the install looked broken. Fixed by replacing the one <code>File::delete()</code> call with plain <code>@unlink()</code> — no Joomla classes involved, works on every Joomla version. <strong>If you installed v1.6.x–v1.7.2 on a Joomla 6 site, install v1.7.3 over top and the plugins will get re-enabled automatically.</strong></li>
+</ul>
+<h2>🚀 Version 1.7.2 (May 11, 2026)</h2>
+<h3>📝 Documentation</h3>
+<ul>
+<li><strong><code>fetch_rendered_url</code> description</strong> — added explicit guidance on path semantics (relative to Joomla install root, not server filesystem) and the 4SEO verification tip: fetch the SEF URL when checking whether a custom meta override landed, not the <code>index.php?option=...</code> form. 4SEO matches custom meta by SEF URL; on the option= form the override won't apply. Discovered during v1.7.1 live testing — burned 15 minutes on this confusion, the agent will too without the hint.</li>
+<li><strong><code>set_4seo_meta_override</code> description</strong> — added the same SEF-URL verification tip directly into the write tool's description so the agent reads it BEFORE the verify step, not after.</li>
+</ul>
+<h2>🚀 Version 1.7.1 (May 11, 2026)</h2>
+<h3>🐛 Bug Fixes</h3>
+<ul>
+<li><strong><code>set_4seo_config</code> failed with "Incorrect integer value: 'json' for column format"</strong> on first live use. The <code>format</code> column in <code>#__forseo_config</code> is <code>TINYINT NOT NULL DEFAULT 1</code>, not a VARCHAR — I'd been writing the string <code>"json"</code> into it. Fixed: <code>format</code> is now an integer enum (<code>1</code> = raw string, <code>2</code> = JSON). Auto-set to <code>2</code> when <code>value_object</code> is passed, <code>1</code> when <code>value</code> is passed. Explicit <code>format</code> override accepted as <code>{1, 2}</code> only. Also fixed the SQL: <code>format</code> is now written as a bare integer, not a quoted string. Bonus fix: the unrelated <code>lock_expires_at</code> column is nullable so we now insert <code>NULL</code> there instead of <code>'1970-01-01 00:00:00'</code>.</li>
+</ul>
+<h2>🚀 Version 1.7.0 (May 11, 2026)</h2>
+<p>Refactor of the 4SEO add-on now that we have 4SEO v6.12.0's full source available locally for design reference. Adds <strong>5 typed tools</strong> that wrap the highest-traffic 4SEO database tables, so an agent can manage per-page meta and 4SEO config without having to know about the three-layer envelope (<code>platform</code> / <code>auto</code> / <code>custom</code>) or the size-based column routing in <code>#__forseo_config</code>. The generic <code>query_4seo_table</code> / <code>insert_4seo_row</code> / <code>update_4seo_row</code> / <code>delete_4seo_row</code> escape hatches stay — they're how the agent can still reach the tables we haven't typed yet (rules, sitemaps, perf data, GSC, referrers, errors, links, images).</p>
+<p>Tool count: 73 → 78. 4SEO domain count: 11 → 16.</p>
+<h3>📦 New Features</h3>
+<ul>
+<li><strong><code>list_4seo_meta_overrides</code></strong> — typed audit query over <code>#__forseo_custom_meta</code>. Returns each row's <code>content_id</code>, <code>url</code>, status flags, and the decoded <code>custom_title</code> / <code>custom_description</code> / <code>custom_robots</code> / <code>custom_canonical</code> so a query like "which articles have a custom SEO title?" is one call. Filters: <code>content_id_like</code>, <code>has_custom_title</code>, <code>has_custom_description</code>, <code>enabled</code>. Includes <code>total</code> for pagination.</li>
+<li><strong><code>get_4seo_meta_override</code></strong> — read a single row. Accepts <code>content_id</code> (raw), <code>joomla_params</code> (object — tool alphabetises and concatenates), or <code>article_id</code> (shorthand for a <code>com_content</code> article). Surfaces all three layers (<code>platform</code>, <code>auto</code>, <code>custom</code>) separately so the agent doesn't have to walk the <code>data</code> JSON envelope.</li>
+<li><strong><code>set_4seo_meta_override</code></strong> — the headline tool. Three-layer-aware upsert: supply <code>title</code> / <code>description</code> / <code>robots</code> / <code>canonical</code> and the tool sets them in the <code>custom</code> layer, bumps the corresponding <code>status_title</code> / <code>status_description</code> to <code>2</code> (custom), and leaves <code>platform</code> and <code>auto</code> layers untouched. Creates the row if missing (with empty <code>platform</code>/<code>auto</code> — 4SEO repopulates on next crawl), updates in place otherwise. The agent never has to know about the JSON envelope or hash columns.</li>
+<li><strong><code>clear_4seo_meta_override</code></strong> — two modes: <code>reset_to_auto</code> (keeps row, wipes <code>custom</code> layer, resets statuses to <code>0</code> so 4SEO falls back to auto-detection) or <code>delete_row</code> (hard-removes the row entirely; 4SEO recreates on next crawl if the page is encountered again).</li>
+<li><strong><code>set_4seo_config(key, value | value_object, scope?)</code></strong> — typed counterpart to <code>get_4seo_config</code>. Auto-encodes <code>value_object</code> to JSON; routes large payloads to the <code>large_value</code> mediumtext column when the string exceeds 16000 bytes; auto-detects <code>format="json"</code> when given a <code>value_object</code>. Upserts by <code>(scope, key)</code>.</li>
+</ul>
+<h3>🔧 Improvements</h3>
+<ul>
+<li>All five new tools share a <code>ContentIdTrait</code> for parsing/building 4SEO's canonical <code>content_id</code> format (alphabetised <code>key=value</code> pairs joined with <code>&amp;</code>, case-sensitive ASCII key sort to match 4SEO's <code>ksort</code> behaviour). Verified live against stage data on 2026-05-11: 1494 rows in <code>#__forseo_custom_meta</code> all match this format, and confirmed at <code>plugins/system/forseo/platform/components/content.php</code> line 225 in the 4SEO source.</li>
+</ul>
+<h3>🛡️ Design notes</h3>
+<ul>
+<li>Why typed tools alongside generic CRUD instead of replacing the generic tools: the generic ones are still the safe path for any 4SEO table we haven't yet typed (about 20 of the 25 tables: rules, sitemaps, perf data, GSC daily aggregates, referrers, errors, links, images, etc.). Replacing them would lock the agent out of those tables. They're now placed last in the registration so the agent reaches for typed tools first.</li>
+<li>4SEO does NOT use standard Joomla <code>Model</code> classes — there are none anywhere in the 4SEO PHP source. The "Option B" path from the original discovery (call into Weeblr's models via <code>bootComponent('com_forseo')-&gt;getMVCFactory()</code>) is unavailable. The path we took is Option A (DB-direct) but with typed wrappers built from the canonical <code>install.sql</code> schema, so the agent gets the ergonomics of Option B without needing the models.</li>
+</ul>
+<h2>🚀 Version 1.6.0 (May 9, 2026)</h2>
+<h3>📦 New Features</h3>
+<ul>
+<li><strong><code>validate_jsonld(jsonld, expected_type?)</code></strong> — pre-flight JSON-LD shape validator. Returns <code>errors</code> (must-fix), <code>warnings</code> (should-fix), and <code>info</code> (cosmetic) messages. Designed to be called <em>before</em> <code>set_article_custom_jsonld_bulk</code> so a typo doesn't produce 500 silently-broken schema rows. Knows the required + strongly-recommended fields for: Article, BlogPosting, NewsArticle, FAQPage, Question, HowTo, Recipe, Event, Product, Offer, Review, JobPosting, LocalBusiness, Organization, Person, BreadcrumbList, VideoObject, Service, Book. Unknown @types pass without field-level checks (you can still get errors for missing @type, missing @context, or @graph wrapping). Tool count: 72 → 73.</li>
+</ul>
+<h2>🚀 Version 1.5.1 (May 9, 2026)</h2>
+<p>Patch release responding to v1.5.0 test feedback. Fixes the JSON-RPC corruption class of bug structurally and unblocks editing legitimately user-editable locked plugins via <code>set_plugin_params</code>.</p>
+<h3>🐛 Bug Fixes</h3>
+<ul>
+<li><strong>Critical: stray PHP output corrupted JSON-RPC envelopes.</strong> Any tool that triggered a PHP notice/warning (e.g. v1.5.0's <code>fetch_rendered_url</code> casting an array Content-Type header to string) emitted that warning text in front of the JSON-RPC response, which caused MCP clients to throw "Parse error: Unexpected token" on the otherwise-valid response. Wrapped <code>McpController::handle()</code> in <code>ob_start()</code> and discard the buffer before emitting JSON. Defends every tool — present and future — from this whole class of bug. Local cause in <code>FetchRenderedUrlTool</code> is also fixed (multi-value headers now joined with <code>,</code> instead of cast to "Array").</li>
+<li><strong><code>set_plugin_params</code> couldn't modify legitimately user-editable locked plugins</strong> like <code>plg_system_schemaorg</code>. Joomla's own admin UI lets you edit these even though they're flagged <code>locked: true</code>. Added <code>allow_locked: true</code> flag to override the lock guard explicitly; <code>protected: true</code> plugins still get a hard refusal because those are genuinely dangerous to touch.</li>
+</ul>
+<h3>🔧 Improvements</h3>
+<ul>
+<li><strong><code>fetch_rendered_url</code> returns <code>jsonld_types</code></strong> — a flat, dedup'd, sorted array of every <code>@type</code> value across all JSON-LD blocks (recursively walking <code>@graph</code>). Common SEO check "did my X type land?" becomes <code>result.jsonld_types.includes("FAQPage")</code> instead of walking every block.</li>
+<li><strong><code>set_article_custom_jsonld</code> and <code>set_article_custom_jsonld_bulk</code> descriptions</strong> now warn against wrapping the supplied JSON-LD in a top-level <code>@graph</code> — Joomla 5.1+ merges each block into the page's existing <code>@graph</code> automatically, so wrapping yourself produces a graph-in-graph that's likely wrong.</li>
+</ul>
+<h2>🚀 Version 1.5.0 (May 9, 2026)</h2>
+<p>Feature release responding to the v1.4.x test feedback. Adds five new tools, total counts on paginated responses, and a token-substitute UI on the dashboard so non-technical users can copy a fully-ready prompt without manual editing.</p>
+<p>Tool count: 67 → 72 (and three pre-existing paginated tools learned a <code>total</code> field).</p>
+<h3>📦 New Features</h3>
+<ul>
+<li><strong><code>get_plugin_params(folder, element)</code> / <code>set_plugin_params(folder, element, params, mode?)</code></strong> — generic plugin params read/write via direct DB. Unlocks site-wide schemaorg config (<code>folder=system, element=schemaorg</code>), router options, third-party plugin config, anything in the Options screen of any plugin. <code>set_plugin_params</code> defaults to merge mode (preserves keys you don't supply); refuses protected/locked core plugins.</li>
+<li><strong><code>fetch_rendered_url(path, extract_jsonld?)</code></strong> — fetches a rendered page from the SAME Joomla site (same-origin only — no SSRF) so the agent can verify its writes worked. Optional <code>extract_jsonld=true</code> parses every <code>&lt;script type="application/ld+json"&gt;</code> block in <code>&lt;head&gt;</code> and returns them as structured data — closes the verification loop for any Schema.org workflow.</li>
+<li><strong><code>set_article_custom_jsonld_bulk(updates[])</code></strong> — bulk variant of <code>set_article_custom_jsonld</code> for sites with hundreds of articles. Per-item independent (one failure doesn't roll back the others), capped at 500 updates per call. Response gives per-item <code>ok</code>/<code>error</code>.</li>
+<li><strong><code>get_4seo_config</code></strong> (4SEO add-on) — reads the actual 4SEO settings from <code>#__forseo_config</code> (where the real config lives — site-wide schema templates, default tags, scan rules) instead of the near-empty Joomla extensions row that <code>get_4seo_component_params</code> returns. Schema-agnostic: returns every column verbatim plus a <code>__parsed</code> field for any column whose value is JSON.</li>
+<li><strong><code>total</code> field on paginated responses</strong> — <code>list_articles</code>, <code>list_articles_with_schema</code>, <code>list_users</code>, and <code>query_4seo_table</code> now return a top-level <code>total</code> (the count across the whole filtered set, not just the current page) so the agent knows when pagination is complete without poll-till-empty.</li>
+</ul>
+<h3>🔧 Improvements</h3>
+<ul>
+<li><strong>Token-substitute UI on the dashboard's prompt tab.</strong> New "Optional: paste your token here for one-click setup" input field — when the user pastes a token, the Copy button substitutes the <code>&lt;PASTE YOUR JOOMLA API TOKEN HERE&gt;</code> placeholder before copying. Token never leaves the browser; the dashboard never sends it back to the server. The button label flips to "Copied with token included!" so the user knows substitution happened.</li>
+</ul>
+<h2>🚀 Version 1.4.2 (May 9, 2026)</h2>
+<p>Patch release responding to a real-world test of the v1.4.x onboarding prompt — first-call friction fixes, no new tools.</p>
+<h3>🐛 Bug Fixes</h3>
+<ul>
+<li><strong><code>list_articles_with_schema</code> summary was misleading.</strong> It counted only the rows on the current page, so calling with <code>limit:1</code> returned <code>with_schema:0, without_schema:1</code> regardless of how many articles actually had/lacked schema across the full filtered set. Fixed: summary now runs <code>COUNT(*)</code> queries across the whole filtered set, independent of pagination. Response also adds a top-level <code>total</code> so the agent knows the full filtered count.</li>
+<li><strong>Onboarding prompt: curl example mangled JSON arguments containing nested quotes.</strong> First-time callers hit <code>Parse error: Syntax error</code> the moment a tool argument was a JSON object. Switched the example from inline <code>-d '{"…"}'</code> to <code>--data-binary @-</code> with a single-quoted heredoc — survives any payload.</li>
+<li><strong>Onboarding prompt: didn't explain that <code>tools/list</code> and <code>tools/call</code> return different response shapes.</strong> <code>tools/list</code> returns <code>result.tools</code> directly (no content wrap); <code>tools/call</code> wraps in <code>result.content[0].text</code>. The prompt only described the <code>tools/call</code> shape, so first-time callers hit a parse mismatch on the very first response. Documented both.</li>
+<li><strong>Onboarding prompt: claude.ai branch was wrong.</strong> Said to "grab the JSON snippet from the dashboard" — claude.ai connectors actually use separate URL + auth-header fields, not a JSON snippet. Updated the prompt to give claude.ai users the URL and auth header directly, with the JSON snippet path reserved for Claude Desktop.</li>
+<li><strong>Onboarding prompt: prompt-injection guard added to <code>claude mcp add</code> self-install offer.</strong> Tells Claude to verify the URL in the install dialog matches the user's own site domain before approving — defense against a maliciously edited copy of the prompt that redirects the install to a hostile endpoint.</li>
+</ul>
+<h2>🚀 Version 1.4.1 (May 9, 2026)</h2>
+<h3>🐛 Bug Fixes</h3>
+<ul>
+<li><strong>"Generate / view API token" link landed on the user list, not the admin's own profile.</strong> The link was <code>task=user.edit</code> with no id, so Joomla's controller fell through to the user list instead of opening the current admin's profile (where the API Token tab lives). Fixed by computing the current admin's user id and substituting it into <code>task=user.edit&amp;id={N}</code>. Both link instances on the dashboard also now open in a new tab so the user keeps the dashboard open while copying the token. Same pattern as cs-template-integrity.</li>
+</ul>
+<h2>🚀 Version 1.4.0 (May 9, 2026)</h2>
+<h3>🐛 Bug Fixes</h3>
+<ul>
+<li><strong>Tabs not switching on dashboard.</strong> The Bootstrap <code>bootstrap.tab</code> JavaScript module isn't auto-loaded in Joomla admin views; without an explicit <code>WebAssetManager::useScript('bootstrap.tab')</code> opt-in, clicking a tab only changed the URL hash and the panel never activated. Fixed.</li>
+</ul>
+<h3>🔧 Improvements</h3>
+<ul>
+<li><strong>Tab order swapped.</strong> The copy-paste prompt is now the <strong>default tab</strong> (renamed "Copy a prompt into Claude (recommended)") because it's the easier path for non-technical users. The JSON snippet path moves to the second tab ("MCP Connector (manual config)").</li>
+<li><strong>Self-installing prompt.</strong> The copy-paste prompt now includes a closing instruction that tells Claude: after the user confirms the connection works, offer to install this site as a permanent MCP connector via <code>claude mcp add</code> (Claude Code only). The user just says "make it permanent" and Claude runs the install command (with the standard approval dialog before any shell command runs). After a Claude restart, the site appears as native MCP tools in every conversation — no prompt needed ever again. One paste = either a one-off use OR a permanent install, user's choice via a single follow-up sentence.</li>
+<li><strong>Setup card framing</strong> rewritten to make the recommended path obvious and explain the bonus self-install behavior up front.</li>
+</ul>
+<h2>🚀 Version 1.3.0 (May 9, 2026)</h2>
+<h3>📦 New Features</h3>
+<ul>
+<li><strong>Two-method dashboard for connecting Claude.</strong> The dashboard now offers two clear setup paths in a tabbed UI:<ul>
+<li><strong>Method 1 — MCP Connector.</strong> The traditional MCP setup: copy a JSON snippet (pre-filled with the site's URL), paste into your Claude client's config (Claude Desktop / claude.ai connectors / <code>claude mcp add</code>), restart. One-time, persistent.</li>
+<li><strong>Method 2 — Copy-paste prompt.</strong> A new "no client config required" path. The dashboard generates a complete instruction prompt (site URL, endpoint, auth, JSON-RPC shape, tool surface summary, workflow rules, example curl). Paste into a fresh Claude Code conversation and Claude talks to the MCP endpoint directly via curl. Best for one-off tasks or when you can't change client config.</li>
+</ul>
+</li>
+<li><strong>Copy buttons</strong> with "Copied!" feedback on both setup payloads (clipboard API with text-selection fallback).</li>
+</ul>
+<h3>🔧 Improvements</h3>
+<ul>
+<li>Dashboard tools list and setup payloads are both auto-generated from the live tool registry — the prompt always reflects what's actually installed.</li>
+</ul>
+<h2>🚀 Version 1.2.0 (May 9, 2026)</h2>
+<h3>📦 New Features</h3>
+<ul>
+<li><strong>4SEO add-on</strong> (<code>plg_system_csmcpforj4seo</code>) — first paid-add-on-shaped sub-plugin (bundled with the package for testing; structured so it can be split into its own SKU later). Adds 10 tools that introspect and modify the Weeblr 4SEO extension (<code>com_forseo</code>) directly against <code>#__forseo_*</code> since 4SEO ships no public Web Services API:<ul>
+<li><code>list_4seo_tables</code> — every #__forseo_* table on the site</li>
+<li><code>describe_4seo_table</code> — column schema for one table</li>
+<li><code>count_4seo_rows</code> — row counts across all 4SEO tables (health snapshot)</li>
+<li><code>get_4seo_component_info</code> — is com_forseo installed/enabled, which Weeblr siblings are alongside</li>
+<li><code>get_4seo_component_params</code> — read com_forseo Options screen settings</li>
+<li><code>set_4seo_component_params</code> — merge-update com_forseo Options screen settings</li>
+<li><code>query_4seo_table</code> — safe parameterised SELECT (structured WHERE clauses, no raw SQL, restricted to <code>forseo_*</code>)</li>
+<li><code>insert_4seo_row</code> — safe single-row INSERT</li>
+<li><code>update_4seo_row</code> — safe single-row UPDATE (refuses if WHERE matches &gt;1 row)</li>
+<li><code>delete_4seo_row</code> — safe single-row DELETE (refuses if WHERE matches &gt;1 row)</li>
+</ul>
+</li>
+<li>All 4SEO write tools refuse any table not starting with <code>forseo_</code>, so misuse can't reach #__users / #__content / etc.</li>
+</ul>
+<h3>🐛 Bug Fixes</h3>
+<ul>
+<li><strong>Memory exhaustion in dashboard load (CRITICAL).</strong> <code>RegisterToolsEvent</code> extended <code>Joomla\CMS\Event\AbstractEvent</code>, whose argument processor walks argument values and recursed catastrophically when the <code>registry</code> argument carried 50+ tool instances each holding a <code>DatabaseInterface</code> reference. Fixed by switching to the simpler <code>Joomla\Event\Event</code> base class and refactoring the dashboard to read tool metadata statically from the bundled plugin classes (no event dispatch from the dashboard at all).</li>
+</ul>
+<h3>🔧 Improvements</h3>
+<ul>
+<li>Tool count: 57 → 67. Domain count: 12 → 13.</li>
+<li>Server protocol identifier bumped to <code>cs-mcp-for-j 1.2.0</code>.</li>
+</ul>
+<h2>🚀 Version 1.1.0 (May 9, 2026)</h2>
+<h3>📦 New Features</h3>
+<ul>
+<li><strong>Schema.org / SEO tool domain</strong> (6 tools) wrapping Joomla's CORE <code>plg_system_schemaorg</code> system:<ul>
+<li><code>list_schema_types</code> — canonical type list with typical fields per type</li>
+<li><code>list_articles_with_schema</code> — audit which articles have/lack structured data, with summary by type</li>
+<li><code>get_article_schema</code> — read the stored schemaorg row for a content item</li>
+<li><code>set_article_schema</code> — set/replace any of Article, BlogPosting, Book, Event, JobPosting, Organization, Person, Recipe, Custom</li>
+<li><code>set_article_custom_jsonld</code> — convenience for Custom type: pass a JSON-LD object directly, no need to stringify</li>
+<li><code>clear_article_schema</code> — remove the row (matches Joomla's <code>schemaType=None</code> behaviour)</li>
+</ul>
+</li>
+<li>Writes go directly to <code>#__schemaorg</code> in the same shape Joomla's <code>Schemaorg::onContentAfterSave</code> hook produces. The rendered <code>&lt;script type="application/ld+json"&gt;</code> blocks pick up changes on the next page load with no cache invalidation needed.</li>
+</ul>
+<h3>🔧 Improvements</h3>
+<ul>
+<li>Tool count: 51 → 57. Domain count: 11 → 12.</li>
+<li>Server protocol identifier bumped to <code>cs-mcp-for-j 1.1.0</code>.</li>
+</ul>
+<h2>🚀 Version 1.0.0 (April 25, 2026)</h2>
+<p>Initial release.</p>
+<h3>📦 New Features</h3>
+<ul>
+<li><strong>MCP endpoint</strong>: Streamable-HTTP MCP server at <code>/api/index.php/v1/mcp</code>, authenticated by Joomla API token (<code>X-Joomla-Token</code> or <code>Authorization: Bearer</code>).</li>
+<li><strong>JSON-RPC 2.0 server</strong>: <code>initialize</code>, <code>notifications/initialized</code>, <code>ping</code>, <code>tools/list</code>, <code>tools/call</code>. Supports single messages and batches.</li>
+<li><strong>ACL gating</strong>: <code>csmcpforj.use</code> (read-only tools) and <code>csmcpforj.write</code> (mutating tools). Super Users / Administrators / Managers always pass; other groups need explicit grant.</li>
+<li><strong>Tool registry</strong>: Plugins extend the surface by subscribing to the <code>onCsMcpRegisterTools</code> event and registering classes extending <code>AbstractTool</code>.</li>
+<li><strong>Bearer translation</strong>: System plugin rewrites <code>Authorization: Bearer &lt;token&gt;</code> to <code>X-Joomla-Token</code> for the MCP route only.</li>
+<li><strong>Admin dashboard</strong>: Endpoint URL, copy-paste client config, permissions table, and grouped tool list (51 tools across 11 domains).</li>
+<li><strong>51 built-in tools</strong> across:<ul>
+<li>Articles (6) — list, get, create, update, delete, list_categories</li>
+<li>Categories (5) — list_categories_in, get, create, update, delete (works for any extension)</li>
+<li>Tags (5) — list, get, create, update, delete</li>
+<li>Menus (6) — list_menus, list/get/create/update/delete menu_item</li>
+<li>Users &amp; Access (7) — list, get, create, update, delete; list_user_groups, list_access_levels</li>
+<li>Modules (6) — list, list_module_positions, get, create, update, delete</li>
+<li>Extensions (3) — list_extensions, list_plugins, set_extension_enabled</li>
+<li>Templates (2) — list_template_styles, set_default_template_style</li>
+<li>Languages (2) — list_languages, list_content_languages</li>
+<li>Custom Fields (4) — list, get, create, set_custom_field_value</li>
+<li>System (5) — get_joomla_version, get_site_info, list_scheduled_tasks, check_for_updates, clear_cache</li>
+</ul>
+</li>
+</ul>
+<h3>🔍 Security</h3>
+<ul>
+<li>Per-tool permission gate runs before every <code>tools/call</code> execution.</li>
+<li>Component ships with <code>access.xml</code> so per-action permissions are visible in <strong>System → Permissions</strong> out of the box.</li>
+<li>All article/category/tag/menu/user/module/field writes go through the corresponding com_* Administrator model so workflow, asset, and ACL side effects stay consistent.</li>
+<li>All database access uses <code>quoteName()</code> and parameterised values — no string concatenation into SQL.</li>
+<li><code>delete_user</code> refuses to delete the calling user.</li>
+<li><code>set_extension_enabled</code> refuses to touch protected/locked core extensions.</li>
+<li><code>get_site_info</code> deliberately omits secrets (DB password, mailer credentials, captcha keys).</li>
+</ul>
 </div>
