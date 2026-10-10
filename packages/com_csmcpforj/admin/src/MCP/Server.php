@@ -8,6 +8,7 @@ namespace Cybersalt\Component\Csmcpforj\Administrator\MCP;
 
 use Cybersalt\Component\Csmcpforj\Administrator\Helper\PermissionHelper;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\Security\ArgumentSecretGuard;
+use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\User\User;
 use Throwable;
@@ -40,7 +41,14 @@ final class Server
 {
 	public const PROTOCOL_VERSION_DEFAULT = '2025-06-18';
 	public const SERVER_NAME              = 'cs-mcp-for-j';
-	public const SERVER_VERSION           = '2.7.0';
+
+	/**
+	 * Reported only when the installed version cannot be read. The real
+	 * version comes from the package manifest (see serverVersion()); this was
+	 * hard-coded until 2.8.3 and reported "2.7.0" through 2.8.2, which misled
+	 * a diagnosis on a customer site.
+	 */
+	public const SERVER_VERSION           = 'unknown';
 
 	/** @var array<int, string> */
 	private array $categoryFilter;
@@ -136,7 +144,7 @@ final class Server
 			],
 			'serverInfo' => [
 				'name'    => self::SERVER_NAME,
-				'version' => self::SERVER_VERSION,
+				'version' => self::serverVersion(),
 			],
 			// Codex reads this standard MCP field as server-wide guidance. Keep
 			// the security-critical warning first and self-contained so it remains
@@ -211,5 +219,43 @@ final class Server
 			'id'      => $id,
 			'error'   => $error,
 		];
+	}
+
+	/**
+	 * The installed MCP for Joomla version, read from the package's
+	 * manifest_cache (falling back to the component's), so serverInfo can
+	 * never drift from what is actually installed.
+	 */
+	private static function serverVersion(): string
+	{
+		static $version = null;
+
+		if ($version !== null) {
+			return $version;
+		}
+
+		try {
+			$db = Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class);
+
+			foreach ([['package', 'pkg_csmcpforj'], ['component', 'com_csmcpforj']] as [$type, $element]) {
+				$cache = (string) $db->setQuery(
+					$db->getQuery(true)
+						->select($db->quoteName('manifest_cache'))
+						->from($db->quoteName('#__extensions'))
+						->where($db->quoteName('type') . ' = ' . $db->quote($type))
+						->where($db->quoteName('element') . ' = ' . $db->quote($element))
+				)->loadResult();
+
+				$found = (string) (json_decode($cache, true)['version'] ?? '');
+
+				if ($found !== '') {
+					return $version = $found;
+				}
+			}
+		} catch (\Throwable $e) {
+			// Fall through to the constant.
+		}
+
+		return $version = self::SERVER_VERSION;
 	}
 }

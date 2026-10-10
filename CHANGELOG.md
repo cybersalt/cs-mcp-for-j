@@ -1,5 +1,26 @@
 # Changelog
 
+## 🚀 Version 2.8.3 (October 10, 2026)
+
+Everything left open after 2.8.2: two security hardenings, a registration bug that could leave a site unable to download paid add-ons, and a version number that had been wrong since 2.7.
+
+### 🐛 Fixed
+
+- **A failed registration could leave a site holding an installation id the store had never heard of.** The id was saved the moment it was generated, before the store accepted it, so if registration failed the site kept it, sent a perfectly formed download ID, and every paid download came back `installation_not_found`. cybersalt.com sat in that state for almost four weeks. The id is now saved only once the store has accepted it.
+- **Sites already in that state repair themselves.** When the store answers `installation_not_found` for a site that has a linked email, MCP for Joomla re-registers the same id and re-links the same email, then checks again. No unlink and relink by hand. It runs on the next membership check, including the one this update makes during installation.
+- **The MCP server reported its version as 2.7.0** in every `initialize` response since 2.7, because the number was hard-coded. It now reads the installed version from the package manifest. The wrong number misled a diagnosis on a customer site.
+
+### 🔒 Security
+
+- **The download ID is stamped only onto genuine Cybersalt update sites.** Update sites were picked with a text match, so an update URL that merely *contained* `cybersalt.com` and `task=api.updatexml` would also have received it. It now requires https and the exact cybersalt.com host, and strips the ID from any other update site that holds it.
+- **The download ID is never sent over plain http.** The download hook added in 2.8.2 now requires https as well as the cybersalt.com host.
+
+### 🔧 Changed
+
+- **Joomla's "Changelog" button now works.** The package manifest points at the store's new changelog feed, built from the release notes published with each version.
+- **A freshly installed add-on now gets the download ID on its update site straight away.** The re-stamp added in 2.8.2 listened to the same after-install event Joomla uses to *create* the update site, and ran first, so the new row did not exist yet. It now runs last.
+- The download hook checks the URL before loading anything, so MCP for Joomla's own updates no longer load the old helper into memory ahead of the new package's install script.
+
 ## 🚀 Version 2.8.2 (October 9, 2026)
 
 ### 🐛 Fixed — paid add-ons could not be updated from mySites.guru

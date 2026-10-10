@@ -11,6 +11,7 @@ use Cybersalt\Component\Csmcpforj\Administrator\MCP\Event\RegisterToolsEvent;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolRegistry;
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\Database\DatabaseAwareTrait;
+use Joomla\Event\Priority;
 use Joomla\Event\SubscriberInterface;
 
 /**
@@ -165,8 +166,13 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			'onAfterInitialise'                => 'onAfterInitialise',
 			RegisterToolsEvent::EVENT_NAME     => 'onRegisterTools',
 			'onInstallerBeforePackageDownload' => 'onInstallerBeforePackageDownload',
-			'onExtensionAfterInstall'          => 'onExtensionAfterInstallOrUpdate',
-			'onExtensionAfterUpdate'           => 'onExtensionAfterInstallOrUpdate',
+			// Lowest priority: Joomla's own "Extension - Joomla" plugin creates an
+			// extension's update site in this same event. System plugins are
+			// registered first, so at default priority this ran BEFORE the row
+			// existed and a freshly installed add-on stayed unstamped (seen on
+			// mcpfree while testing 2.8.3).
+			'onExtensionAfterInstall'          => ['onExtensionAfterInstallOrUpdate', Priority::MIN],
+			'onExtensionAfterUpdate'           => ['onExtensionAfterInstallOrUpdate', Priority::MIN],
 		];
 	}
 
@@ -191,13 +197,21 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 	public function onInstallerBeforePackageDownload($event): void
 	{
 		try {
-			if (!class_exists(ProActivationHelper::class) || !method_exists($event, 'updateUrl')) {
+			if (!method_exists($event, 'updateUrl')) {
 				return;
 			}
 
 			$url = (string) $event->getUrl();
 
+			// Check the URL BEFORE touching the helper. class_exists() autoloads,
+			// and loading ProActivationHelper during MCP for Joomla's own update
+			// pins the OLD class in memory, so the new package's postflight would
+			// run old code (2.8.3).
 			if (!self::isCybersaltMembersDownload($url) || preg_match('/(?:[?&]|&amp;)dlid=/', $url)) {
+				return;
+			}
+
+			if (!class_exists(ProActivationHelper::class)) {
 				return;
 			}
 
@@ -236,6 +250,12 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 	{
 		$parts = parse_url(html_entity_decode($url, ENT_QUOTES | ENT_HTML5));
 		$host  = strtolower((string) ($parts['host'] ?? ''));
+
+		// The dlid is a credential: never send it over plain http, even to our
+		// own host. (Security review 2026-10-10, LOW.)
+		if (strtolower((string) ($parts['scheme'] ?? '')) !== 'https') {
+			return false;
+		}
 
 		if ($host !== 'cybersalt.com' && $host !== 'www.cybersalt.com') {
 			return false;

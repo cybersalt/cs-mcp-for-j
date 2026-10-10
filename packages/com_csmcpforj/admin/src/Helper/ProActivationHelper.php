@@ -320,7 +320,13 @@ final class ProActivationHelper
 
 		$installationId = $timestamp . '_' . $domain . '_' . $random;
 
-		self::saveParam('pro_installation_id', $installationId);
+		// Memo only. The id is persisted by registerInstallation() once
+		// cs-release-manager has accepted it. Saving it here, before the store
+		// had a row for it, is how a site ends up holding an id the store has
+		// never heard of: a registration that failed left the id behind, every
+		// later step reused it, and every paid download was refused with
+		// installation_not_found. cybersalt.com sat in that state from
+		// 2026-09-14 to 2026-10-10.
 		self::$memoInstallationId = $installationId;
 		return $installationId;
 	}
@@ -416,6 +422,28 @@ final class ProActivationHelper
 			)->loadAssocList() ?: [];
 
 			foreach ($rows as $row) {
+				// The LIKE above is only a cheap pre-filter: a URL that merely
+				// CONTAINS "cybersalt.com" and "task=api.updatexml" would pass it.
+				// The dlid is a credential, so only an https update site on our
+				// own host gets it, and any other row that somehow holds it loses
+				// it. (Security review 2026-10-10, LOW.)
+				if (!self::isCybersaltUpdateFeed((string) $row['location'])) {
+					if ($dlid !== '' && (str_contains((string) $row['location'], $dlid) || str_contains((string) $row['extra_query'], $dlid))) {
+						$db->setQuery(
+							$db->getQuery(true)
+								->update($db->quoteName('#__update_sites'))
+								->set($db->quoteName('extra_query') . ' = ' . $db->quote(''))
+								->set($db->quoteName('location') . ' = ' . $db->quote(
+									rtrim((string) preg_replace('/([?&])dlid=[^&]*/', '$1', (string) $row['location']), '?&')
+								))
+								->where($db->quoteName('update_site_id') . ' = ' . (int) $row['update_site_id'])
+						)->execute();
+						$written++;
+					}
+
+					continue;
+				}
+
 				// The `location` also carries the dlid — and this is NOT belt
 				// and braces, it is the only channel that reaches the update
 				// XML. Joomla appends `extra_query` to the DOWNLOAD url only;
@@ -498,6 +526,11 @@ final class ProActivationHelper
 		}
 
 		if ($code === 201 || $code === 200) {
+			// The store now has a row for this id, so it is safe to keep.
+			if (self::readPro()['installation_id'] !== $installationId) {
+				self::saveParam('pro_installation_id', $installationId);
+			}
+
 			return [
 				'ok'        => true,
 				'status'    => (string) ($payload['status'] ?? ''),
@@ -695,6 +728,12 @@ final class ProActivationHelper
 			];
 		}
 
+		// The store has no row for an id this site already saved. Re-register
+		// that same id and re-link the stored email, then ask again, once.
+		if ((string) $payload['state'] === 'installation_not_found' && self::healOrphanedInstallation($emailHash)) {
+			return self::verifyAccess($emailHash);
+		}
+
 		// State allow-list — anything outside this collapses to 'denied' so the
 		// dashboard never has to know about server-side terminal error codes.
 		$state = (string) $payload['state'];
@@ -710,6 +749,81 @@ final class ProActivationHelper
 			'package_title'     => (string) ($payload['package_title'] ?? ''),
 			'entitled_elements' => (array) ($payload['entitled_elements'] ?? []),
 		];
+	}
+
+	/**
+	 * True only for an https update-XML URL on cybersalt.com itself.
+	 */
+	public static function isCybersaltUpdateFeed(string $url): bool
+	{
+		$parts = parse_url(html_entity_decode($url, ENT_QUOTES | ENT_HTML5));
+
+		if (strtolower((string) ($parts['scheme'] ?? '')) !== 'https') {
+			return false;
+		}
+
+		if (!in_array(strtolower((string) ($parts['host'] ?? '')), ['cybersalt.com', 'www.cybersalt.com'], true)) {
+			return false;
+		}
+
+		parse_str((string) ($parts['query'] ?? ''), $query);
+
+		return ($query['option'] ?? '') === 'com_csreleasemanager'
+			&& ($query['task'] ?? '') === 'api.updatexml';
+	}
+
+	/**
+	 * Repair a site whose saved installation_id the store has never heard of.
+	 *
+	 * Before 2.8.3 the id was saved the moment it was generated, so a
+	 * registration that failed left an orphan behind: the site had an id and a
+	 * linked email, sent a perfectly formed dlid, and every paid download came
+	 * back installation_not_found. Nothing on the site said why, and the only
+	 * remedy was to unlink and link again by hand.
+	 *
+	 * This re-registers the SAME id against the activation anchor and re-links
+	 * the email the site already holds, so the site keeps its identity and
+	 * needs no operator action. It only runs when the stored email matches the
+	 * hash being verified, and at most once per request.
+	 */
+	private static function healOrphanedInstallation(string $emailHash): bool
+	{
+		static $attempted = false;
+
+		if ($attempted) {
+			return false;
+		}
+		$attempted = true;
+
+		$pro   = self::readPro();
+		$email = strtolower(trim($pro['email']));
+
+		if ($pro['installation_id'] === '' || $email === '' || !hash_equals(hash('sha256', $email), $emailHash)) {
+			return false;
+		}
+
+		$register = self::registerInstallation(self::getActivationAnchorElement());
+
+		if (empty($register['ok'])) {
+			return false;
+		}
+
+		try {
+			$response = HttpFactory::getHttp()->post(
+				self::LINKEMAIL_URL,
+				json_encode([
+					'installation_id' => $pro['installation_id'],
+					'email_hash'      => $emailHash,
+					'email'           => $email,
+				], JSON_UNESCAPED_SLASHES),
+				['Content-Type' => 'application/json', 'Accept' => 'application/json'],
+				self::HTTP_TIMEOUT
+			);
+		} catch (\Throwable $e) {
+			return false;
+		}
+
+		return in_array((int) $response->code, [200, 201], true);
 	}
 
 	/**

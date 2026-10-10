@@ -98,6 +98,16 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 
 		if (class_exists($helper)) {
 			$helper::syncUpdateSiteDlid();
+
+			// A linked site re-verifies now rather than on the next dashboard
+			// visit. That is also what repairs an orphaned installation id
+			// (2.8.3): the store answers installation_not_found and the helper
+			// re-registers the same id and re-links the stored email.
+			$pro = $helper::readPro();
+
+			if ($pro['installation_id'] !== '' && $pro['email_hash'] !== '') {
+				$helper::forceRefresh();
+			}
 		}
 	}
 
