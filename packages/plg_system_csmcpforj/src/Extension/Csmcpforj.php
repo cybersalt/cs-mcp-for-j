@@ -8,6 +8,7 @@ namespace Cybersalt\Plugin\System\Csmcpforj\Extension;
 
 use Cybersalt\Component\Csmcpforj\Administrator\Helper\ProActivationHelper;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\Event\RegisterToolsEvent;
+use Cybersalt\Component\Csmcpforj\Administrator\OAuth\OAuthServer;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolRegistry;
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\Database\DatabaseAwareTrait;
@@ -284,6 +285,24 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 		}
 
 		$uri = (string) $app->input->server->get('REQUEST_URI', '', 'string');
+
+		// OAuth (#36): the authorization-server endpoints and the well-known
+		// metadata documents are answered here, before Joomla routes, because
+		// /.well-known/ sits at the site root where no component owns it. The
+		// match is a cheap string test so ordinary page loads pay nothing.
+		if ($app->isClient('site')) {
+			$oauthRoute = OAuthServer::matchRequest(
+				(string) parse_url($uri, PHP_URL_PATH),
+				isset($_GET[OAuthServer::QUERY_KEY]) ? (string) $_GET[OAuthServer::QUERY_KEY] : null
+			);
+
+			if ($oauthRoute !== null && OAuthServer::isEnabled()) {
+				OAuthServer::handle($oauthRoute, $app);
+			}
+
+			return;
+		}
+
 		if ($uri === '' || strpos($uri, '/api/index.php/v1/mcp') === false) {
 			return;
 		}
@@ -298,7 +317,8 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 		// user configures, so the fix has to live server-side. This endpoint
 		// only ever emits JSON, so coercing the header for our route is
 		// lossless.
-		$accept = (string) $app->input->server->get('HTTP_ACCEPT', '', 'string');
+		$accept         = (string) $app->input->server->get('HTTP_ACCEPT', '', 'string');
+		$originalAccept = $accept;
 		if (stripos($accept, 'application/vnd.api+json') === false) {
 			$app->input->server->set('HTTP_ACCEPT', 'application/vnd.api+json');
 			$_SERVER['HTTP_ACCEPT'] = 'application/vnd.api+json';
@@ -315,6 +335,39 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			&& trim(substr($auth, 7)) !== '';
 
 		$method = strtoupper((string) $app->input->server->get('REQUEST_METHOD', 'GET', 'string'));
+
+		// OAUTH (#36). Only when the site has switched OAuth on; with it off
+		// this block does nothing and API tokens behave exactly as before.
+		if (OAuthServer::isEnabled()) {
+			$bearer = $hasBearer ? trim(substr($auth, 7)) : '';
+
+			if (str_starts_with($bearer, OAuthServer::ACCESS_PREFIX)) {
+				if (OAuthServer::validateAccessToken($bearer) === null) {
+					// Expired, revoked or unknown: say so in the challenge so
+					// the client refreshes or sends the user to sign in again.
+					$this->sendOAuthChallenge($app, 'invalid_token', 'The access token is invalid or has expired.');
+
+					return;
+				}
+
+				// Valid. Do NOT translate it into X-Joomla-Token: the
+				// MCP for Joomla api-authentication plugin authenticates it.
+				return;
+			}
+
+			// No credentials at all from an MCP client: answer with the 401
+			// challenge the MCP authorization spec requires, naming where the
+			// resource metadata lives. A plain browser GET still gets the
+			// friendly discovery JSON below.
+			$wantsStream = stripos($originalAccept, 'text/event-stream') !== false;
+
+			if (!$hasBearer && $app->input->server->get('HTTP_X_JOOMLA_TOKEN', '', 'string') === ''
+				&& ($method === 'POST' || ($method === 'GET' && $wantsStream))) {
+				$this->sendOAuthChallenge($app);
+
+				return;
+			}
+		}
 
 		// EARLY GET DISCOVERY — if someone hits the MCP URL with GET and no
 		// Bearer token (e.g. a browser opened from the dashboard's "MCP
@@ -337,7 +390,7 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 				'protocol'        => 'JSON-RPC 2.0 over HTTP',
 				'method'          => 'POST (only — GET returns this info response)',
 				'content_type'    => 'application/json',
-				'authentication'  => 'Bearer <joomla-api-token> in the Authorization header (Joomla API tokens are created at User Profile → Joomla API Token)',
+				'authentication'  => 'Bearer <joomla-api-token> in the Authorization header (Joomla API tokens are created at User Profile → Joomla API Token), or OAuth 2.1 sign-in when the site has it switched on (discovery: /.well-known/oauth-protected-resource)',
 				'example_request' => [
 					'method'  => 'POST',
 					'headers' => [
@@ -375,6 +428,32 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 		$token = trim(substr($auth, 7));
 		$app->input->server->set('HTTP_X_JOOMLA_TOKEN', $token);
 		$_SERVER['HTTP_X_JOOMLA_TOKEN'] = $token;
+	}
+
+	/**
+	 * 401 with the MCP authorization challenge (RFC 9728 §5.1).
+	 */
+	private function sendOAuthChallenge($app, string $error = '', string $description = ''): void
+	{
+		http_response_code(401);
+		header('WWW-Authenticate: ' . OAuthServer::challengeHeader($error, $description));
+		header('Content-Type: application/json; charset=utf-8');
+		header('Cache-Control: no-store');
+		header('Access-Control-Allow-Origin: *');
+		header('Access-Control-Expose-Headers: WWW-Authenticate');
+
+		echo json_encode([
+			'jsonrpc' => '2.0',
+			'id'      => null,
+			'error'   => [
+				'code'    => -32001,
+				'message' => $error === ''
+					? 'Authentication required. Sign in with OAuth, or send a Joomla API token as a Bearer token.'
+					: $description,
+			],
+		], JSON_UNESCAPED_SLASHES);
+
+		$app->close();
 	}
 
 	public function onRegisterTools(RegisterToolsEvent $event): void

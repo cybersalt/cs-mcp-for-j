@@ -37,7 +37,7 @@ final class GetJoomlaVersionTool extends AbstractTool
 			'is_in_dev'     => $v->isInDevelopmentState(),
 			'codename'      => Version::CODENAME,
 			'php_version'   => PHP_VERSION,
-			'mcp_extension' => 'cs-mcp-for-j 1.0.0',
+			'mcp_extension' => 'cs-mcp-for-j ' . \Cybersalt\Component\Csmcpforj\Administrator\MCP\Server::serverVersion(),
 		]);
 	}
 }

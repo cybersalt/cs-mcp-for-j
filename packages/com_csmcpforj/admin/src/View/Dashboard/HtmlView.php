@@ -63,6 +63,12 @@ final class HtmlView extends BaseHtmlView
 	 */
 	public string $tokenProfileUrl = '';
 
+	/** OAuth (#36): switched on, the connected apps, and where to switch it on. */
+	public bool $oauthEnabled = false;
+	public array $oauthAuthorisations = [];
+	public string $optionsUrl = '';
+	public string $oauthMetadataUrl = '';
+
 	/** @var array<string, array<int, array{name:string, description:string, permission:string}>> */
 	public array $toolsByDomain = [];
 	public int $toolCount = 0;
@@ -127,6 +133,18 @@ final class HtmlView extends BaseHtmlView
 		$this->mcpConfigJson   = $this->buildMcpConfigJson();
 		$this->clientPrompt    = $this->buildClientPrompt();
 		$this->tokenProfileUrl = $this->buildTokenProfileUrl();
+
+		$oauth                  = \Cybersalt\Component\Csmcpforj\Administrator\OAuth\OAuthServer::class;
+		$this->oauthEnabled     = $oauth::isEnabled();
+		$this->optionsUrl       = \Joomla\CMS\Router\Route::_('index.php?option=com_config&view=component&component=com_csmcpforj');
+		$this->oauthMetadataUrl = $this->siteUrl . '/.well-known/oauth-authorization-server';
+
+		try {
+			$this->oauthAuthorisations = $oauth::listAuthorisations();
+		} catch (\Throwable $e) {
+			// Tables not created yet (e.g. PostgreSQL): show none.
+			$this->oauthAuthorisations = [];
+		}
 
 		// Pro Membership state — driven by ProActivationHelper, persisted in
 		// the component params. The dashboard card uses these to decide

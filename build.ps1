@@ -94,6 +94,7 @@ $subpackages = @{
     'com_csmcpforj'              = 'com_csmcpforj.zip'
     'plg_system_csmcpforj'       = 'plg_system_csmcpforj.zip'
     'plg_webservices_csmcpforj'  = 'plg_webservices_csmcpforj.zip'
+    'plg_api-authentication_csmcpforj' = 'plg_api-authentication_csmcpforj.zip'
 }
 
 foreach ($srcName in $subpackages.Keys) {

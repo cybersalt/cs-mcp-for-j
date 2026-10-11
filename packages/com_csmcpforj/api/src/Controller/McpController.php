@@ -134,7 +134,7 @@ final class McpController extends BaseController
 			'protocol'          => 'JSON-RPC 2.0 over HTTP',
 			'method'            => 'POST (only — GET returns this info response)',
 			'content_type'      => 'application/json',
-			'authentication'    => 'Bearer <joomla-api-token> in the Authorization header (Joomla API tokens are created at User Profile → Joomla API Token)',
+			'authentication'    => 'Bearer <joomla-api-token> in the Authorization header (Joomla API tokens are created at User Profile → Joomla API Token), or OAuth 2.1 sign-in when the site has it switched on (discovery: /.well-known/oauth-protected-resource)',
 			'example_request'   => [
 				'method'  => 'POST',
 				'headers' => [

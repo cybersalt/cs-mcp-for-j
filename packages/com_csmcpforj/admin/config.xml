@@ -69,6 +69,45 @@
 	</fieldset>
 
 	<fieldset
+		name="oauth"
+		label="COM_CSMCPFORJ_CONFIG_OAUTH_FIELDSET_LABEL"
+		description="COM_CSMCPFORJ_CONFIG_OAUTH_FIELDSET_DESC"
+	>
+		<field
+			name="oauth_enabled"
+			type="radio"
+			layout="joomla.form.field.radio.switcher"
+			label="COM_CSMCPFORJ_CONFIG_OAUTH_ENABLED_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_OAUTH_ENABLED_DESC"
+			default="0"
+		>
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+		<field
+			name="oauth_access_ttl"
+			type="number"
+			label="COM_CSMCPFORJ_CONFIG_OAUTH_ACCESS_TTL_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_OAUTH_ACCESS_TTL_DESC"
+			default="3600"
+			min="300"
+			max="86400"
+			step="60"
+			showon="oauth_enabled:1"
+		/>
+		<field
+			name="oauth_refresh_days"
+			type="number"
+			label="COM_CSMCPFORJ_CONFIG_OAUTH_REFRESH_DAYS_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_OAUTH_REFRESH_DAYS_DESC"
+			default="30"
+			min="1"
+			max="365"
+			showon="oauth_enabled:1"
+		/>
+	</fieldset>
+
+	<fieldset
 		name="privacy"
 		label="COM_CSMCPFORJ_CONFIG_PRIVACY_FIELDSET_LABEL"
 		description="COM_CSMCPFORJ_CONFIG_PRIVACY_FIELDSET_DESC"

@@ -36,6 +36,17 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 
 	public function uninstall(InstallerAdapter $adapter): bool
 	{
+		// Remove the OAuth tables (#36) with the package. Best-effort: an
+		// uninstall must never fail over its own housekeeping.
+		try {
+			$server = $this->componentClass('OAuth\OAuthServer');
+
+			if ($server !== null) {
+				$server::dropSchema(Factory::getContainer()->get(DatabaseInterface::class));
+			}
+		} catch (\Throwable $e) {
+		}
+
 		return true;
 	}
 
@@ -58,6 +69,7 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 			$this->ensureUpdateSiteRegistered();
 			$this->ensureApiAuthorizationPreserved();
 			$this->migrateLegacyCatalogUrl();
+			$this->ensureOAuthSchema();
 			$this->stampDownloadId();
 		} catch (\Throwable $e) {
 			// Surface unexpected install errors instead of silently swallowing.
@@ -85,6 +97,40 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 	 * update-site URL bare. On a fresh install the component's namespace is
 	 * not in the autoload map yet, so register it before calling the helper.
 	 */
+	/**
+	 * Create the OAuth tables (#36) if they are missing. Done here rather than
+	 * through Joomla's schema updates because the component never had an SQL
+	 * schema: on a first <update><schemas> Joomla can record the version
+	 * without running the files, which would leave the tables uncreated on
+	 * every existing site. CREATE TABLE IF NOT EXISTS is safe on every run.
+	 */
+	private function ensureOAuthSchema(): void
+	{
+		$server = $this->componentClass('OAuth\OAuthServer');
+
+		if ($server !== null) {
+			$server::ensureSchema(Factory::getContainer()->get(DatabaseInterface::class));
+		}
+	}
+
+	/**
+	 * Resolve a class from the component's administrator namespace, registering
+	 * the namespace first if this request has not (a fresh install).
+	 */
+	private function componentClass(string $relative): ?string
+	{
+		$class = 'Cybersalt\\Component\\Csmcpforj\\Administrator\\' . $relative;
+
+		if (!class_exists($class) && class_exists('JLoader', false)) {
+			\JLoader::registerNamespace(
+				'Cybersalt\Component\Csmcpforj\Administrator',
+				JPATH_ADMINISTRATOR . '/components/com_csmcpforj/src'
+			);
+		}
+
+		return class_exists($class) ? $class : null;
+	}
+
 	private function stampDownloadId(): void
 	{
 		$helper = 'Cybersalt\\Component\\Csmcpforj\\Administrator\\Helper\\ProActivationHelper';
@@ -128,7 +174,7 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 	{
 		$db = Factory::getContainer()->get(DatabaseInterface::class);
 
-		foreach (['system', 'webservices'] as $folder) {
+		foreach (['system', 'webservices', 'api-authentication'] as $folder) {
 			$query = $db->getQuery(true)
 				->update($db->quoteName('#__extensions'))
 				->set($db->quoteName('enabled') . ' = 1')

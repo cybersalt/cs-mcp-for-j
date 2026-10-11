@@ -5,6 +5,7 @@ declare(strict_types=1);
 \defined('_JEXEC') or die;
 
 use Cybersalt\Component\Csmcpforj\Administrator\Helper\FieldStyleHelper;
+use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Router\Route;
 
@@ -206,6 +207,79 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 			})();
 			</script>
 
+			<div class="card mb-3" id="csmcpforj-oauth">
+				<div class="card-body">
+					<h3 class="card-title"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_HEADING'); ?></h3>
+					<?php if (!$this->oauthEnabled) : ?>
+						<p class="card-text"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_OFF'); ?></p>
+						<a class="btn btn-sm btn-primary text-white" href="<?php echo $this->escape($this->optionsUrl); ?>"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_ENABLE'); ?></a>
+					<?php else : ?>
+						<p class="card-text mb-2"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_ON'); ?></p>
+						<ol class="mb-3">
+							<li class="mb-1"><?php echo Text::sprintf('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP1', '<code>' . $endpoint . '</code>'); ?></li>
+							<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP2'); ?></li>
+							<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP3'); ?></li>
+						</ol>
+						<p class="card-text small mb-3" id="csmcpforj-oauth-selftest" data-url="<?php echo $this->escape($this->oauthMetadataUrl); ?>">
+							<span class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_RUNNING'); ?></span>
+						</p>
+						<h4 class="h6"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_APPS_HEADING'); ?></h4>
+						<?php if ($this->oauthAuthorisations === []) : ?>
+							<p class="card-text small text-body-secondary mb-0"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_APPS_NONE'); ?></p>
+						<?php else : ?>
+							<div class="table-responsive">
+								<table class="table table-sm align-middle mb-0">
+									<thead>
+										<tr>
+											<th><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_COL_APP'); ?></th>
+											<th><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_COL_USER'); ?></th>
+											<th><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_COL_CONNECTED'); ?></th>
+											<th><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_COL_LAST_USED'); ?></th>
+											<th></th>
+										</tr>
+									</thead>
+									<tbody>
+										<?php foreach ($this->oauthAuthorisations as $grant) : ?>
+											<tr>
+												<td><?php echo $this->escape((string) $grant->client_name); ?></td>
+												<td><?php echo $this->escape((string) ($grant->user_name ?? '')); ?> <small class="text-body-secondary">(<?php echo $this->escape((string) ($grant->username ?? '#' . (int) $grant->user_id)); ?>)</small></td>
+												<td><small><?php echo $grant->first_seen ? HTMLHelper::_('date', $grant->first_seen, Text::_('DATE_FORMAT_LC5')) : '&mdash;'; ?></small></td>
+												<td><small><?php echo $grant->last_used ? HTMLHelper::_('date', $grant->last_used, Text::_('DATE_FORMAT_LC5')) : '&mdash;'; ?></small></td>
+												<td class="text-end">
+													<form method="post" action="<?php echo Route::_('index.php?option=com_csmcpforj&task=dashboard.revokeOAuth'); ?>" class="d-inline">
+														<input type="hidden" name="client_id" value="<?php echo $this->escape((string) $grant->client_id); ?>">
+														<input type="hidden" name="user_id" value="<?php echo (int) $grant->user_id; ?>">
+														<?php echo HTMLHelper::_('form.token'); ?>
+														<button type="submit" class="btn btn-sm btn-danger text-white"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_REVOKE'); ?></button>
+													</form>
+												</td>
+											</tr>
+										<?php endforeach; ?>
+									</tbody>
+								</table>
+							</div>
+						<?php endif; ?>
+						<script>
+						(function () {
+							// Check that /.well-known/ reaches Joomla: claude.ai and ChatGPT
+							// discover the sign-in endpoints there. Same-origin, read-only.
+							var el = document.getElementById('csmcpforj-oauth-selftest');
+							if (!el || !window.fetch) { return; }
+							var ok  = <?php echo json_encode(Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_OK')); ?>;
+							var bad = <?php echo json_encode(Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_FAIL')); ?>;
+							fetch(el.getAttribute('data-url'), {credentials: 'omit', cache: 'no-store'})
+								.then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+								.then(function (j) {
+									if (!j || !j.authorization_endpoint) { throw new Error(); }
+									el.innerHTML = '<span class="text-success">&#10003; ' + ok + '</span>';
+								})
+								.catch(function () { el.innerHTML = '<span class="text-danger">&#10007; ' + bad + '</span>'; });
+						})();
+						</script>
+					<?php endif; ?>
+				</div>
+			</div>
+
 			<div class="card mb-3 border-info">
 				<div class="card-body">
 					<h3 class="card-title"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHODS_HEADING'); ?></h3>
@@ -260,7 +334,7 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 											<button type="button" class="btn btn-outline-secondary" data-csmcpforj-token-toggle title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_TOGGLE_SHOW')); ?>">
 												<span class="icon-eye" aria-hidden="true"></span>
 											</button>
-											<button type="button" class="btn btn-outline-danger d-none" data-csmcpforj-token-clear title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_CLEAR')); ?>">
+											<button type="button" class="btn btn-danger text-white d-none" data-csmcpforj-token-clear title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_CLEAR')); ?>">
 												<span class="icon-trash" aria-hidden="true"></span>
 											</button>
 										</div>
@@ -576,7 +650,7 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 						?>
 						<form action="<?php echo $proRefresh; ?>" method="post" class="mt-2">
 							<input type="hidden" name="<?php echo $proFormToken; ?>" value="1">
-							<button type="submit" class="btn btn-outline-info w-100">
+							<button type="submit" class="btn btn-info text-dark w-100">
 								<span class="icon-loop" aria-hidden="true"></span>
 								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_REFRESH_BTN'); ?>
 							</button>

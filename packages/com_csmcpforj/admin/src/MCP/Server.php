@@ -226,7 +226,7 @@ final class Server
 	 * manifest_cache (falling back to the component's), so serverInfo can
 	 * never drift from what is actually installed.
 	 */
-	private static function serverVersion(): string
+	public static function serverVersion(): string
 	{
 		static $version = null;
 

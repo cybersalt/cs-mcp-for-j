@@ -118,6 +118,32 @@ final class DashboardController extends BaseController
 	}
 
 	/**
+	 * Disconnect an OAuth app (#36): revoke every token it holds for one user,
+	 * or for all users when user_id is 0. Takes effect on the app's very next
+	 * request; it has to be authorised again to reconnect.
+	 */
+	public function revokeOAuth(): void
+	{
+		$this->checkToken();
+
+		$app = Factory::getApplication();
+
+		if (!$app->getIdentity()->authorise('core.admin', 'com_csmcpforj')) {
+			throw new \Joomla\CMS\Access\Exception\NotAllowed(Text::_('JERROR_ALERTNOAUTHOR'), 403);
+		}
+
+		$clientId = $app->getInput()->getString('client_id', '');
+		$userId   = $app->getInput()->getInt('user_id', 0);
+		$count    = \Cybersalt\Component\Csmcpforj\Administrator\OAuth\OAuthServer::revokeAuthorisation($clientId, $userId, (int) $app->getIdentity()->id);
+
+		$this->setMessage(
+			Text::_($count > 0 ? 'COM_CSMCPFORJ_OAUTH_REVOKED' : 'COM_CSMCPFORJ_OAUTH_REVOKE_NOTHING'),
+			$count > 0 ? 'message' : 'warning'
+		);
+		$this->setRedirect(Route::_('index.php?option=com_csmcpforj&view=dashboard', false) . '#csmcpforj-oauth');
+	}
+
+	/**
 	 * Bypass Joomla's #__updates table cache and immediately re-poll the
 	 * cs-release-manager update XML endpoint for every cs-mcp-for-j-related
 	 * extension (core package + every csmcpforj* add-on plugin installed).

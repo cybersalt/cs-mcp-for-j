@@ -1,5 +1,31 @@
 # Changelog
 
+## 🚀 Version 2.9.0 (October 10, 2026)
+
+**Connect by signing in.** ChatGPT custom connectors and claude.ai / Claude Desktop "Add custom connector" can now connect to a Joomla site: paste the site's MCP address, sign in with a Joomla account, approve. Most other clients (Claude Code, VS Code + Copilot, Cursor, Gemini CLI, Codex, Cline) can sign in the same way. API keys keep working exactly as before. ([#36](https://github.com/cybersalt/cs-mcp-for-j/issues/36))
+
+### 🚀 Added — OAuth 2.1 sign-in (opt-in)
+
+- **Off by default.** Switch it on in Options → **OAuth sign-in**. Switching it off cuts every OAuth connection immediately.
+- **The site is its own sign-in server**, following the MCP authorization spec: protected-resource metadata (RFC 9728) and the `401` challenge that points to it, authorization-server metadata (RFC 8414, also answered at `/.well-known/openid-configuration`), dynamic client registration (RFC 7591) so apps register themselves with no client ID or secret to paste, the authorization code flow with PKCE (S256 only), resource indicators (RFC 8707), and token revocation (RFC 7009).
+- **Signing in uses the site's own Joomla login**, so its two-factor authentication applies, followed by a consent screen naming the app and the account it will act as. Only accounts that can already use MCP (Web Services Login plus MCP for Joomla access) can approve an app.
+- **The app acts as the user who approved it**, with exactly that user's permissions, the same as an API token for that user.
+- **Tokens:** opaque, stored only as SHA-256 hashes, short-lived access tokens (1 hour by default) with rotating refresh tokens (30 days by default, both configurable). A refresh token used twice ends that whole sign-in, as a stolen-token precaution. Access stops at once if the token is revoked, the app is disconnected, OAuth is switched off, or the user is blocked, deleted or changes their password.
+- **Tokens only work on the MCP endpoint.** They are bound to this site's MCP address and are refused anywhere else in Joomla's API.
+- **New api-authentication plugin**, *API Authentication - MCP for Joomla OAuth*, installed and enabled with the package. It is a separate plugin because Joomla authenticates API requests in an isolated dispatcher that only loads that plugin group.
+- **Dashboard → Connected apps** lists every connected app and the account it acts as, with a **Disconnect** button. It also checks live that AI clients can find the site's sign-in details at `/.well-known/`.
+- Consents and disconnections are written to Joomla's **User Actions Log**.
+- Client registration is rate-limited per IP address. Redirect addresses must be https, a loopback http address, or an app-specific scheme.
+
+### 📝 Changed — Setup Guide and Dashboard
+
+- **New lead section, "Connect by signing in (OAuth)"**, with steps for claude.ai, Claude Desktop, ChatGPT, Claude Code, VS Code, Cursor, Gemini CLI, Codex and Cline. The API-key method moves to Advanced setup and remains the answer for headless machines.
+- **Fixed instructions that were wrong.** The ChatGPT entry told users to add an Authorization header in a dialog that has no header field. The Dashboard listed claude.ai and ChatGPT custom connectors under the config-file method, although both are sign-in only. The Claude "this dialog won't work" warnings now explain how to switch OAuth on, and disappear when it is on.
+- **Plain-language wording.** The Dashboard card now walks through connecting in three numbered steps (paste the address, log in with your username and password for this website, click Allow) and its status line says **Ready** or **Not ready** with what to do, instead of developer terms.
+- `get_joomla_version` reported the extension as "cs-mcp-for-j 1.0.0" since 1.0; it now reports the installed version.
+- **Buttons readable in Joomla's dark mode.** Coloured outline buttons (Open Options, Disconnect, Clear token, Refresh membership) rendered dark text on a dark background in Atum dark mode. They are now solid buttons with light text.
+- New troubleshooting entries: firewalls blocking claude.ai / ChatGPT, `/.well-known/` not reaching Joomla, and signing in on a machine with no browser.
+
 ## 🚀 Version 2.8.3 (October 10, 2026)
 
 Everything left open after 2.8.2: two security hardenings, a registration bug that could leave a site unable to download paid add-ons, and a version number that had been wrong since 2.7.

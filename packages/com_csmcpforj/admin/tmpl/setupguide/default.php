@@ -299,13 +299,40 @@ details.csmcpforj-setup-advanced[open] summary::before {
 						<button type="button" class="btn btn-outline-secondary" data-csmcpforj-token-toggle title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_TOKEN_TOGGLE_SHOW')); ?>">
 							<span class="icon-eye" aria-hidden="true"></span>
 						</button>
-						<button type="button" class="btn btn-outline-danger d-none" data-csmcpforj-token-clear title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_TOKEN_CLEAR')); ?>">
+						<button type="button" class="btn btn-danger text-white d-none" data-csmcpforj-token-clear title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_TOKEN_CLEAR')); ?>">
 							<span class="icon-trash" aria-hidden="true"></span>
 						</button>
 					</div>
 					<p class="mb-0"><small class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TOKEN_INPUT_HINT'); ?></small></p>
 					</div><?php // .csmcpforj-field-panel ?>
 				</div>
+			</div>
+
+			<div class="csmcpforj-setup-section" id="section-oauth">
+				<h3><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_OAUTH_HEADING'); ?></h3>
+				<?php if ($this->oauthEnabled) : ?>
+					<p class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_OAUTH_ON_INTRO'); ?></p>
+					<div class="position-relative mb-3">
+						<pre id="csmcpforj-setupguide-oauth-url"><code><?php echo $endpoint; ?></code></pre>
+						<button type="button" class="btn btn-sm btn-primary text-white csmcpforj-setup-copy-btn position-absolute top-0 end-0 m-2" data-csmcpforj-copy="csmcpforj-setupguide-oauth-url" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED')); ?>" data-copied-substituted-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED')); ?>">
+							<span class="icon-copy" aria-hidden="true"></span> <?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY'); ?>
+						</button>
+					</div>
+					<ul class="mb-3">
+						<?php foreach (['CLAUDE_AI', 'CHATGPT', 'CLAUDE_CODE', 'VSCODE', 'CURSOR', 'GEMINI', 'CODEX', 'CLINE'] as $oauthClient) : ?>
+							<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_OAUTH_CLIENT_' . $oauthClient); ?></li>
+						<?php endforeach; ?>
+					</ul>
+					<p class="mb-1"><small class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_OAUTH_ON_CONSENT_NOTE'); ?></small></p>
+					<p class="mb-0"><small class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_OAUTH_ON_ADVANCED_NOTE'); ?></small></p>
+				<?php else : ?>
+					<p class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_OAUTH_OFF_INTRO'); ?></p>
+					<?php if ($this->canConfigure) : ?>
+						<p class="mb-0"><a class="btn btn-sm btn-primary text-white" href="<?php echo $this->escape($this->optionsUrl); ?>"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_OAUTH_OFF_ENABLE_LINK'); ?></a></p>
+					<?php else : ?>
+						<p class="mb-0"><small class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_OAUTH_OFF_ASK_ADMIN'); ?></small></p>
+					<?php endif; ?>
+				<?php endif; ?>
 			</div>
 
 			<div class="csmcpforj-setup-section" id="section-advanced">
@@ -386,8 +413,8 @@ details.csmcpforj-setup-advanced[open] summary::before {
 							<div class="tab-pane fade" id="pane-claude" role="tabpanel">
 
 								<div class="csmcpforj-token-warning mb-3">
-									<strong><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CLAUDE_HEADS_UP_TITLE'); ?></strong>
-									<span><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CLAUDE_HEADS_UP_BODY'); ?></span>
+									<strong><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CLAUDE_HEADS_UP_TITLE' . ($this->oauthEnabled ? '_OAUTH' : '')); ?></strong>
+									<span><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CLAUDE_HEADS_UP_BODY' . ($this->oauthEnabled ? '_OAUTH' : '')); ?></span>
 								</div>
 
 								<h5><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CLAUDE_DESKTOP_HEADING'); ?></h5>
@@ -439,7 +466,7 @@ details.csmcpforj-setup-advanced[open] summary::before {
 								</div>
 
 								<h5 class="mt-4"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CLAUDE_AI_HEADING'); ?></h5>
-								<p class="mb-0"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CLAUDE_AI_BODY'); ?></p>
+								<p class="mb-0"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CLAUDE_AI_BODY' . ($this->oauthEnabled ? '_OAUTH' : '')); ?></p>
 							</div>
 
 							<div class="tab-pane fade" id="pane-cursor" role="tabpanel">
@@ -456,7 +483,7 @@ details.csmcpforj-setup-advanced[open] summary::before {
 
 							<div class="tab-pane fade" id="pane-chatgpt" role="tabpanel">
 								<h5><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CHATGPT_HEADING'); ?></h5>
-								<p class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CHATGPT_BODY'); ?></p>
+								<p class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CHATGPT_BODY' . ($this->oauthEnabled ? '_OAUTH' : '')); ?></p>
 								<p class="mb-2"><small class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CHATGPT_TIER_NOTE'); ?></small></p>
 								<div class="position-relative">
 									<pre id="csmcpforj-snippet-chatgpt" data-csmcpforj-snippet><code><?php echo htmlspecialchars($snippetChatGpt, ENT_QUOTES, 'UTF-8'); ?></code></pre>
@@ -554,8 +581,23 @@ details.csmcpforj-setup-advanced[open] summary::before {
 					</details>
 
 					<details class="csmcpforj-setup-troubleshoot">
-						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_OAUTH_DIALOG_SUMMARY'); ?></summary>
-						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_OAUTH_DIALOG_BODY'); ?></div>
+						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_OAUTH_DIALOG_SUMMARY' . ($this->oauthEnabled ? '_OAUTH' : '')); ?></summary>
+						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_OAUTH_DIALOG_BODY' . ($this->oauthEnabled ? '_OAUTH' : '')); ?></div>
+					</details>
+
+					<details class="csmcpforj-setup-troubleshoot">
+						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_OAUTH_FIREWALL_SUMMARY'); ?></summary>
+						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_OAUTH_FIREWALL_BODY'); ?></div>
+					</details>
+
+					<details class="csmcpforj-setup-troubleshoot">
+						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_OAUTH_WELLKNOWN_SUMMARY'); ?></summary>
+						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_OAUTH_WELLKNOWN_BODY'); ?></div>
+					</details>
+
+					<details class="csmcpforj-setup-troubleshoot">
+						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_OAUTH_HEADLESS_SUMMARY'); ?></summary>
+						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_OAUTH_HEADLESS_BODY'); ?></div>
 					</details>
 
 					<details class="csmcpforj-setup-troubleshoot">
