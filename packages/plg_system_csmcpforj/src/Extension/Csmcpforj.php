@@ -7,6 +7,7 @@ namespace Cybersalt\Plugin\System\Csmcpforj\Extension;
 \defined('_JEXEC') or die;
 
 use Cybersalt\Component\Csmcpforj\Administrator\Helper\ProActivationHelper;
+use Cybersalt\Component\Csmcpforj\Administrator\Log\ActivityLog;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\Event\RegisterToolsEvent;
 use Cybersalt\Component\Csmcpforj\Administrator\OAuth\OAuthServer;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolRegistry;
@@ -342,13 +343,21 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			$bearer = $hasBearer ? trim(substr($auth, 7)) : '';
 
 			if (str_starts_with($bearer, OAuthServer::ACCESS_PREFIX)) {
-				if (OAuthServer::validateAccessToken($bearer) === null) {
+				$grant = OAuthServer::validateAccessToken($bearer);
+
+				if ($grant === null) {
 					// Expired, revoked or unknown: say so in the challenge so
 					// the client refreshes or sends the user to sign in again.
+					ActivityLog::warning('auth', 'auth.token', 'OAuth access token refused at the MCP endpoint: ' . OAuthServer::rejectionReason($bearer), [
+						'details' => ['http_method' => $method, 'answer' => '401 invalid_token'],
+					]);
 					$this->sendOAuthChallenge($app, 'invalid_token', 'The access token is invalid or has expired.');
 
 					return;
 				}
+
+				// Every later log entry in this request names the OAuth app.
+				ActivityLog::setRequestContext(['client_id' => $grant['client_id'], 'user_id' => $grant['user_id']]);
 
 				// Valid. A GET is the client trying to open a server stream,
 				// which this server does not offer: 405 so it stops asking
@@ -372,6 +381,9 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 
 			if (!$hasBearer && $app->input->server->get('HTTP_X_JOOMLA_TOKEN', '', 'string') === ''
 				&& ($method === 'POST' || ($method === 'GET' && $wantsStream))) {
+				ActivityLog::info('auth', 'auth.challenge', 'An MCP client called without credentials; answered 401 pointing it at OAuth sign-in (normal first step of connecting).', [
+					'details' => ['http_method' => $method],
+				]);
 				$this->sendOAuthChallenge($app);
 
 				return;

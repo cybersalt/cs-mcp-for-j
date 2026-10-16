@@ -24,6 +24,7 @@
 			<menu link="option=com_csmcpforj&amp;view=dashboard">COM_CSMCPFORJ_SUBMENU_DASHBOARD</menu>
 			<menu link="option=com_csmcpforj&amp;view=catalog">COM_CSMCPFORJ_SUBMENU_CATALOG</menu>
 			<menu link="option=com_csmcpforj&amp;view=setupguide">COM_CSMCPFORJ_SUBMENU_SETUPGUIDE</menu>
+			<menu link="option=com_csmcpforj&amp;view=logs">COM_CSMCPFORJ_SUBMENU_LOGS</menu>
 			<menu link="option=com_csmcpforj&amp;view=support">COM_CSMCPFORJ_SUBMENU_SUPPORT</menu>
 		</submenu>
 
@@ -31,6 +32,7 @@
 			<filename>access.xml</filename>
 			<filename>config.xml</filename>
 			<filename>catalog.fallback.json</filename>
+			<folder>forms</folder>
 			<folder>language</folder>
 			<folder>services</folder>
 			<folder>src</folder>

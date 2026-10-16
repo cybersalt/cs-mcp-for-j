@@ -258,6 +258,11 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 								<p class="card-text small mb-3" id="csmcpforj-oauth-selftest" data-url="<?php echo $this->escape($this->oauthMetadataUrl); ?>">
 									<span class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_RUNNING'); ?></span>
 								</p>
+								<?php if ($this->oauthProblems24h > 0) : ?>
+									<p class="card-text small mb-3 text-warning-emphasis">
+										<?php echo Text::sprintf('COM_CSMCPFORJ_DASHBOARD_OAUTH_PROBLEMS', $this->oauthProblems24h, $this->escape($this->oauthProblemsUrl)); ?>
+									</p>
+								<?php endif; ?>
 
 								<h4 class="h6"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_APPS_HEADING'); ?></h4>
 								<?php if ($this->oauthAuthorisations === []) : ?>

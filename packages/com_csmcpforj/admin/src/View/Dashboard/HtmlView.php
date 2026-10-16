@@ -68,6 +68,8 @@ final class HtmlView extends BaseHtmlView
 	public array $oauthAuthorisations = [];
 	public string $optionsUrl = '';
 	public string $oauthMetadataUrl = '';
+	public int $oauthProblems24h = 0;
+	public string $oauthProblemsUrl = '';
 
 	/** @var array<string, array<int, array{name:string, description:string, permission:string}>> */
 	public array $toolsByDomain = [];
@@ -137,13 +139,35 @@ final class HtmlView extends BaseHtmlView
 		$oauth                  = \Cybersalt\Component\Csmcpforj\Administrator\OAuth\OAuthServer::class;
 		$this->oauthEnabled     = $oauth::isEnabled();
 		$this->optionsUrl       = \Joomla\CMS\Router\Route::_('index.php?option=com_config&view=component&component=com_csmcpforj');
-		$this->oauthMetadataUrl = $this->siteUrl . '/.well-known/oauth-authorization-server';
+		// ?selftest=1 keeps the Dashboard's own check out of the activity log.
+		$this->oauthMetadataUrl = $this->siteUrl . '/.well-known/oauth-authorization-server?selftest=1';
 
 		try {
 			$this->oauthAuthorisations = $oauth::listAuthorisations();
 		} catch (\Throwable $e) {
 			// Tables not created yet (e.g. PostgreSQL): show none.
 			$this->oauthAuthorisations = [];
+		}
+
+		// The "Ready" self-test only proves discovery works. A sign-in can
+		// still fail later (2.9.0 test builds failed every token exchange and
+		// the Dashboard said Ready), so surface recent OAuth problems here.
+		if ($this->oauthEnabled) {
+			try {
+				$db = \Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class);
+				$this->oauthProblems24h = (int) $db->setQuery(
+					$db->getQuery(true)
+						->select('COUNT(*)')
+						->from($db->quoteName(\Cybersalt\Component\Csmcpforj\Administrator\Log\ActivityLog::TABLE))
+						->whereIn($db->quoteName('source'), ['oauth', 'auth'], \Joomla\Database\ParameterType::STRING)
+						->whereIn($db->quoteName('status'), ['warning', 'error'], \Joomla\Database\ParameterType::STRING)
+						->where($db->quoteName('created') . ' >= ' . $db->quote(gmdate('Y-m-d H:i:s', time() - 86400)))
+				)->loadResult();
+			} catch (\Throwable $e) {
+				$this->oauthProblems24h = 0;
+			}
+
+			$this->oauthProblemsUrl = \Joomla\CMS\Router\Route::_('index.php?option=com_csmcpforj&view=logs&filter[status]=problems&filter[since]=24h', false);
 		}
 
 		// Pro Membership state — driven by ProActivationHelper, persisted in

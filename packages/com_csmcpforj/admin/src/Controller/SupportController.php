@@ -136,6 +136,23 @@ final class SupportController extends BaseController
 		$metadata = $this->buildMetadataBlock($user, $isPro, $type, $replyEmail);
 		$emailBody = $description . "\n\n" . str_repeat('-', 60) . "\n\n" . $metadata;
 
+		// Recent warnings and errors from the activity log (2.9.0), so a bug
+		// report arrives with the server-side reason instead of a follow-up
+		// asking for it. Opt-out checkbox on the form; on by default.
+		if ($input->post->getInt('support_attach_log', 0) === 1) {
+			try {
+				/** @var \Cybersalt\Component\Csmcpforj\Administrator\Model\LogsModel $logs */
+				$logs     = $this->getModel('Logs', 'Administrator', ['ignore_request' => true]);
+				$problems = $logs->getRecentProblems();
+
+				$emailBody .= "\n" . str_repeat('-', 60) . "\n\n" . ($problems === []
+					? "Activity log: no warnings or errors in the last 7 days.\n"
+					: mb_substr($logs->getTextDump($problems, 'Activity log: recent warnings and errors (newest first, up to 25, last 7 days)'), 0, 40000));
+			} catch (\Throwable $e) {
+				$emailBody .= "\nActivity log: could not be read (" . $e->getMessage() . ")\n";
+			}
+		}
+
 		try {
 			$mailer = Factory::getContainer()->get(\Joomla\CMS\Mail\MailerFactoryInterface::class)->createMailer();
 			$mailer->addRecipient(self::SUPPORT_TO_EMAIL);

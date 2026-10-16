@@ -134,6 +134,17 @@ $isPro = !empty($this->proActivated);
 							<div class="form-text"><?php echo Text::_('COM_CSMCPFORJ_SUPPORT_FIELD_EMAIL_HINT'); ?></div>
 						</div>
 
+						<div class="form-check mb-3">
+							<input class="form-check-input" type="checkbox" id="support_attach_log" name="support_attach_log" value="1" checked>
+							<label class="form-check-label" for="support_attach_log">
+								<?php echo Text::_('COM_CSMCPFORJ_SUPPORT_ATTACH_LOG_LABEL'); ?>
+							</label>
+							<div class="form-text">
+								<?php echo Text::_('COM_CSMCPFORJ_SUPPORT_ATTACH_LOG_HELP'); ?>
+								<a href="<?php echo Route::_('index.php?option=com_csmcpforj&view=logs&filter[status]=problems&filter[since]=7d'); ?>" target="_blank" rel="noopener"><?php echo Text::_('COM_CSMCPFORJ_SUBMENU_LOGS'); ?> &rarr;</a>
+							</div>
+						</div>
+
 						<button type="submit" class="btn btn-primary btn-lg">
 							<span class="icon-envelope" aria-hidden="true"></span>
 							<?php echo Text::_('COM_CSMCPFORJ_SUPPORT_SUBMIT_BUTTON'); ?>

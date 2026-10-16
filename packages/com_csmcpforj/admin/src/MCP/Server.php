@@ -7,6 +7,7 @@ namespace Cybersalt\Component\Csmcpforj\Administrator\MCP;
 \defined('_JEXEC') or die;
 
 use Cybersalt\Component\Csmcpforj\Administrator\Helper\PermissionHelper;
+use Cybersalt\Component\Csmcpforj\Administrator\Log\ActivityLog;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\Security\ArgumentSecretGuard;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
@@ -103,6 +104,8 @@ final class Server
 		$params = $message['params'] ?? [];
 		$isNotification = !array_key_exists('id', $message);
 
+		$started = hrtime(true);
+
 		try {
 			$result = match ($method) {
 				'initialize'                => $this->handleInitialize($params),
@@ -114,10 +117,17 @@ final class Server
 				default                     => throw new McpException(-32601, 'Method not found: ' . $method),
 			};
 		} catch (McpException $e) {
+			ActivityLog::warning('mcp', $method, $this->describeCall($method, $params) . ' refused: ' . $e->getMessage(),
+				$this->logContext($method, $params, $started, ['jsonrpc_error' => $e->getCode()]));
+
 			return $isNotification ? null : $this->errorResponse($id, $e->getCode(), $e->getMessage(), $e->getData());
 		} catch (Throwable $e) {
+			ActivityLog::exception('mcp', $method, $e, $this->logContext($method, $params, $started));
+
 			return $isNotification ? null : $this->errorResponse($id, -32603, 'Internal error: ' . $e->getMessage());
 		}
+
+		$this->logResult($method, $params, $result, $started);
 
 		if ($isNotification) {
 			return null;
@@ -205,6 +215,68 @@ final class Server
 		ArgumentSecretGuard::assertNoSecretsIn($arguments, $this->secrets);
 
 		return $tool->execute($arguments, $this->actor)->toArray();
+	}
+
+	/**
+	 * Activity log for a handled request. Only the calls worth seeing later
+	 * are logged when they succeed: a client connecting (initialize) and every
+	 * tool call. tools/list, ping and notifications are left out as noise.
+	 */
+	private function logResult(string $method, mixed $params, mixed $result, int $started): void
+	{
+		if ($method === 'initialize') {
+			$client = is_array($params) && is_array($params['clientInfo'] ?? null) ? $params['clientInfo'] : [];
+			$name   = trim((string) ($client['name'] ?? 'unknown client') . ' ' . (string) ($client['version'] ?? ''));
+
+			ActivityLog::info('mcp', 'initialize', $name . ' connected as ' . $this->actor->username
+				. ' (protocol ' . (string) ($result['protocolVersion'] ?? '?') . ').', $this->logContext($method, $params, $started, [
+					'client' => $client,
+				]));
+
+			return;
+		}
+
+		if ($method !== 'tools/call') {
+			return;
+		}
+
+		if (is_array($result) && !empty($result['isError'])) {
+			$text = (string) ($result['content'][0]['text'] ?? '');
+
+			ActivityLog::warning('mcp', 'tools/call', $this->describeCall($method, $params) . ' returned an error: '
+				. mb_substr($text, 0, 300), $this->logContext($method, $params, $started, ['result' => mb_substr($text, 0, 4000)]));
+
+			return;
+		}
+
+		ActivityLog::success('mcp', 'tools/call', $this->describeCall($method, $params) . ' ran for ' . $this->actor->username . '.',
+			$this->logContext($method, $params, $started));
+	}
+
+	private function describeCall(string $method, mixed $params): string
+	{
+		return $method === 'tools/call' && is_array($params) && isset($params['name'])
+			? (string) $params['name']
+			: $method;
+	}
+
+	private function logContext(string $method, mixed $params, int $started, array $details = []): array
+	{
+		$context = [
+			'user_id'    => (int) $this->actor->id,
+			'elapsed_ms' => (int) round((hrtime(true) - $started) / 1e6),
+		];
+
+		if ($method === 'tools/call' && is_array($params)) {
+			$context['subject'] = (string) ($params['name'] ?? '');
+			$details = ['arguments' => ActivityLog::redact(is_array($params['arguments'] ?? null) ? $params['arguments'] : [])] + $details;
+		}
+
+		if ($details !== []) {
+			$context['details'] = $details;
+		}
+
+		return $context;
 	}
 
 	private function errorResponse(mixed $id, int $code, string $message, mixed $data = null): array

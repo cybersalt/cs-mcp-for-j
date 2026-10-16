@@ -6,6 +6,7 @@ namespace Cybersalt\Component\Csmcpforj\Administrator\OAuth;
 
 \defined('_JEXEC') or die;
 
+use Cybersalt\Component\Csmcpforj\Administrator\Log\ActivityLog;
 use Joomla\CMS\Application\CMSApplication;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
@@ -67,6 +68,15 @@ final class OAuthServer
 
 	/** @var array<string, array|null> per-request validation cache */
 	private static array $validated = [];
+
+	/** @var array<string, string> why a token failed validation, by token hash */
+	private static array $rejections = [];
+
+	/** Activity-log context for the current OAuth request (app, user). */
+	private static array $logCtx = [];
+
+	/** Why the last authenticateClient() call returned null. */
+	private static string $clientFailure = '';
 
 	// ------------------------------------------------------------------
 	// Configuration and URLs
@@ -211,9 +221,15 @@ final class OAuthServer
 		try {
 			switch ($route) {
 				case 'resource-metadata':
+					self::log('info', 'oauth.discovery', 'Sent the protected-resource metadata (step 1 of an app connecting).');
 					self::sendJson(self::protectedResourceMetadata(), 200, true);
 					break;
 				case 'metadata':
+					// The Dashboard's "Ready" check fetches this on every visit.
+					if (!isset($_GET['selftest'])) {
+						self::log('info', 'oauth.discovery', 'Sent the authorization-server metadata (step 2 of an app connecting).');
+					}
+
 					self::sendJson(self::authorizationServerMetadata(), 200, true);
 					break;
 				case 'register':
@@ -230,10 +246,27 @@ final class OAuthServer
 					break;
 			}
 		} catch (\Throwable $e) {
-			self::sendJson(['error' => 'server_error', 'error_description' => 'The authorization server hit an error.'], 500, true);
+			ActivityLog::exception('oauth', 'oauth.' . $route, $e, self::$logCtx);
+			self::sendJson([
+				'error'             => 'server_error',
+				'error_description' => 'The authorization server hit an error. A site administrator can see the details under Components > MCP for Joomla > Logs.',
+			], 500, true);
 		}
 
 		$app->close();
+	}
+
+	/** Write an OAuth activity-log entry with this request's app and user. */
+	private static function log(string $status, string $event, string $summary, array $context = []): void
+	{
+		ActivityLog::{$status}('oauth', $event, $summary, array_merge(self::$logCtx, $context));
+	}
+
+	/** Log a refused OAuth request and send the JSON error. */
+	private static function refuse(string $event, string $error, string $description, int $status = 400): void
+	{
+		self::log('warning', $event, 'Refused (' . $error . '): ' . $description, ['details' => ['http_status' => $status]]);
+		self::sendJson(['error' => $error, 'error_description' => $description], $status, true);
 	}
 
 	// ------------------------------------------------------------------
@@ -249,7 +282,7 @@ final class OAuthServer
 		}
 
 		if (self::method() !== 'POST') {
-			self::sendJson(['error' => 'invalid_request', 'error_description' => 'Use POST.'], 405, true);
+			self::refuse('oauth.register', 'invalid_request', 'Use POST.', 405);
 
 			return;
 		}
@@ -268,7 +301,7 @@ final class OAuthServer
 		)->loadResult();
 
 		if ($recent >= self::REGISTRATIONS_PER_HOUR) {
-			self::sendJson(['error' => 'invalid_request', 'error_description' => 'Too many registrations from this address. Try again later.'], 429, true);
+			self::refuse('oauth.register', 'invalid_request', 'Too many registrations from this address. Try again later.', 429);
 
 			return;
 		}
@@ -276,7 +309,7 @@ final class OAuthServer
 		$body = json_decode((string) file_get_contents('php://input'), true);
 
 		if (!is_array($body)) {
-			self::sendJson(['error' => 'invalid_client_metadata', 'error_description' => 'The request body must be JSON.'], 400, true);
+			self::refuse('oauth.register', 'invalid_client_metadata', 'The request body must be JSON.');
 
 			return;
 		}
@@ -284,7 +317,7 @@ final class OAuthServer
 		$uris = $body['redirect_uris'] ?? null;
 
 		if (!is_array($uris) || $uris === [] || count($uris) > self::MAX_REDIRECT_URIS) {
-			self::sendJson(['error' => 'invalid_redirect_uri', 'error_description' => 'redirect_uris must list 1 to ' . self::MAX_REDIRECT_URIS . ' URIs.'], 400, true);
+			self::refuse('oauth.register', 'invalid_redirect_uri', 'redirect_uris must list 1 to ' . self::MAX_REDIRECT_URIS . ' URIs.');
 
 			return;
 		}
@@ -293,7 +326,7 @@ final class OAuthServer
 
 		foreach ($uris as $uri) {
 			if (!is_string($uri) || !self::isAcceptableRedirectUri($uri)) {
-				self::sendJson(['error' => 'invalid_redirect_uri', 'error_description' => 'Redirect URIs must be https, a loopback http address, or an app-specific scheme.'], 400, true);
+				self::refuse('oauth.register', 'invalid_redirect_uri', 'Redirect URIs must be https, a loopback http address, or an app-specific scheme. Got: ' . (is_string($uri) ? mb_substr($uri, 0, 200) : gettype($uri)));
 
 				return;
 			}
@@ -304,7 +337,7 @@ final class OAuthServer
 		$authMethod = (string) ($body['token_endpoint_auth_method'] ?? 'none');
 
 		if (!in_array($authMethod, ['none', 'client_secret_post', 'client_secret_basic'], true)) {
-			self::sendJson(['error' => 'invalid_client_metadata', 'error_description' => 'Unsupported token_endpoint_auth_method.'], 400, true);
+			self::refuse('oauth.register', 'invalid_client_metadata', 'Unsupported token_endpoint_auth_method: ' . mb_substr($authMethod, 0, 40));
 
 			return;
 		}
@@ -314,7 +347,7 @@ final class OAuthServer
 			: ['authorization_code', 'refresh_token'];
 
 		if (!in_array('authorization_code', $grantTypes, true)) {
-			self::sendJson(['error' => 'invalid_client_metadata', 'error_description' => 'grant_types must include authorization_code.'], 400, true);
+			self::refuse('oauth.register', 'invalid_client_metadata', 'grant_types must include authorization_code.');
 
 			return;
 		}
@@ -353,6 +386,12 @@ final class OAuthServer
 			$response['client_secret']            = $secret;
 			$response['client_secret_expires_at'] = 0;
 		}
+
+		self::log('success', 'oauth.register', 'Registered the app "' . $name . '".', [
+			'subject'   => $name,
+			'client_id' => $clientId,
+			'details'   => ['redirect_uris' => $clean, 'token_endpoint_auth_method' => $authMethod, 'grant_types' => $grantTypes],
+		]);
 
 		self::sendJson($response, 201, true);
 	}
@@ -411,10 +450,15 @@ final class OAuthServer
 		$client = self::findClient($req['client_id']);
 
 		if ($client === null) {
+			self::log('warning', 'oauth.authorize', 'Sign-in page refused: the app is not registered here, or was revoked.', [
+				'client_id' => mb_substr($req['client_id'], 0, 64),
+			]);
 			self::renderPage('This app is not registered', '<p>The app that sent you here is not registered with this site, or its access was revoked. Go back to the app and add the connector again.</p>', 400);
 
 			return;
 		}
+
+		self::$logCtx = ['subject' => (string) $client->client_name, 'client_id' => (string) $client->client_id];
 
 		$registered = json_decode((string) $client->redirect_uris, true) ?: [];
 
@@ -423,6 +467,9 @@ final class OAuthServer
 		}
 
 		if (!in_array($req['redirect_uri'], $registered, true)) {
+			self::log('warning', 'oauth.authorize', 'Sign-in page refused: the app asked to return to an address it did not register.', [
+				'details' => ['requested' => mb_substr($req['redirect_uri'], 0, 500), 'registered' => $registered],
+			]);
 			self::renderPage('Invalid redirect address', '<p>The app asked to return to an address it did not register. For your safety this request was stopped.</p>', 400);
 
 			return;
@@ -457,13 +504,24 @@ final class OAuthServer
 		$user = $app->getIdentity();
 
 		if ($user === null || $user->guest) {
+			self::log('info', 'oauth.authorize', 'Not signed in yet: sent the browser to this site\'s login page.');
 			$return = self::endpoint('authorize') . '&' . http_build_query(array_filter($req, static fn ($v) => $v !== ''));
 			$app->redirect(Uri::root() . 'index.php?option=com_users&view=login&return=' . base64_encode($return));
 
 			return;
 		}
 
+		self::$logCtx['user_id'] = (int) $user->id;
+
 		if (!self::userMayUseMcp($user)) {
+			self::log('warning', 'oauth.authorize', $user->username . ' signed in but may not use MCP (needs Web Services Login plus MCP for Joomla access).', [
+				'details' => [
+					'core.login.api'      => $user->authorise('core.login.api'),
+					'csmcpforj.use'       => $user->authorise('csmcpforj.use', 'com_csmcpforj'),
+					'core.manage (com_)'  => $user->authorise('core.manage', 'com_csmcpforj'),
+					'groups'              => array_values($user->getAuthorisedGroups()),
+				],
+			]);
 			self::renderPage(
 				'Your account cannot use MCP',
 				'<p>You are signed in as <strong>' . self::e($user->name) . '</strong> (' . self::e($user->username) . '), but this account is not allowed to use MCP for Joomla on this site.</p>'
@@ -476,12 +534,14 @@ final class OAuthServer
 
 		// 4. Consent.
 		if (!$isPost) {
+			self::log('info', 'oauth.authorize', 'Showed the Allow / Deny page to ' . $user->username . '.');
 			self::renderConsent($req, $client, $user);
 
 			return;
 		}
 
 		if (!Session::checkToken('post')) {
+			self::log('warning', 'oauth.authorize', 'Allow / Deny answer refused: the form token had expired (session timed out or cookies blocked).');
 			self::renderPage('Session expired', '<p>Your session expired before you answered. Go back to the app and try connecting again.</p>', 400);
 
 			return;
@@ -496,7 +556,10 @@ final class OAuthServer
 		$code = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
 		$db   = self::db();
 
-		$db->insertObject(self::T_CODES, (object) [
+		// A variable, never a cast literal: insertObject() takes the object by
+		// reference, and PHP 8 throws on a literal (2.9.0 test builds failed
+		// every sign-in here; found by Stefan Gagner).
+		$codeRow = (object) [
 			'code_hash'      => hash('sha256', $code),
 			'client_id'      => (string) $client->client_id,
 			'user_id'        => (int) $user->id,
@@ -507,9 +570,13 @@ final class OAuthServer
 			'expires'        => self::sqlDate(self::CODE_TTL_SECONDS),
 			'used'           => 0,
 			'created'        => self::sqlDate(),
-		]);
+		];
+		$db->insertObject(self::T_CODES, $codeRow);
 
 		self::actionLog('COM_CSMCPFORJ_ACTIONLOG_OAUTH_CONSENT', (int) $user->id, (string) $client->client_name);
+		self::log('success', 'oauth.authorize', $user->username . ' allowed "' . $client->client_name . '"; sent the app back with an authorization code.', [
+			'details' => ['redirect_host' => (string) parse_url($req['redirect_uri'], PHP_URL_HOST)],
+		]);
 
 		self::redirectTo($req['redirect_uri'], ['code' => $code, 'state' => $req['state'], 'iss' => self::issuer()]);
 	}
@@ -570,6 +637,8 @@ final class OAuthServer
 
 	private static function redirectWithError(array $req, string $error, string $description): void
 	{
+		self::log($error === 'access_denied' ? 'info' : 'warning', 'oauth.authorize', 'Sent the app back with ' . $error . ': ' . $description);
+
 		self::redirectTo($req['redirect_uri'], [
 			'error'             => $error,
 			'error_description' => $description,
@@ -606,15 +675,16 @@ final class OAuthServer
 		}
 
 		$post   = $app->getInput()->post;
+		$grant  = (string) $post->getString('grant_type', '');
 		$client = self::authenticateClient($app);
 
 		if ($client === null) {
-			self::tokenError('invalid_client', 'Unknown client, revoked client, or bad client credentials.', 401);
+			self::tokenError('invalid_client', 'Unknown client, revoked client, or bad client credentials.', 401, self::$clientFailure);
 
 			return;
 		}
 
-		$grant = (string) $post->getString('grant_type', '');
+		self::$logCtx = ['subject' => (string) $client->client_name, 'client_id' => (string) $client->client_id];
 
 		if ($grant === 'authorization_code') {
 			self::grantAuthorizationCode($app, $client);
@@ -628,7 +698,7 @@ final class OAuthServer
 			return;
 		}
 
-		self::tokenError('unsupported_grant_type', 'Use authorization_code or refresh_token.');
+		self::tokenError('unsupported_grant_type', 'Use authorization_code or refresh_token. Got: ' . mb_substr($grant, 0, 60));
 	}
 
 	private static function authenticateClient(CMSApplication $app): ?object
@@ -656,11 +726,18 @@ final class OAuthServer
 		$client = self::findClient($clientId);
 
 		if ($client === null) {
+			self::$clientFailure = $clientId === ''
+				? 'No client_id was sent (neither in the form body nor in HTTP Basic auth).'
+				: 'client_id ' . mb_substr($clientId, 0, 64) . ' is not registered here, or was revoked.';
+
 			return null;
 		}
 
 		if ((string) $client->auth_method !== 'none') {
 			if ($secret === '' || !hash_equals((string) $client->client_secret_hash, hash('sha256', $secret))) {
+				self::$clientFailure = 'The app "' . $client->client_name . '" registered with ' . $client->auth_method
+					. ' but sent ' . ($secret === '' ? 'no client secret' : 'a wrong client secret') . '.';
+
 				return null;
 			}
 		}
@@ -748,6 +825,7 @@ final class OAuthServer
 		}
 
 		$user = self::loadActiveUser((int) $row->user_id);
+		self::$logCtx['user_id'] = (int) $row->user_id;
 
 		if ($user === null) {
 			self::tokenError('invalid_grant', 'The user who authorized this app can no longer sign in.');
@@ -755,7 +833,11 @@ final class OAuthServer
 			return;
 		}
 
-		self::sendJson(self::issueTokens((string) $client->client_id, $user, bin2hex(random_bytes(16))), 200, true);
+		$tokens = self::issueTokens((string) $client->client_id, $user, bin2hex(random_bytes(16)));
+		self::log('success', 'oauth.token', 'Issued access and refresh tokens to "' . $client->client_name . '" for ' . $user->username . '. The app is connected.', [
+			'details' => ['grant_type' => 'authorization_code', 'access_token_lifetime_s' => self::accessTtl()],
+		]);
+		self::sendJson($tokens, 200, true);
 	}
 
 	private static function grantRefreshToken(CMSApplication $app, object $client): void
@@ -799,6 +881,7 @@ final class OAuthServer
 		}
 
 		$user = self::loadActiveUser((int) $row->user_id);
+		self::$logCtx['user_id'] = (int) $row->user_id;
 
 		if ($user === null || !hash_equals((string) $row->pw_fingerprint, self::passwordFingerprint($user))) {
 			self::revokeWhere(['family' => (string) $row->family]);
@@ -823,7 +906,11 @@ final class OAuthServer
 			return;
 		}
 
-		self::sendJson(self::issueTokens((string) $client->client_id, $user, (string) $row->family), 200, true);
+		$tokens = self::issueTokens((string) $client->client_id, $user, (string) $row->family);
+		self::log('success', 'oauth.token', 'Renewed tokens for "' . $client->client_name . '" (' . $user->username . ').', [
+			'details' => ['grant_type' => 'refresh_token'],
+		]);
+		self::sendJson($tokens, 200, true);
 	}
 
 	private static function issueTokens(string $clientId, User $user, string $family): array
@@ -835,7 +922,9 @@ final class OAuthServer
 		$fp      = self::passwordFingerprint($user);
 
 		foreach ([['access', $access, self::accessTtl()], ['refresh', $refresh, self::refreshTtl()]] as [$type, $value, $ttl]) {
-			$db->insertObject(self::T_TOKENS, (object) [
+			// A variable, not a cast literal: insertObject() takes it by
+			// reference (same bug as the authorization code, see above).
+			$tokenRow = (object) [
 				'token_hash'     => hash('sha256', $value),
 				'token_type'     => $type,
 				'family'         => $family,
@@ -847,7 +936,8 @@ final class OAuthServer
 				'expires'        => self::sqlDate($ttl),
 				'created'        => $now,
 				'revoked'        => 0,
-			]);
+			];
+			$db->insertObject(self::T_TOKENS, $tokenRow);
 		}
 
 		self::purgeExpired();
@@ -887,7 +977,11 @@ final class OAuthServer
 			)->loadObject();
 
 			if ($row && (string) $row->client_id === (string) $client->client_id) {
-				self::revokeWhere(['family' => (string) $row->family]);
+				$count = self::revokeWhere(['family' => (string) $row->family]);
+				self::log('info', 'oauth.revoke', 'The app "' . $client->client_name . '" signed out; ' . $count . ' token(s) revoked.', [
+					'subject'   => (string) $client->client_name,
+					'client_id' => (string) $client->client_id,
+				]);
 			}
 		}
 
@@ -915,10 +1009,27 @@ final class OAuthServer
 		return self::$validated[$token];
 	}
 
+	/** Why validateAccessToken() rejected this token, in plain words. */
+	public static function rejectionReason(string $token): string
+	{
+		return self::$rejections[hash('sha256', $token)] ?? 'unknown reason';
+	}
+
 	private static function doValidate(string $token): ?array
 	{
-		if (!self::isEnabled() || !str_starts_with($token, self::ACCESS_PREFIX) || strlen($token) > 200) {
+		$hash   = hash('sha256', $token);
+		$reject = static function (string $why) use ($hash): ?array {
+			self::$rejections[$hash] = $why;
+
 			return null;
+		};
+
+		if (!self::isEnabled()) {
+			return $reject('OAuth sign-in is switched off in Options.');
+		}
+
+		if (!str_starts_with($token, self::ACCESS_PREFIX) || strlen($token) > 200) {
+			return $reject('Not an MCP for Joomla access token.');
 		}
 
 		$db  = self::db();
@@ -927,21 +1038,40 @@ final class OAuthServer
 				->select('t.*')
 				->from($db->quoteName(self::T_TOKENS, 't'))
 				->join('INNER', $db->quoteName(self::T_CLIENTS, 'c') . ' ON ' . $db->quoteName('c.client_id') . ' = ' . $db->quoteName('t.client_id'))
+				->select([$db->quoteName('c.client_name'), $db->quoteName('c.revoked', 'c_revoked')])
 				->where($db->quoteName('t.token_hash') . ' = :h')
 				->where($db->quoteName('t.token_type') . ' = ' . $db->quote('access'))
-				->where($db->quoteName('t.revoked') . ' = 0')
-				->where($db->quoteName('c.revoked') . ' = 0')
-				->bind(':h', hash('sha256', $token))
+				->bind(':h', $hash)
 		)->loadObject();
 
-		if (!$row || strtotime((string) $row->expires . ' UTC') < time() || !self::resourceMatches((string) $row->resource)) {
-			return null;
+		if (!$row) {
+			return $reject('Unknown access token (never issued here, or deleted after expiry).');
+		}
+
+		if ((int) $row->revoked === 1) {
+			return $reject('The access token was revoked (renewed, signed out, or disconnected on the Dashboard).');
+		}
+
+		if ((int) ($row->c_revoked ?? 0) === 1) {
+			return $reject('The app "' . $row->client_name . '" was disconnected on the Dashboard.');
+		}
+
+		if (strtotime((string) $row->expires . ' UTC') < time()) {
+			return $reject('The access token expired at ' . $row->expires . ' UTC; the app should renew it with its refresh token.');
+		}
+
+		if (!self::resourceMatches((string) $row->resource)) {
+			return $reject('The token was issued for ' . $row->resource . ', not for ' . self::resourceUrl() . ' (site URL changed?).');
 		}
 
 		$user = self::loadActiveUser((int) $row->user_id);
 
-		if ($user === null || !hash_equals((string) $row->pw_fingerprint, self::passwordFingerprint($user))) {
-			return null;
+		if ($user === null) {
+			return $reject('User #' . (int) $row->user_id . ' is blocked, deleted, unactivated, or must reset their password.');
+		}
+
+		if (!hash_equals((string) $row->pw_fingerprint, self::passwordFingerprint($user))) {
+			return $reject($user->username . ' changed their password since signing in; the app must sign in again.');
 		}
 
 		// Touch last_used at most every five minutes, to keep writes down.
@@ -1220,8 +1350,14 @@ final class OAuthServer
 		return htmlspecialchars($s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 	}
 
-	private static function tokenError(string $error, string $description, int $status = 400): void
+	private static function tokenError(string $error, string $description, int $status = 400, string $detail = ''): void
 	{
+		$grant = (string) ($_POST['grant_type'] ?? '');
+
+		self::log('warning', 'oauth.token', 'Token request refused (' . $error . '): ' . ($detail !== '' ? $detail : $description), [
+			'details' => ['grant_type' => mb_substr($grant, 0, 40), 'http_status' => $status],
+		]);
+
 		if ($status === 401) {
 			header('WWW-Authenticate: Basic realm="mcp"');
 		}

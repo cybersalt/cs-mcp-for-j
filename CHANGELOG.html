@@ -15,6 +15,22 @@
 <li>Consents and disconnections are written to Joomla's <strong>User Actions Log</strong>.</li>
 <li>Client registration is rate-limited per IP address. Redirect addresses must be https, a loopback http address, or an app-specific scheme.</li>
 </ul>
+<h3>🐛 Fixed — OAuth sign-in failed at the last step with <code>server_error</code></h3>
+<ul>
+<li><strong>Signing in now completes.</strong> In the 2.9.0 test builds every OAuth sign-in failed: the app reported "OAuth token exchange failed: server_error" (or the sign-in page broke right after <strong>Allow</strong>), and nothing on the site said why. Two database writes, the authorization code and the issued tokens, handed Joomla a value in a form PHP 8 refuses, so both always threw. Found and reported by Stefan Gagner (CMS Universal), testing with Codex on Joomla 6.2.</li>
+<li>The <code>server_error</code> response now tells the app's user that a site administrator can see the details under <strong>Components → MCP for Joomla → Logs</strong>.</li>
+</ul>
+<h3>🚀 Added — Logs: what MCP for Joomla did, and why something failed</h3>
+<ul>
+<li><strong>New Logs screen</strong> (Components → MCP for Joomla → <strong>Logs</strong>). Each entry has a time, status, event, a plain-language summary, the user, the app, the IP address, and how long it took. Expand an entry for the details: for an error, the exception, file, line and stack trace.</li>
+<li><strong>What is logged:</strong> every OAuth sign-in step (discovery, app registration, the login and Allow page, token exchange and renewal, sign-out), every refused sign-in with the reason, every OAuth token refused at the MCP endpoint with the reason (expired, revoked, app disconnected, password changed, site address changed…), AI apps connecting (<code>initialize</code>, with the app's name and version), and every tool call with its outcome and arguments.</li>
+<li><strong>Never logged:</strong> access and refresh tokens, authorization codes, client secrets and PKCE verifiers. Tool arguments named like passwords, secrets, tokens or keys are masked, and long values are shortened.</li>
+<li><strong>Standard Cybersalt log viewer:</strong> Refresh, Dump (plain text for a support email), Download CSV, Delete and Clear All (with a confirmation). Clickable count cards (all, last 24 hours, success, info, warning, error, OAuth, tool calls), filters for status, source, event, time, user and request, search, and sorting. Click a request ID to see everything from that one web request.</li>
+<li><strong>Options → Logging:</strong> log everything (default), only warnings and errors, or nothing; and how many days to keep entries (default 30; the newest 20,000 are kept at most).</li>
+<li><strong>Dashboard:</strong> with OAuth on, a warning appears under the "Ready" check when sign-ins have failed in the last 24 hours, linking to the Logs. "Ready" only proves AI apps can find the sign-in page, not that sign-in works.</li>
+<li><strong>Support form:</strong> a bug report can include the last 7 days of warnings and errors (on by default, can be unticked).</li>
+<li>New <strong>Delete</strong> permission for the component, used by the Logs screen.</li>
+</ul>
 <h3>🐛 Fixed — editing an article or category silently removed its tags</h3>
 <ul>
 <li><strong><code>update_article</code> and <code>update_category</code> no longer strip tags.</strong> Joomla's tagging reads a save with no <code>tags</code> key as "this item has no tags" and deletes them. The admin form always sends the tags, so it never shows there, but every MCP edit that left tags out removed them all, while reporting success. Found by Susan on cybersalt.org: editing one article's text and meta description took both of its tags, and a planned bulk edit of about 130 articles was stopped in time. The tools now always send the item's current tags unless you pass new ones. The earlier "partial save is safe" check compared each item's own columns, so it could not see tags, which live in a separate table.</li>

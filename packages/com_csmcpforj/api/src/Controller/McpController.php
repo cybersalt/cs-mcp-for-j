@@ -6,6 +6,7 @@ namespace Cybersalt\Component\Csmcpforj\Api\Controller;
 
 \defined('_JEXEC') or die;
 
+use Cybersalt\Component\Csmcpforj\Administrator\Log\ActivityLog;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\Event\RegisterToolsEvent;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\Server;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolRegistry;
@@ -78,6 +79,10 @@ final class McpController extends BaseController
 		try {
 			$message = json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
 		} catch (JsonException $e) {
+			ActivityLog::warning('mcp', 'request', 'Request body was not valid JSON: ' . $e->getMessage(), [
+				'user_id' => (int) $user->id,
+				'details' => ['body_start' => mb_substr($raw, 0, 300), 'body_bytes' => strlen($raw)],
+			]);
 			$this->sendJson(
 				['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32700, 'message' => 'Parse error: ' . $e->getMessage()]],
 				400

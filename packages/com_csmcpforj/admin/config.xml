@@ -108,6 +108,36 @@
 	</fieldset>
 
 	<fieldset
+		name="logging"
+		label="COM_CSMCPFORJ_CONFIG_LOGGING_FIELDSET_LABEL"
+		description="COM_CSMCPFORJ_CONFIG_LOGGING_FIELDSET_DESC"
+	>
+		<field
+			name="log_level"
+			type="list"
+			label="COM_CSMCPFORJ_CONFIG_LOG_LEVEL_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_LOG_LEVEL_DESC"
+			default="all"
+			validate="options"
+		>
+			<option value="all">COM_CSMCPFORJ_CONFIG_LOG_LEVEL_ALL</option>
+			<option value="problems">COM_CSMCPFORJ_CONFIG_LOG_LEVEL_PROBLEMS</option>
+			<option value="off">COM_CSMCPFORJ_CONFIG_LOG_LEVEL_OFF</option>
+		</field>
+		<field
+			name="log_retention_days"
+			type="number"
+			label="COM_CSMCPFORJ_CONFIG_LOG_RETENTION_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_LOG_RETENTION_DESC"
+			default="30"
+			min="1"
+			max="365"
+			filter="integer"
+			showon="log_level!:off"
+		/>
+	</fieldset>
+
+	<fieldset
 		name="privacy"
 		label="COM_CSMCPFORJ_CONFIG_PRIVACY_FIELDSET_LABEL"
 		description="COM_CSMCPFORJ_CONFIG_PRIVACY_FIELDSET_DESC"

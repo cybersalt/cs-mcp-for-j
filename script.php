@@ -36,15 +36,17 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 
 	public function uninstall(InstallerAdapter $adapter): bool
 	{
-		// Remove the OAuth tables (#36) with the package. Best-effort: an
-		// uninstall must never fail over its own housekeeping.
-		try {
-			$server = $this->componentClass('OAuth\OAuthServer');
+		// Remove the OAuth tables (#36) and the activity log with the package.
+		// Best-effort: an uninstall must never fail over its own housekeeping.
+		foreach (['OAuth\OAuthServer', 'Log\ActivityLog'] as $relative) {
+			try {
+				$class = $this->componentClass($relative);
 
-			if ($server !== null) {
-				$server::dropSchema(Factory::getContainer()->get(DatabaseInterface::class));
+				if ($class !== null) {
+					$class::dropSchema(Factory::getContainer()->get(DatabaseInterface::class));
+				}
+			} catch (\Throwable $e) {
 			}
-		} catch (\Throwable $e) {
 		}
 
 		return true;
@@ -106,10 +108,13 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 	 */
 	private function ensureOAuthSchema(): void
 	{
-		$server = $this->componentClass('OAuth\OAuthServer');
+		// The activity log table (2.9.0) is created the same way.
+		foreach (['OAuth\OAuthServer', 'Log\ActivityLog'] as $relative) {
+			$class = $this->componentClass($relative);
 
-		if ($server !== null) {
-			$server::ensureSchema(Factory::getContainer()->get(DatabaseInterface::class));
+			if ($class !== null) {
+				$class::ensureSchema(Factory::getContainer()->get(DatabaseInterface::class));
+			}
 		}
 	}
 

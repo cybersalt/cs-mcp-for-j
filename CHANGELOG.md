@@ -17,6 +17,22 @@
 - Consents and disconnections are written to Joomla's **User Actions Log**.
 - Client registration is rate-limited per IP address. Redirect addresses must be https, a loopback http address, or an app-specific scheme.
 
+### 🐛 Fixed — OAuth sign-in failed at the last step with `server_error`
+
+- **Signing in now completes.** In the 2.9.0 test builds every OAuth sign-in failed: the app reported "OAuth token exchange failed: server_error" (or the sign-in page broke right after **Allow**), and nothing on the site said why. Two database writes, the authorization code and the issued tokens, handed Joomla a value in a form PHP 8 refuses, so both always threw. Found and reported by Stefan Gagner (CMS Universal), testing with Codex on Joomla 6.2.
+- The `server_error` response now tells the app's user that a site administrator can see the details under **Components → MCP for Joomla → Logs**.
+
+### 🚀 Added — Logs: what MCP for Joomla did, and why something failed
+
+- **New Logs screen** (Components → MCP for Joomla → **Logs**). Each entry has a time, status, event, a plain-language summary, the user, the app, the IP address, and how long it took. Expand an entry for the details: for an error, the exception, file, line and stack trace.
+- **What is logged:** every OAuth sign-in step (discovery, app registration, the login and Allow page, token exchange and renewal, sign-out), every refused sign-in with the reason, every OAuth token refused at the MCP endpoint with the reason (expired, revoked, app disconnected, password changed, site address changed…), AI apps connecting (`initialize`, with the app's name and version), and every tool call with its outcome and arguments.
+- **Never logged:** access and refresh tokens, authorization codes, client secrets and PKCE verifiers. Tool arguments named like passwords, secrets, tokens or keys are masked, and long values are shortened.
+- **Standard Cybersalt log viewer:** Refresh, Dump (plain text for a support email), Download CSV, Delete and Clear All (with a confirmation). Clickable count cards (all, last 24 hours, success, info, warning, error, OAuth, tool calls), filters for status, source, event, time, user and request, search, and sorting. Click a request ID to see everything from that one web request.
+- **Options → Logging:** log everything (default), only warnings and errors, or nothing; and how many days to keep entries (default 30; the newest 20,000 are kept at most).
+- **Dashboard:** with OAuth on, a warning appears under the "Ready" check when sign-ins have failed in the last 24 hours, linking to the Logs. "Ready" only proves AI apps can find the sign-in page, not that sign-in works.
+- **Support form:** a bug report can include the last 7 days of warnings and errors (on by default, can be unticked).
+- New **Delete** permission for the component, used by the Logs screen.
+
 ### 🐛 Fixed — editing an article or category silently removed its tags
 
 - **`update_article` and `update_category` no longer strip tags.** Joomla's tagging reads a save with no `tags` key as "this item has no tags" and deletes them. The admin form always sends the tags, so it never shows there, but every MCP edit that left tags out removed them all, while reporting success. Found by Susan on cybersalt.org: editing one article's text and meta description took both of its tags, and a planned bulk edit of about 130 articles was stopped in time. The tools now always send the item's current tags unless you pass new ones. The earlier "partial save is safe" check compared each item's own columns, so it could not see tags, which live in a separate table.
