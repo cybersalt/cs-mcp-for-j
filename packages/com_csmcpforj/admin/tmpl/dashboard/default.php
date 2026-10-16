@@ -616,7 +616,7 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 								<?php if ($this->proStatus === 'active') : ?>
 									<form action="<?php echo $proDeactivate; ?>" method="post">
 										<input type="hidden" name="<?php echo $proFormToken; ?>" value="1">
-										<button type="submit" class="btn btn-outline-secondary w-100"
+										<button type="submit" class="btn btn-danger text-white w-100"
 											onclick="return confirm('<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_DEACTIVATE_CONFIRM', true); ?>');">
 											<span class="icon-remove" aria-hidden="true"></span>
 											<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_DEACTIVATE'); ?>
@@ -651,7 +651,7 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 						?>
 						<form action="<?php echo $proRefresh; ?>" method="post" class="mt-2">
 							<input type="hidden" name="<?php echo $proFormToken; ?>" value="1">
-							<button type="submit" class="btn btn-info text-dark w-100">
+							<button type="submit" class="btn btn-success text-white w-100">
 								<span class="icon-loop" aria-hidden="true"></span>
 								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_REFRESH_BTN'); ?>
 							</button>
@@ -669,7 +669,7 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 						if ($this->proStatus !== 'active') : ?>
 							<form action="<?php echo $proDeactivate; ?>" method="post" class="mt-2">
 								<input type="hidden" name="<?php echo $proFormToken; ?>" value="1">
-								<button type="submit" class="btn btn-outline-secondary w-100"
+								<button type="submit" class="btn btn-danger text-white w-100"
 									onclick="return confirm('<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_DEACTIVATE_CONFIRM', true); ?>');">
 									<span class="icon-remove" aria-hidden="true"></span>
 									<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_DISCONNECT_BTN'); ?>
