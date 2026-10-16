@@ -109,6 +109,26 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 		border-color: #c4c6c9;
 		font-style: italic;
 	}
+	/* The three ways to connect: one collapsible section each. Bootstrap
+	   variables only, so Atum light and dark both render correctly. */
+	details.csmcpforj-way {
+		border: 1px solid var(--bs-border-color);
+		border-radius: 0.5rem;
+		background: var(--bs-body-bg);
+	}
+	details.csmcpforj-way > summary {
+		padding: 0.75rem 1rem;
+		font-weight: 600;
+		font-size: 1.05rem;
+		cursor: pointer;
+	}
+	details.csmcpforj-way[open] > summary {
+		border-bottom: 1px solid var(--bs-border-color);
+	}
+	details.csmcpforj-way > .csmcpforj-way-body {
+		padding: 1rem;
+	}
+
 	/* Atum dark mode */
 	[data-bs-theme="dark"] .csmcpforj-token-mark,
 	.atum-dark .csmcpforj-token-mark {
@@ -127,65 +147,180 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 	<div class="row">
 		<div class="col-12 col-lg-8">
 
-			<div class="card mb-3">
-				<div class="card-body">
-					<h3 class="card-title"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CONNECTION_HEADING'); ?></h3>
-					<p><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CONNECTION_INTRO'); ?></p>
-					<dl class="row mb-0">
-						<dt class="col-sm-3"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_ENDPOINT'); ?></dt>
-						<dd class="col-sm-9">
-							<div class="input-group mb-1">
-								<input type="text" id="csmcpforj-endpoint-url" class="form-control font-monospace"
-									value="<?php echo $endpoint; ?>" readonly onclick="this.select();">
-								<button type="button" class="btn btn-primary csmcpforj-copy-btn" data-target="csmcpforj-endpoint-url"
-									title="<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_BUTTON'); ?>">
-									<span class="icon-copy" aria-hidden="true"></span>
-									<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_BUTTON'); ?>
-								</button>
-							</div>
-							<small class="text-muted d-block">
-								<span class="icon-info-circle" aria-hidden="true"></span>
-								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_ENDPOINT_HINT'); ?>
-							</small>
-						</dd>
-						<dt class="col-sm-3 mt-2"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN'); ?></dt>
-						<dd class="col-sm-9 mt-2">
-							<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN_VALUE'); ?>
-							<a href="<?php echo $tokenUrl; ?>" target="_blank" rel="noopener" class="ms-2"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN_LINK'); ?></a>
-						</dd>
-					</dl>
-
-					<?php
-					// Update-check action. Sits at the bottom of the Connection
-					// card so operators see it in the same place they see the
-					// endpoint URL — single place for "things about how this site
-					// talks to cybersalt.com". Bypasses Joomla's #__updates cache
-					// for every cs-mcp-for-j-related extension and force-polls
-					// cs-release-manager so a release I just pushed shows up
-					// without waiting for the default 24h cache window.
-					$checkUpdatesUrl  = \Joomla\CMS\Router\Route::_('index.php?option=com_csmcpforj&task=dashboard.checkUpdatesNow');
-					$systemFormToken  = \Joomla\CMS\Session\Session::getFormToken();
-					?>
-					<hr class="my-3">
-					<div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-						<div class="small text-muted">
-							<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_UPDATE_CHECK_HINT'); ?>
+			<?php
+			// ONE card, three ways to connect, each a collapsible section with
+			// numbered steps (Tim 2026-10-15: "this needs to be super clear ...
+			// dropdown arrows that separate the explanation of how to hook it
+			// up in the different methods"). Way 1 (log in) is open by default
+			// when OAuth is on; otherwise way 2 (setup prompt) is.
+			//
+			// The token field appears in ways 2 and 3. Both copies are kept in
+			// sync by the script at the bottom, so pasting once fills both.
+			$tokenStep = static function (string $suffix) use ($tokenUrl): void { ?>
+				<li>
+					<div class="csmcpforj-step-body">
+						<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_GET_TOKEN_STEP'); ?>
+						<div class="mt-2">
+							<a href="<?php echo $tokenUrl; ?>" target="_blank" rel="noopener" class="btn btn-sm btn-primary text-white">
+								<span class="icon-key" aria-hidden="true"></span>
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_GET_TOKEN_BTN'); ?>
+							</a>
 						</div>
-						<form action="<?php echo $checkUpdatesUrl; ?>" method="post" class="m-0">
-							<input type="hidden" name="<?php echo $systemFormToken; ?>" value="1">
-							<button type="submit" class="btn btn-sm btn-primary text-white">
-								<span class="icon-refresh" aria-hidden="true"></span>
-								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_UPDATE_CHECK_BTN'); ?>
-							</button>
-						</form>
 					</div>
+				</li>
+				<li class="csmcpforj-step-do">
+					<div class="csmcpforj-step-body">
+						<label for="csmcpforj-token-input-<?php echo $suffix; ?>" class="csmcpforj-field-label">
+							<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_LABEL'); ?>
+						</label>
+						<div class="input-group">
+							<input type="password" class="form-control" id="csmcpforj-token-input-<?php echo $suffix; ?>" placeholder="sha256:42:abc123def456..." autocomplete="off" data-csmcpforj-token-input>
+							<button type="button" class="btn btn-outline-secondary" data-csmcpforj-token-toggle title="<?php echo htmlspecialchars(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_TOGGLE_SHOW'), ENT_QUOTES, 'UTF-8'); ?>">
+								<span class="icon-eye" aria-hidden="true"></span>
+							</button>
+							<button type="button" class="btn btn-danger text-white d-none" data-csmcpforj-token-clear title="<?php echo htmlspecialchars(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_CLEAR'), ENT_QUOTES, 'UTF-8'); ?>">
+								<span class="icon-trash" aria-hidden="true"></span>
+							</button>
+						</div>
+						<small class="text-body-secondary csmcpforj-field-hint">
+							<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_HINT'); ?>
+							<span class="d-block mt-1" data-csmcpforj-token-status></span>
+						</small>
+					</div>
+				</li>
+			<?php }; ?>
+
+			<div class="card mb-3 border-info" id="csmcpforj-connect">
+				<div class="card-body">
+					<h3 class="card-title"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CONNECT_HEADING'); ?></h3>
+					<p class="card-text mb-3"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CONNECT_INTRO'); ?></p>
+
+					<?php // ---- Way 1: log in (OAuth) ---- ?>
+					<details class="csmcpforj-way mb-2" id="csmcpforj-oauth" <?php echo $this->oauthEnabled ? 'open' : ''; ?>>
+						<summary><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_WAY1_SUMMARY'); ?></summary>
+						<div class="csmcpforj-way-body">
+							<?php if (!$this->oauthEnabled) : ?>
+								<p class="card-text"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_OFF'); ?></p>
+								<a class="btn btn-sm btn-primary text-white" href="<?php echo $this->escape($this->optionsUrl); ?>"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_ENABLE'); ?></a>
+							<?php else : ?>
+								<p class="card-text mb-2"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_ON'); ?></p>
+								<ol class="csmcpforj-steps">
+									<li>
+										<div class="csmcpforj-step-body">
+											<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP1_COPY'); ?>
+											<div class="input-group mt-2">
+												<input type="text" id="csmcpforj-endpoint-url-oauth" class="form-control font-monospace" value="<?php echo $endpoint; ?>" readonly onclick="this.select();">
+												<button type="button" class="btn btn-primary text-white csmcpforj-copy-btn" data-target="csmcpforj-endpoint-url-oauth">
+													<span class="icon-copy" aria-hidden="true"></span>
+													<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_URL_BUTTON'); ?>
+												</button>
+											</div>
+										</div>
+									</li>
+									<li><div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP2_ADD'); ?></div></li>
+									<li><div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP2'); ?></div></li>
+									<li><div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP3'); ?></div></li>
+								</ol>
+								<p class="card-text small mb-3" id="csmcpforj-oauth-selftest" data-url="<?php echo $this->escape($this->oauthMetadataUrl); ?>">
+									<span class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_RUNNING'); ?></span>
+								</p>
+
+								<h4 class="h6"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_APPS_HEADING'); ?></h4>
+								<?php if ($this->oauthAuthorisations === []) : ?>
+									<p class="card-text small text-body-secondary mb-0"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_APPS_NONE'); ?></p>
+								<?php else : ?>
+									<div class="table-responsive">
+										<table class="table table-sm align-middle mb-0">
+											<thead>
+												<tr>
+													<th><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_COL_APP'); ?></th>
+													<th><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_COL_USER'); ?></th>
+													<th><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_COL_CONNECTED'); ?></th>
+													<th><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_COL_LAST_USED'); ?></th>
+													<th></th>
+												</tr>
+											</thead>
+											<tbody>
+												<?php foreach ($this->oauthAuthorisations as $grant) : ?>
+													<tr>
+														<td><?php echo $this->escape((string) $grant->client_name); ?></td>
+														<td><?php echo $this->escape((string) ($grant->user_name ?? '')); ?> <small class="text-body-secondary">(<?php echo $this->escape((string) ($grant->username ?? '#' . (int) $grant->user_id)); ?>)</small></td>
+														<td><small><?php echo $grant->first_seen ? HTMLHelper::_('date', $grant->first_seen, Text::_('DATE_FORMAT_LC5')) : '&mdash;'; ?></small></td>
+														<td><small><?php echo $grant->last_used ? HTMLHelper::_('date', $grant->last_used, Text::_('DATE_FORMAT_LC5')) : '&mdash;'; ?></small></td>
+														<td class="text-end">
+															<form method="post" action="<?php echo Route::_('index.php?option=com_csmcpforj&task=dashboard.revokeOAuth'); ?>" class="d-inline">
+																<input type="hidden" name="client_id" value="<?php echo $this->escape((string) $grant->client_id); ?>">
+																<input type="hidden" name="user_id" value="<?php echo (int) $grant->user_id; ?>">
+																<?php echo HTMLHelper::_('form.token'); ?>
+																<button type="submit" class="btn btn-sm btn-danger text-white"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_REVOKE'); ?></button>
+															</form>
+														</td>
+													</tr>
+												<?php endforeach; ?>
+											</tbody>
+										</table>
+									</div>
+								<?php endif; ?>
+							<?php endif; ?>
+						</div>
+					</details>
+
+					<?php // ---- Way 2: setup prompt ---- ?>
+					<details class="csmcpforj-way mb-2" <?php echo $this->oauthEnabled ? '' : 'open'; ?>>
+						<summary><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_WAY2_SUMMARY'); ?></summary>
+						<div class="csmcpforj-way-body">
+							<p><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_WAY2_INTRO'); ?></p>
+							<ol class="csmcpforj-steps">
+								<?php $tokenStep('prompt'); ?>
+								<li>
+									<div class="csmcpforj-step-body">
+										<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_WAY2_STEP_COPY'); ?>
+										<pre class="p-2 mt-2 mb-2" style="white-space: pre-wrap; max-height: 300px; overflow: auto;"><code id="csmcpforj-prompt" data-csmcpforj-token-template="&lt;PASTE YOUR JOOMLA API TOKEN HERE&gt;"><?php echo htmlspecialchars($this->clientPrompt, ENT_QUOTES, 'UTF-8'); ?></code></pre>
+										<button type="button" class="btn btn-primary text-white" data-csmcpforj-copy="csmcpforj-prompt" data-csmcpforj-token-substitute="1" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_PROMPT_BUTTON')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED')); ?>" data-copied-substituted-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED_WITH_TOKEN')); ?>">
+											<span class="icon-copy" aria-hidden="true"></span>
+											<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_PROMPT_BUTTON'); ?>
+										</button>
+									</div>
+								</li>
+								<li><div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_WAY2_STEP_PASTE'); ?></div></li>
+							</ol>
+							<p class="mb-0"><small class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_HINT'); ?></small></p>
+						</div>
+					</details>
+
+					<?php // ---- Way 3: config file / command line ---- ?>
+					<details class="csmcpforj-way">
+						<summary><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_WAY3_SUMMARY'); ?></summary>
+						<div class="csmcpforj-way-body">
+							<p><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_WAY3_INTRO'); ?></p>
+							<ol class="csmcpforj-steps">
+								<?php $tokenStep('config'); ?>
+								<li>
+									<div class="csmcpforj-step-body">
+										<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_WAY3_STEP_COPY'); ?>
+										<pre class="p-2 mt-2 mb-2" style="white-space: pre-wrap;"><code id="csmcpforj-config" data-csmcpforj-token-template="YOUR_JOOMLA_API_TOKEN"><?php echo htmlspecialchars($this->mcpConfigJson, ENT_QUOTES, 'UTF-8'); ?></code></pre>
+										<button type="button" class="btn btn-primary text-white" data-csmcpforj-copy="csmcpforj-config" data-csmcpforj-token-substitute="1" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_BUTTON')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED')); ?>" data-copied-substituted-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED_WITH_TOKEN')); ?>">
+											<span class="icon-copy" aria-hidden="true"></span>
+											<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_BUTTON'); ?>
+										</button>
+									</div>
+								</li>
+								<li><div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_STEP4'); ?></div></li>
+							</ol>
+							<p class="mb-1"><small class="text-body-secondary">
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_XHEADER_NOTE'); ?>
+								<code>"headers": { "X-Joomla-Token": "YOUR_JOOMLA_API_TOKEN" }</code>
+							</small></p>
+							<p class="mb-0"><a href="<?php echo Route::_('index.php?option=com_csmcpforj&view=setupguide'); ?>"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_WAY3_GUIDE_LINK'); ?></a></p>
+						</div>
+					</details>
 				</div>
 			</div>
 
 			<script>
-			(function () {
-				// Tiny inline copy-to-clipboard handler — no external lib.
-				// Mirrors the cs-release-manager admin pattern (.csrm-copy-btn).
+			document.addEventListener('DOMContentLoaded', function () {
+				// Tiny inline copy-to-clipboard handler for read-only URL fields.
+				// Waits for the whole page: the side column's Copy button comes later.
 				document.querySelectorAll('.csmcpforj-copy-btn').forEach(function (btn) {
 					btn.addEventListener('click', function () {
 						var input = document.getElementById(btn.getAttribute('data-target'));
@@ -193,205 +328,27 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 						input.select();
 						navigator.clipboard.writeText(input.value).then(function () {
 							var original = btn.innerHTML;
-							btn.innerHTML = <?php echo json_encode('<span class="icon-check" aria-hidden="true"></span> ' . Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED'), JSON_HEX_TAG | JSON_HEX_AMP); ?>;
-							btn.classList.remove('btn-primary');
-							btn.classList.add('btn-success');
-							setTimeout(function () {
-								btn.innerHTML = original;
-								btn.classList.remove('btn-success');
-								btn.classList.add('btn-primary');
-							}, 1500);
+							btn.innerHTML = <?php echo json_encode('<span class="icon-checkmark" aria-hidden="true"></span> ' . Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED'), JSON_HEX_TAG | JSON_HEX_AMP); ?>;
+							setTimeout(function () { btn.innerHTML = original; }, 1500);
 						});
 					});
 				});
-			})();
+
+				// "Ready / Not ready": can AI apps find the login details at
+				// /.well-known/? Same-origin, read-only.
+				var el = document.getElementById('csmcpforj-oauth-selftest');
+				if (!el || !window.fetch) { return; }
+				var ok  = <?php echo json_encode(Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_OK')); ?>;
+				var bad = <?php echo json_encode(Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_FAIL')); ?>;
+				fetch(el.getAttribute('data-url'), {credentials: 'omit', cache: 'no-store'})
+					.then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+					.then(function (j) {
+						if (!j || !j.authorization_endpoint) { throw new Error(); }
+						el.innerHTML = '<span class="text-success">&#10003; ' + ok + '</span>';
+					})
+					.catch(function () { el.innerHTML = '<span class="text-danger">&#10007; ' + bad + '</span>'; });
+			});
 			</script>
-
-			<div class="card mb-3" id="csmcpforj-oauth">
-				<div class="card-body">
-					<h3 class="card-title"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_HEADING'); ?></h3>
-					<?php if (!$this->oauthEnabled) : ?>
-						<p class="card-text"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_OFF'); ?></p>
-						<a class="btn btn-sm btn-primary text-white" href="<?php echo $this->escape($this->optionsUrl); ?>"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_ENABLE'); ?></a>
-					<?php else : ?>
-						<p class="card-text mb-2"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_ON'); ?></p>
-						<ol class="mb-3">
-							<li class="mb-1"><?php echo Text::sprintf('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP1', '<code>' . $endpoint . '</code>'); ?></li>
-							<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP2'); ?></li>
-							<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP3'); ?></li>
-						</ol>
-						<p class="card-text small mb-3" id="csmcpforj-oauth-selftest" data-url="<?php echo $this->escape($this->oauthMetadataUrl); ?>">
-							<span class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_RUNNING'); ?></span>
-						</p>
-						<h4 class="h6"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_APPS_HEADING'); ?></h4>
-						<?php if ($this->oauthAuthorisations === []) : ?>
-							<p class="card-text small text-body-secondary mb-0"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_APPS_NONE'); ?></p>
-						<?php else : ?>
-							<div class="table-responsive">
-								<table class="table table-sm align-middle mb-0">
-									<thead>
-										<tr>
-											<th><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_COL_APP'); ?></th>
-											<th><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_COL_USER'); ?></th>
-											<th><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_COL_CONNECTED'); ?></th>
-											<th><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_COL_LAST_USED'); ?></th>
-											<th></th>
-										</tr>
-									</thead>
-									<tbody>
-										<?php foreach ($this->oauthAuthorisations as $grant) : ?>
-											<tr>
-												<td><?php echo $this->escape((string) $grant->client_name); ?></td>
-												<td><?php echo $this->escape((string) ($grant->user_name ?? '')); ?> <small class="text-body-secondary">(<?php echo $this->escape((string) ($grant->username ?? '#' . (int) $grant->user_id)); ?>)</small></td>
-												<td><small><?php echo $grant->first_seen ? HTMLHelper::_('date', $grant->first_seen, Text::_('DATE_FORMAT_LC5')) : '&mdash;'; ?></small></td>
-												<td><small><?php echo $grant->last_used ? HTMLHelper::_('date', $grant->last_used, Text::_('DATE_FORMAT_LC5')) : '&mdash;'; ?></small></td>
-												<td class="text-end">
-													<form method="post" action="<?php echo Route::_('index.php?option=com_csmcpforj&task=dashboard.revokeOAuth'); ?>" class="d-inline">
-														<input type="hidden" name="client_id" value="<?php echo $this->escape((string) $grant->client_id); ?>">
-														<input type="hidden" name="user_id" value="<?php echo (int) $grant->user_id; ?>">
-														<?php echo HTMLHelper::_('form.token'); ?>
-														<button type="submit" class="btn btn-sm btn-danger text-white"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_REVOKE'); ?></button>
-													</form>
-												</td>
-											</tr>
-										<?php endforeach; ?>
-									</tbody>
-								</table>
-							</div>
-						<?php endif; ?>
-						<script>
-						(function () {
-							// Check that /.well-known/ reaches Joomla: claude.ai and ChatGPT
-							// discover the sign-in endpoints there. Same-origin, read-only.
-							var el = document.getElementById('csmcpforj-oauth-selftest');
-							if (!el || !window.fetch) { return; }
-							var ok  = <?php echo json_encode(Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_OK')); ?>;
-							var bad = <?php echo json_encode(Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_FAIL')); ?>;
-							fetch(el.getAttribute('data-url'), {credentials: 'omit', cache: 'no-store'})
-								.then(function (r) { return r.ok ? r.json() : Promise.reject(); })
-								.then(function (j) {
-									if (!j || !j.authorization_endpoint) { throw new Error(); }
-									el.innerHTML = '<span class="text-success">&#10003; ' + ok + '</span>';
-								})
-								.catch(function () { el.innerHTML = '<span class="text-danger">&#10007; ' + bad + '</span>'; });
-						})();
-						</script>
-					<?php endif; ?>
-				</div>
-			</div>
-
-			<div class="card mb-3 border-info">
-				<div class="card-body">
-					<h3 class="card-title"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHODS_HEADING'); ?></h3>
-					<p class="card-text mb-3"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHODS_INTRO'); ?></p>
-
-					<ul class="nav nav-tabs" id="csmcpforj-method-tabs" role="tablist">
-						<li class="nav-item" role="presentation">
-							<button class="nav-link active" id="method-prompt-tab" data-bs-toggle="tab" data-bs-target="#method-prompt" type="button" role="tab" aria-controls="method-prompt" aria-selected="true">
-								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_TAB'); ?>
-							</button>
-						</li>
-						<li class="nav-item" role="presentation">
-							<button class="nav-link" id="method-connector-tab" data-bs-toggle="tab" data-bs-target="#method-connector" type="button" role="tab" aria-controls="method-connector" aria-selected="false">
-								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_TAB'); ?>
-							</button>
-						</li>
-					</ul>
-
-					<div class="tab-content pt-3" id="csmcpforj-method-tab-content">
-						<div class="tab-pane fade show active" id="method-prompt" role="tabpanel" aria-labelledby="method-prompt-tab">
-							<h4 class="h5"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_HEADING'); ?></h4>
-							<p><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_INTRO'); ?></p>
-
-							<div class="alert alert-success mb-3">
-								<strong><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_BONUS_LABEL'); ?></strong>
-								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_BONUS_BODY'); ?>
-							</div>
-
-							<?php // ONE list, so the numbering is continuous and every step looks
-							      // like a step. The token field is step 2 because pasting it here
-							      // is what lets the Copy button bake the token into the prompt,
-							      // which is what removes the manual find-and-replace in step 4.
-							      // It stays optional, hence the chip rather than a required marker.
-							      //
-							      // Do not split this back into separate <ol> blocks around the
-							      // field: markers and badges side by side read as one orphaned
-							      // number, and Atum suppresses the markers here regardless.
-							      // See FieldStyleHelper. ?>
-							<ol class="csmcpforj-steps">
-								<li>
-									<div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP1'); ?></div>
-								</li>
-
-								<li class="csmcpforj-step-do">
-									<div class="csmcpforj-step-body">
-										<label for="csmcpforj-token-input" class="csmcpforj-field-label">
-											<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_LABEL'); ?>
-											<span class="csmcpforj-field-required"><?php echo Text::_('COM_CSMCPFORJ_FIELD_OPTIONAL'); ?></span>
-										</label>
-										<div class="input-group">
-											<input type="password" class="form-control" id="csmcpforj-token-input" placeholder="sha256:42:abc123def456..." autocomplete="off" data-csmcpforj-token-input>
-											<button type="button" class="btn btn-outline-secondary" data-csmcpforj-token-toggle title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_TOGGLE_SHOW')); ?>">
-												<span class="icon-eye" aria-hidden="true"></span>
-											</button>
-											<button type="button" class="btn btn-danger text-white d-none" data-csmcpforj-token-clear title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_CLEAR')); ?>">
-												<span class="icon-trash" aria-hidden="true"></span>
-											</button>
-										</div>
-										<small class="text-body-secondary csmcpforj-field-hint">
-											<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_INPUT_HINT'); ?>
-											<span class="d-block mt-1" data-csmcpforj-token-status></span>
-										</small>
-									</div>
-								</li>
-
-								<li>
-									<div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP2'); ?></div>
-								</li>
-								<li>
-									<div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP3'); ?></div>
-								</li>
-								<li>
-									<div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_STEP4'); ?></div>
-								</li>
-							</ol>
-
-							<pre class="p-2 mb-2" style="white-space: pre-wrap; max-height: 400px; overflow: auto;"><code id="csmcpforj-prompt"><?php echo htmlspecialchars($this->clientPrompt, ENT_QUOTES, 'UTF-8'); ?></code></pre>
-							<button type="button" class="btn btn-primary btn-lg" data-csmcpforj-copy="csmcpforj-prompt" data-csmcpforj-token-substitute="1" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_PROMPT_BUTTON')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED')); ?>" data-copied-substituted-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED_WITH_TOKEN')); ?>">
-								<span class="icon-copy" aria-hidden="true"></span>
-								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_PROMPT_BUTTON'); ?>
-							</button>
-
-							<div class="alert alert-info mt-3 mb-0">
-								<small><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_PROMPT_HINT'); ?></small>
-							</div>
-						</div>
-
-						<div class="tab-pane fade" id="method-connector" role="tabpanel" aria-labelledby="method-connector-tab">
-							<h4 class="h5"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_HEADING'); ?></h4>
-							<p><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_INTRO'); ?></p>
-
-							<ol class="mb-3">
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_STEP1'); ?></li>
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_STEP2'); ?></li>
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_STEP3'); ?></li>
-								<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_STEP4'); ?></li>
-							</ol>
-
-							<pre class="p-2 mb-2" style="white-space: pre-wrap;"><code id="csmcpforj-config"><?php echo htmlspecialchars($this->mcpConfigJson, ENT_QUOTES, 'UTF-8'); ?></code></pre>
-							<button type="button" class="btn btn-primary" data-csmcpforj-copy="csmcpforj-config" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_BUTTON')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPIED')); ?>">
-								<span class="icon-copy" aria-hidden="true"></span>
-								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_BUTTON'); ?>
-							</button>
-
-							<p class="mt-3 mb-0"><small class="text-body-secondary">
-								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_METHOD_CONNECTOR_XHEADER_NOTE'); ?>
-								<code>"headers": { "X-Joomla-Token": "YOUR_JOOMLA_API_TOKEN" }</code>
-							</small></p>
-						</div>
-					</div>
-				</div>
-			</div>
 
 			<div class="card mb-3">
 				<div class="card-body">
@@ -480,24 +437,34 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 		<div class="col-12 col-lg-4">
 			<div class="card mb-3">
 				<div class="card-body">
-					<h3 class="card-title"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_QUICKSTART_HEADING'); ?></h3>
-					<ol class="ps-3">
-						<li class="mb-2">
-							<strong><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_QUICKSTART_STEP1_TITLE'); ?></strong><br>
-							<small><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_QUICKSTART_STEP1_BODY'); ?></small>
-						</li>
-						<li class="mb-2">
-							<strong><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_QUICKSTART_STEP2_TITLE'); ?></strong><br>
-							<small><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_QUICKSTART_STEP2_BODY'); ?></small>
-						</li>
-						<li class="mb-2">
-							<strong><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_QUICKSTART_STEP3_TITLE'); ?></strong><br>
-							<small><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_QUICKSTART_STEP3_BODY'); ?></small>
-						</li>
-					</ol>
-					<a href="<?php echo $tokenUrl; ?>" target="_blank" rel="noopener" class="btn btn-primary text-white d-block mb-2">
-						<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_LINK_GENERATE_TOKEN'); ?>
-					</a>
+					<h3 class="card-title"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CONNECTION_HEADING'); ?></h3>
+					<p class="card-text small"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CONNECTION_INTRO'); ?></p>
+					<label for="csmcpforj-endpoint-url" class="form-label mb-1"><strong><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_ENDPOINT'); ?></strong></label>
+					<div class="input-group mb-1">
+						<input type="text" id="csmcpforj-endpoint-url" class="form-control font-monospace" value="<?php echo $endpoint; ?>" readonly onclick="this.select();">
+						<button type="button" class="btn btn-primary text-white csmcpforj-copy-btn" data-target="csmcpforj-endpoint-url" title="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_DASHBOARD_COPY_URL_BUTTON')); ?>">
+							<span class="icon-copy" aria-hidden="true"></span>
+						</button>
+					</div>
+					<small class="text-body-secondary d-block mb-3"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_ENDPOINT_HINT'); ?></small>
+
+					<dl class="mb-0 small">
+						<dt><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_LOGIN'); ?></dt>
+						<dd>
+							<?php if ($this->oauthEnabled) : ?>
+								<span class="badge bg-success"><?php echo Text::_('JON'); ?></span>
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_LOGIN_ON'); ?>
+							<?php else : ?>
+								<span class="badge bg-secondary"><?php echo Text::_('JOFF'); ?></span>
+								<a href="<?php echo $this->escape($this->optionsUrl); ?>"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_ENABLE'); ?></a>
+							<?php endif; ?>
+						</dd>
+						<dt><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN'); ?></dt>
+						<dd class="mb-0">
+							<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN_VALUE'); ?>
+							<a href="<?php echo $tokenUrl; ?>" target="_blank" rel="noopener"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN_LINK'); ?></a>
+						</dd>
+					</dl>
 				</div>
 			</div>
 
@@ -687,6 +654,21 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 							</small>
 						</p>
 					<?php endif; ?>
+
+					<?php
+					// Moved here from the old Connection card (Tim 2026-10-15: out of
+					// place there). It checks cybersalt.com for new versions of MCP for
+					// Joomla and its add-ons, so it belongs with the Cybersalt account.
+					?>
+					<hr class="my-3">
+					<p class="card-text small mb-2"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_UPDATE_CHECK_HINT'); ?></p>
+					<form action="<?php echo Route::_('index.php?option=com_csmcpforj&task=dashboard.checkUpdatesNow'); ?>" method="post" class="m-0">
+						<?php echo HTMLHelper::_('form.token'); ?>
+						<button type="submit" class="btn btn-sm btn-primary text-white w-100">
+							<span class="icon-refresh" aria-hidden="true"></span>
+							<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_UPDATE_CHECK_BTN'); ?>
+						</button>
+					</form>
 				</div>
 			</div>
 
@@ -718,17 +700,14 @@ document.addEventListener('DOMContentLoaded', function() {
 	var STATUS_SAVED = <?php echo json_encode(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_STATUS_SAVED')); ?>;
 	var STATUS_EMPTY = <?php echo json_encode(Text::_('COM_CSMCPFORJ_DASHBOARD_TOKEN_STATUS_EMPTY')); ?>;
 
-	var tokenToggle = document.querySelector('[data-csmcpforj-token-toggle]');
-	var tokenInput  = document.querySelector('[data-csmcpforj-token-input]');
-	var tokenClear  = document.querySelector('[data-csmcpforj-token-clear]');
-	var tokenStatus = document.querySelector('[data-csmcpforj-token-status]');
-
-	// Snapshot the prompt template BEFORE any substitution so we can re-render
-	// it whenever the token state changes (paste, clear, refresh-with-saved).
-	var promptEl       = document.getElementById('csmcpforj-prompt');
-	var promptTemplate = promptEl ? promptEl.textContent : '';
-	var TOKEN_PLACEHOLDER_RE = /<PASTE YOUR JOOMLA API TOKEN HERE>/g;
-	var PLACEHOLDER_TEXT     = '<PASTE YOUR JOOMLA API TOKEN HERE>';
+	// The token field appears once per connection way (setup prompt, config
+	// file). Every copy shares one value: typing or pasting in any of them
+	// fills the rest, and every preview that has a token placeholder
+	// (data-csmcpforj-token-template) shows the token in place.
+	var tokenInputs = Array.prototype.slice.call(document.querySelectorAll('[data-csmcpforj-token-input]'));
+	var templates   = Array.prototype.slice.call(document.querySelectorAll('[data-csmcpforj-token-template]')).map(function (el) {
+		return { el: el, placeholder: el.getAttribute('data-csmcpforj-token-template'), text: el.textContent };
+	});
 
 	function escapeHtml(s) {
 		return s.replace(/[&<>"']/g, function(c) {
@@ -736,101 +715,100 @@ document.addEventListener('DOMContentLoaded', function() {
 		});
 	}
 
-	// Render the prompt. When a token is set, wrap the substituted value in
-	// <mark> so the user can see at a glance where their token landed. The
-	// copy handler reads textContent which strips the <mark> tags, so the
-	// clipboard gets clean text. When no token is set, the placeholder gets
-	// the same highlight so the user can see WHICH part of the prompt will
-	// be replaced once they paste a token in.
-	function renderPrompt() {
-		if (!promptEl) return;
-		var token = tokenInput ? (tokenInput.value || '').trim() : '';
-		var parts = promptTemplate.split(PLACEHOLDER_TEXT);
-		var marker = token !== ''
-			? '<mark class="csmcpforj-token-mark">' + escapeHtml(token) + '</mark>'
-			: '<mark class="csmcpforj-token-mark csmcpforj-token-mark-empty">' + escapeHtml(PLACEHOLDER_TEXT) + '</mark>';
-		promptEl.innerHTML = parts.map(escapeHtml).join(marker);
-	}
-
-	function setStatus(text) {
-		if (tokenStatus) tokenStatus.textContent = text || '';
-	}
-	function showClearButton(show) {
-		if (tokenClear) tokenClear.classList.toggle('d-none', !show);
-	}
-
-	if (tokenInput) {
-		// Restore on page load
-		try {
-			var saved = window.localStorage.getItem(STORAGE_KEY);
-			if (saved) {
-				tokenInput.value = saved;
-				setStatus(STATUS_SAVED);
-				showClearButton(true);
-			} else {
-				setStatus(STATUS_EMPTY);
-			}
-		} catch (e) {
-			// localStorage may be unavailable (private mode, etc.) — silent fallback
+	function currentToken() {
+		for (var i = 0; i < tokenInputs.length; i++) {
+			var v = (tokenInputs[i].value || '').trim();
+			if (v !== '') { return v; }
 		}
-		renderPrompt();
-
-		// Save on every change/blur — both events because some browsers don't fire
-		// change reliably after paste-then-tab. The handler is cheap.
-		var saveToken = function() {
-			try {
-				var v = (tokenInput.value || '').trim();
-				if (v === '') {
-					window.localStorage.removeItem(STORAGE_KEY);
-					setStatus(STATUS_EMPTY);
-					showClearButton(false);
-				} else {
-					window.localStorage.setItem(STORAGE_KEY, v);
-					setStatus(STATUS_SAVED);
-					showClearButton(true);
-				}
-			} catch (e) {}
-			renderPrompt();
-		};
-		tokenInput.addEventListener('change', saveToken);
-		tokenInput.addEventListener('blur', saveToken);
-		tokenInput.addEventListener('input', saveToken);
+		return '';
 	}
 
-	if (tokenToggle && tokenInput) {
-		tokenToggle.addEventListener('click', function() {
-			tokenInput.type = tokenInput.type === 'password' ? 'text' : 'password';
+	// Mark where the token lands. The copy handler reads textContent, so the
+	// <mark> never reaches the clipboard. With no token, the placeholder gets
+	// the same highlight so the user can see which part will be replaced.
+	function renderTemplates() {
+		var token = currentToken();
+		templates.forEach(function (t) {
+			var parts  = t.text.split(t.placeholder);
+			var marker = token !== ''
+				? '<mark class="csmcpforj-token-mark">' + escapeHtml(token) + '</mark>'
+				: '<mark class="csmcpforj-token-mark csmcpforj-token-mark-empty">' + escapeHtml(t.placeholder) + '</mark>';
+			t.el.innerHTML = parts.map(escapeHtml).join(marker);
 		});
 	}
 
-	if (tokenClear && tokenInput) {
-		tokenClear.addEventListener('click', function() {
-			tokenInput.value = '';
-			try { window.localStorage.removeItem(STORAGE_KEY); } catch (e) {}
-			setStatus(STATUS_EMPTY);
-			showClearButton(false);
-			renderPrompt();
-			tokenInput.focus();
+	function scopeOf(input) { return input.closest('.csmcpforj-step-body') || document; }
+
+	function refreshChrome() {
+		var hasToken = currentToken() !== '';
+		tokenInputs.forEach(function (input) {
+			var scope  = scopeOf(input);
+			var clear  = scope.querySelector('[data-csmcpforj-token-clear]');
+			var status = scope.querySelector('[data-csmcpforj-token-status]');
+			if (clear)  { clear.classList.toggle('d-none', !hasToken); }
+			if (status) { status.textContent = hasToken ? STATUS_SAVED : STATUS_EMPTY; }
 		});
 	}
 
-	// Copy buttons. If data-csmcpforj-token-substitute is set on the button
-	// AND the token input has a non-empty value, substitute the placeholder
-	// in the copied text — token never leaves the browser.
+	function setToken(value, source) {
+		tokenInputs.forEach(function (input) { if (input !== source) { input.value = value; } });
+		try {
+			if (value === '') { window.localStorage.removeItem(STORAGE_KEY); }
+			else { window.localStorage.setItem(STORAGE_KEY, value); }
+		} catch (e) {}
+		refreshChrome();
+		renderTemplates();
+	}
+
+	try {
+		var saved = window.localStorage.getItem(STORAGE_KEY);
+		if (saved) { tokenInputs.forEach(function (input) { input.value = saved; }); }
+	} catch (e) {
+		// localStorage may be unavailable (private mode, etc.) - silent fallback
+	}
+	refreshChrome();
+	renderTemplates();
+
+	tokenInputs.forEach(function (input) {
+		var onChange = function () { setToken((input.value || '').trim(), input); };
+		input.addEventListener('input', onChange);
+		input.addEventListener('change', onChange);
+		input.addEventListener('blur', onChange);
+
+		var scope  = scopeOf(input);
+		var toggle = scope.querySelector('[data-csmcpforj-token-toggle]');
+		var clear  = scope.querySelector('[data-csmcpforj-token-clear]');
+
+		if (toggle) {
+			toggle.addEventListener('click', function () {
+				var type = input.type === 'password' ? 'text' : 'password';
+				tokenInputs.forEach(function (i) { i.type = type; });
+			});
+		}
+		if (clear) {
+			clear.addEventListener('click', function () {
+				input.value = '';
+				setToken('', null);
+				input.focus();
+			});
+		}
+	});
+
+	// Copy buttons. With data-csmcpforj-token-substitute set and a token
+	// entered, the target's placeholder is replaced in the copied text. The
+	// token never leaves the browser.
 	document.querySelectorAll('[data-csmcpforj-copy]').forEach(function(btn) {
 		btn.addEventListener('click', function() {
-			var targetId = btn.getAttribute('data-csmcpforj-copy');
-			var el = document.getElementById(targetId);
+			var el = document.getElementById(btn.getAttribute('data-csmcpforj-copy'));
 			if (!el) return;
 			var text = el.textContent || el.innerText;
 
 			var substituted = false;
-			if (btn.getAttribute('data-csmcpforj-token-substitute') === '1' && tokenInput) {
-				var token = (tokenInput.value || '').trim();
-				if (token !== '') {
-					text = text.replace(/<PASTE YOUR JOOMLA API TOKEN HERE>/g, token);
-					substituted = true;
-				}
+			var placeholder = el.getAttribute('data-csmcpforj-token-template');
+			var token       = currentToken();
+			if (btn.getAttribute('data-csmcpforj-token-substitute') === '1' && placeholder && token !== '') {
+				text = text.split(placeholder).join(token);
+				substituted = true;
 			}
 
 			var copiedLabel = substituted && btn.getAttribute('data-copied-substituted-label')
@@ -839,15 +817,12 @@ document.addEventListener('DOMContentLoaded', function() {
 			var defaultLabel = btn.getAttribute('data-default-label');
 
 			navigator.clipboard.writeText(text).then(function() {
-				var iconHtml = '<span class="icon-checkmark" aria-hidden="true"></span> ';
-				btn.innerHTML = iconHtml + copiedLabel;
+				btn.innerHTML = '<span class="icon-checkmark" aria-hidden="true"></span> ' + copiedLabel;
 				setTimeout(function() {
 					btn.innerHTML = '<span class="icon-copy" aria-hidden="true"></span> ' + defaultLabel;
 				}, 2500);
 			}).catch(function() {
-				// Fallback: select text so user can Ctrl+C manually. Note
-				// fallback can't substitute the token because we'd need to
-				// mutate the DOM and can't easily undo it.
+				// Fallback: select the text so the user can Ctrl+C.
 				var range = document.createRange();
 				range.selectNode(el);
 				window.getSelection().removeAllRanges();
