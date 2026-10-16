@@ -151,8 +151,8 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 			// ONE card, three ways to connect, each a collapsible section with
 			// numbered steps (Tim 2026-10-15: "this needs to be super clear ...
 			// dropdown arrows that separate the explanation of how to hook it
-			// up in the different methods"). Way 1 (log in) is open by default
-			// when OAuth is on; otherwise way 2 (setup prompt) is.
+			// up in the different methods"). All three start collapsed (Tim, same
+			// day: "better if all are collapsed at the beginning").
 			//
 			// The token field appears in ways 2 and 3. Both copies are kept in
 			// sync by the script at the bottom, so pasting once fills both.
@@ -196,7 +196,7 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 					<p class="card-text mb-3"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CONNECT_INTRO'); ?></p>
 
 					<?php // ---- Way 1: log in (OAuth) ---- ?>
-					<details class="csmcpforj-way mb-2" id="csmcpforj-oauth" <?php echo $this->oauthEnabled ? 'open' : ''; ?>>
+					<details class="csmcpforj-way mb-2" id="csmcpforj-oauth">
 						<summary><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_WAY1_SUMMARY'); ?></summary>
 						<div class="csmcpforj-way-body">
 							<?php if (!$this->oauthEnabled) : ?>
@@ -217,7 +217,16 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 											</div>
 										</div>
 									</li>
-									<li><div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP2_ADD'); ?></div></li>
+									<li>
+										<div class="csmcpforj-step-body">
+											<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP2_ADD'); ?>
+											<ul class="mt-2 mb-0">
+												<?php foreach (['CLAUDE_AI', 'CHATGPT', 'CLAUDE_CODE', 'VSCODE', 'CURSOR', 'GEMINI', 'CODEX', 'CLINE'] as $oauthApp) : ?>
+													<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_OAUTH_CLIENT_' . $oauthApp); ?></li>
+												<?php endforeach; ?>
+											</ul>
+										</div>
+									</li>
 									<li><div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP2'); ?></div></li>
 									<li><div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP3'); ?></div></li>
 								</ol>
@@ -266,7 +275,7 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 					</details>
 
 					<?php // ---- Way 2: setup prompt ---- ?>
-					<details class="csmcpforj-way mb-2" <?php echo $this->oauthEnabled ? '' : 'open'; ?>>
+					<details class="csmcpforj-way mb-2">
 						<summary><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_WAY2_SUMMARY'); ?></summary>
 						<div class="csmcpforj-way-body">
 							<p><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_WAY2_INTRO'); ?></p>
