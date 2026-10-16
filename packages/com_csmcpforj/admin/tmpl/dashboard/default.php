@@ -128,6 +128,31 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 	details.csmcpforj-way > .csmcpforj-way-body {
 		padding: 1rem;
 	}
+	/* Step numbers: green and a little larger, to read as encouraging
+	   progress (Tim 2026-10-15). The step where you paste something keeps
+	   the brand-orange badge from the findable-field pattern, so the one
+	   thing you type into still stands out. */
+	details.csmcpforj-way .csmcpforj-steps > li {
+		padding: .5rem 0;
+	}
+	details.csmcpforj-way .csmcpforj-steps > li::before {
+		background: #198754;
+		color: #fff;
+		width: 1.9rem;
+		height: 1.9rem;
+		line-height: 1.9rem;
+		font-size: .95rem;
+	}
+	details.csmcpforj-way .csmcpforj-steps > li.csmcpforj-step-do::before {
+		background: #fa6400;
+	}
+	/* Room between the per-app rows. */
+	details.csmcpforj-way .csmcpforj-step-body ul > li {
+		margin-bottom: .65rem;
+	}
+	details.csmcpforj-way .csmcpforj-step-body ul > li:last-child {
+		margin-bottom: 0;
+	}
 
 	/* Atum dark mode */
 	[data-bs-theme="dark"] .csmcpforj-token-mark,
@@ -222,7 +247,7 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 											<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP2_ADD'); ?>
 											<ul class="mt-2 mb-0">
 												<?php foreach (['CLAUDE_AI', 'CHATGPT', 'CLAUDE_CODE', 'VSCODE', 'CURSOR', 'GEMINI', 'CODEX', 'CLINE'] as $oauthApp) : ?>
-													<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_OAUTH_CLIENT_' . $oauthApp); ?></li>
+													<li><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_OAUTH_CLIENT_' . $oauthApp); ?></li>
 												<?php endforeach; ?>
 											</ul>
 										</div>

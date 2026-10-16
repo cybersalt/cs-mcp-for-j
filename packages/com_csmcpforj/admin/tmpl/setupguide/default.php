@@ -320,7 +320,7 @@ details.csmcpforj-setup-advanced[open] summary::before {
 					</div>
 					<ul class="mb-3">
 						<?php foreach (['CLAUDE_AI', 'CHATGPT', 'CLAUDE_CODE', 'VSCODE', 'CURSOR', 'GEMINI', 'CODEX', 'CLINE'] as $oauthClient) : ?>
-							<li class="mb-1"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_OAUTH_CLIENT_' . $oauthClient); ?></li>
+							<li class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_OAUTH_CLIENT_' . $oauthClient); ?></li>
 						<?php endforeach; ?>
 					</ul>
 					<p class="mb-1"><small class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_OAUTH_ON_CONSENT_NOTE'); ?></small></p>
