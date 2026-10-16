@@ -17,6 +17,10 @@
 - Consents and disconnections are written to Joomla's **User Actions Log**.
 - Client registration is rate-limited per IP address. Redirect addresses must be https, a loopback http address, or an app-specific scheme.
 
+### 🐛 Fixed — MCP clients could flood a site with GET requests
+
+- **A GET from an MCP client now gets `405 Method Not Allowed`.** After connecting, Claude Code and other clients built on the MCP SDKs open a GET on the endpoint to receive a server-to-client stream. The spec allows two answers, a stream or 405. MCP for Joomla answered `200` with its friendly information page, which the client took as "stream opened, then closed" and reconnected at once, forever: 286,000 requests in 10.5 hours from one session, and on 12 September enough load to take two sites down for ten minutes. Any GET carrying a token or asking for a stream now gets 405 and the client stops. A plain browser visit still gets the information page. With OAuth on, an expired OAuth token gets `401 invalid_token` instead, so the client refreshes.
+
 ### 📝 Changed — Setup Guide and Dashboard
 
 - **New lead section, "Connect by signing in (OAuth)"**, with steps for claude.ai, Claude Desktop, ChatGPT, Claude Code, VS Code, Cursor, Gemini CLI, Codex and Cline. The API-key method moves to Advanced setup and remains the answer for headless machines.

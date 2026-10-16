@@ -147,7 +147,7 @@ final class McpController extends BaseController
 					'method'  => 'tools/list',
 				],
 			],
-			'note' => 'You are seeing this response because you hit the endpoint with GET (e.g. clicked the URL in a browser). MCP clients use POST and you do not interact with this URL directly — the client talks to it for you.',
+			'note' => 'You are seeing this because you opened the endpoint in a browser. MCP clients talk to it with POST; a GET from an MCP client (with a token, or asking for an event stream) gets 405 Method Not Allowed from the system plugin before it reaches here, because this server does not offer a server-to-client stream.',
 		];
 
 		// No auth check here — the discovery response is intentionally public.

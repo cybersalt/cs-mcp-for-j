@@ -350,7 +350,16 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 					return;
 				}
 
-				// Valid. Do NOT translate it into X-Joomla-Token: the
+				// Valid. A GET is the client trying to open a server stream,
+				// which this server does not offer: 405 so it stops asking
+				// (see the GET-loop note below).
+				if ($method === 'GET') {
+					$this->sendMethodNotAllowed($app);
+
+					return;
+				}
+
+				// Valid POST. Do NOT translate it into X-Joomla-Token: the
 				// MCP for Joomla api-authentication plugin authenticates it.
 				return;
 			}
@@ -381,6 +390,27 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 		// this only fires for GET-without-token. Anyone with a token still
 		// goes through normal API dispatch and reaches McpController::info()
 		// or ::handle() as before.
+		// GET-LOOP FIX (2.9.0). After `initialize`, Streamable-HTTP clients
+		// (Claude Code and anything on the MCP SDKs) open a GET on the
+		// endpoint, with their credentials, to get a server->client event
+		// stream. The spec allows exactly two answers: an event stream, or
+		// 405 Method Not Allowed. We used to answer 200 with the discovery
+		// JSON, which the client read as "stream opened, then closed" and
+		// reconnected at once, forever: 286,000 GETs in 10.5 h from one
+		// session, and on 2026-09-12 enough load to take cybersalt.org and
+		// cybersalt.com down for ten minutes. 405 makes it stop.
+		//
+		// A GET carrying a token or asking for a stream is an MCP client; a
+		// plain browser GET (no token, no event-stream Accept) still gets the
+		// friendly discovery JSON below.
+		$hasJoomlaToken = $app->input->server->get('HTTP_X_JOOMLA_TOKEN', '', 'string') !== '';
+
+		if ($method === 'GET' && ($hasBearer || $hasJoomlaToken || stripos($originalAccept, 'text/event-stream') !== false)) {
+			$this->sendMethodNotAllowed($app);
+
+			return;
+		}
+
 		if ($method === 'GET' && !$hasBearer) {
 			$root    = rtrim(\Joomla\CMS\Uri\Uri::root(), '/');
 			$payload = [
@@ -403,7 +433,7 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 						'method'  => 'tools/list',
 					],
 				],
-				'note' => 'You are seeing this response because you hit the endpoint with GET (e.g. clicked the URL in a browser). MCP clients use POST and you do not interact with this URL directly — the client talks to it for you.',
+				'note' => 'You are seeing this because you opened the endpoint in a browser. MCP clients talk to it with POST; a GET from an MCP client (with a token, or asking for an event stream) gets 405 Method Not Allowed, because this server does not offer a server-to-client stream.',
 			];
 
 			http_response_code(200);
@@ -428,6 +458,29 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 		$token = trim(substr($auth, 7));
 		$app->input->server->set('HTTP_X_JOOMLA_TOKEN', $token);
 		$_SERVER['HTTP_X_JOOMLA_TOKEN'] = $token;
+	}
+
+	/**
+	 * 405 for an MCP client's GET: this server does not offer a
+	 * server-to-client event stream (MCP Streamable HTTP: on GET the server
+	 * MUST either return text/event-stream or 405 Method Not Allowed).
+	 * Answered in PHP because a RewriteRule [R=405] in Joomla's .htaccess
+	 * falls through to a 404.
+	 */
+	private function sendMethodNotAllowed($app): void
+	{
+		http_response_code(405);
+		header('Allow: POST');
+		header('Cache-Control: no-store');
+		header('Content-Type: application/json; charset=utf-8');
+
+		echo json_encode([
+			'jsonrpc' => '2.0',
+			'id'      => null,
+			'error'   => ['code' => -32601, 'message' => 'This server does not offer a server-to-client stream. Use POST.'],
+		], JSON_UNESCAPED_SLASHES);
+
+		$app->close();
 	}
 
 	/**
