@@ -247,6 +247,23 @@ final class UpdateMenuItemTool extends AbstractTool
 		 * both run first precisely so the payload is already complete and correct
 		 * when the model gets it.
 		 */
+
+		/*
+		 * Language associations (multilingual sites). ItemModel::save() rebuilds
+		 * #__associations from `$data['associations'] ?? []` on every save of a
+		 * site menu item while associations are enabled: with the key missing,
+		 * it deletes the item's whole association group and re-adds only the
+		 * item itself, so one partial update unlinked the item from all its
+		 * translations. Same pattern Susan found for tags and custom-field
+		 * categories (2.9.0). Re-supply the current associations unless the
+		 * caller is setting them.
+		 */
+		if (!array_key_exists('associations', $data)
+			&& (int) $existing->client_id === 0
+			&& \Joomla\CMS\Language\Associations::isEnabled()) {
+			$data['associations'] = \Joomla\Component\Menus\Administrator\Helper\MenusHelper::getAssociations($id);
+		}
+
 		if (!$model->save($data)) {
 			return ToolResult::error('com_menus rejected the update: ' . $model->getError());
 		}

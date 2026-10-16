@@ -37,10 +37,16 @@ use Joomla\CMS\User\User;
  * orphans its existing values; create a new field in the new context
  * instead.
  *
- * @partial-save-safe FieldModel::save() binds only supplied keys. Verified
- * behaviourally on Joomla 6.1.4, 2026-10-09: created a field with every
- * field populated, changed only `title`, diffed all 26 fields — nothing else
- * moved.
+ * @partial-save-safe FieldModel::save() binds only supplied keys for the
+ * field's own columns. Verified behaviourally on Joomla 6.1.4, 2026-10-09:
+ * created a field with every field populated, changed only `title`, diffed
+ * all 26 fields — nothing else moved.
+ *
+ * ⚠️ That check could not see #__fields_categories, which save() rewrites
+ * from $data['assigned_cat_ids'] every time and treats as "all categories"
+ * when absent. The tool now re-supplies the current assignment (2.9.0, found
+ * by Susan on cybersalt.org). Lesson: a partial-save check must diff the
+ * related tables a model writes, not just the row.
  */
 final class UpdateCustomFieldTool extends AbstractTool
 {
@@ -144,6 +150,21 @@ final class UpdateCustomFieldTool extends AbstractTool
 			// M:N relationship to #__fields_categories via the standard
 			// "assigned_cat_ids" form-data convention.
 			$data['assigned_cat_ids'] = array_values(array_map('intval', (array) $arguments['assigned_cat_ids']));
+		} else {
+			// Re-supply the current assignment. FieldModel::save() rewrites
+			// #__fields_categories from $data['assigned_cat_ids'] on EVERY save
+			// and treats a missing key as "all categories", so a call that only
+			// published a field ({id, state: 1}) un-restricted it and it showed
+			// on every article on the site. Found by Susan on cybersalt.org,
+			// 2026-10-15, the same pattern as the tag bug. Stored as-is: no rows
+			// means all categories, a -1 row means none, so copying the rows
+			// back preserves both.
+			$data['assigned_cat_ids'] = array_map('intval', (array) $this->db->setQuery(
+				$this->db->getQuery(true)
+					->select($this->db->quoteName('category_id'))
+					->from($this->db->quoteName('#__fields_categories'))
+					->where($this->db->quoteName('field_id') . ' = ' . (int) $id)
+			)->loadColumn());
 		}
 
 		$model->setState($model->getName() . '.context', $existing->context);

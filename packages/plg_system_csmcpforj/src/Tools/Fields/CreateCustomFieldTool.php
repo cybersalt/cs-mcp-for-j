@@ -19,7 +19,9 @@ final class CreateCustomFieldTool extends AbstractTool
 		return 'Create a custom field. Required: title, name (lowercase machine name), type '
 			. '(text, textarea, editor, list, media, calendar, integer, checkboxes, etc.), '
 			. 'context (e.g. "com_content.article", "com_users.user"). Optional: label, '
-			. 'description, required, default_value, fieldparams.';
+			. 'description, required, default_value, fieldparams, assigned_cat_ids (array of '
+			. 'category ids the field shows on — pass [-1] for "no categories"; omit or [] for '
+			. '"all categories").';
 	}
 
 	public function getInputSchema(): array
@@ -41,6 +43,7 @@ final class CreateCustomFieldTool extends AbstractTool
 				'access'        => ['type' => 'integer'],
 				'language'      => ['type' => 'string'],
 				'fieldparams'   => ['type' => 'object'],
+				'assigned_cat_ids' => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Category ids the field shows on. [-1] = no categories. Omit or [] = all categories.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -66,6 +69,9 @@ final class CreateCustomFieldTool extends AbstractTool
 			'language'      => (string) ($arguments['language'] ?? '*'),
 			'fieldparams'   => json_encode((object) ($arguments['fieldparams'] ?? [])),
 			'params'        => json_encode(new \stdClass()),
+			// Before 2.9.0 this argument was silently dropped, so every field
+			// created through MCP landed on "all categories".
+			'assigned_cat_ids' => array_values(array_map('intval', (array) ($arguments['assigned_cat_ids'] ?? []))),
 		];
 
 		$model = $this->getModel('com_fields', 'Field');
