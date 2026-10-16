@@ -7,6 +7,7 @@ namespace Cybersalt\Plugin\System\Csmcpforj\Tools\Articles;
 \defined('_JEXEC') or die;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
+use Cybersalt\Component\Csmcpforj\Administrator\MCP\McpException;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\User\User;
 
@@ -33,6 +34,13 @@ use Joomla\CMS\User\User;
  *   Joomla stops publishing it while `state` still reads 1 and the body reads
  *   correct. That is a core bug, not ours, and this tool is the safe path.
  *   See cs-mcp-for-j#32.
+ *
+ *   `hits` (2.9.0, requested by Susan for merging duplicate articles) is written
+ *   straight to #__content, the same way Joomla's own hit counter writes it,
+ *   and never goes through ArticleModel::save(). A call that changes only hits
+ *   skips the save entirely, so content plugins that rewrite the text on save
+ *   (ReReplacer appended a bio on every save on cybersalt.org) and the
+ *   `modified` date are left alone.
  */
 final class UpdateArticleTool extends AbstractTool
 {
@@ -48,7 +56,9 @@ final class UpdateArticleTool extends AbstractTool
 		return 'Update an existing article. Required: id. Only the fields you supply are changed; '
 			. 'all others are preserved, including tags. Use articletext to replace the body, or set state to '
 			. 'publish (1), unpublish (0), archive (2), or trash (-2). Pass tags (an array of tag ids) to '
-			. 'replace the tags on the article; an empty array removes them all.';
+			. 'replace the tags on the article; an empty array removes them all. Pass hits to set the '
+			. 'article\'s hit count (for example when merging duplicates); a call with only id and hits '
+			. 'changes nothing else and does not re-save the article.';
 	}
 
 	public function getInputSchema(): array
@@ -69,6 +79,7 @@ final class UpdateArticleTool extends AbstractTool
 				'metadesc'    => ['type' => 'string'],
 				'metakey'     => ['type' => 'string'],
 				'tags'        => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Tag ids. Replaces the tags on the article; [] removes them all. Omit to keep the current tags.'],
+				'hits'        => ['type' => 'integer', 'minimum' => 0, 'description' => 'Sets the hit count. Omit to keep the current count. Written directly; does not change the modified date.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -84,6 +95,28 @@ final class UpdateArticleTool extends AbstractTool
 		$existing = $model->getItem($id);
 		if (!$existing || empty($existing->id)) {
 			return ToolResult::error('Article ' . $id . ' not found.');
+		}
+
+		$hits = null;
+		if (array_key_exists('hits', $arguments)) {
+			$hits = filter_var($arguments['hits'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+			if ($hits === false) {
+				throw new McpException(-32602, 'hits must be a whole number of 0 or more; got ' . json_encode($arguments['hits']) . '.');
+			}
+		}
+
+		// Hits only: write the count and stop, without re-saving the article.
+		if ($hits !== null && array_diff(array_keys($arguments), ['id', 'hits']) === []) {
+			$this->writeHits($id, $hits);
+
+			return ToolResult::json([
+				'ok'             => true,
+				'id'             => $id,
+				'fields_changed' => ['hits'],
+				'hits'           => $hits,
+				'previous_hits'  => (int) $existing->hits,
+				'edit_url'       => 'index.php?option=com_content&task=article.edit&id=' . $id,
+			]);
 		}
 
 		$data = ['id' => $id];
@@ -115,15 +148,39 @@ final class UpdateArticleTool extends AbstractTool
 			}
 		}
 
+		// After the save, so the model's write of the loaded row cannot undo it.
+		if ($hits !== null) {
+			$this->writeHits($id, $hits);
+		}
+
+		$changed = array_values(array_diff(array_keys($data), array_merge(['id', 'modified_by'], array_key_exists('tags', $arguments) ? [] : ['tags'])));
+		if ($hits !== null) {
+			$changed[] = 'hits';
+		}
+
 		$response = [
 			'ok'             => true,
 			'id'             => $id,
-			'fields_changed' => array_values(array_diff(array_keys($data), array_merge(['id', 'modified_by'], array_key_exists('tags', $arguments) ? [] : ['tags']))),
+			'fields_changed' => $changed,
 			'edit_url'       => 'index.php?option=com_content&task=article.edit&id=' . $id,
 		];
+		if ($hits !== null) {
+			$response['hits']          = $hits;
+			$response['previous_hits'] = (int) $existing->hits;
+		}
 		if (!$result['ok'] && $result['error'] !== '') {
 			$response['post_save_warning'] = $result['error'];
 		}
 		return ToolResult::json($response);
+	}
+
+	private function writeHits(int $id, int $hits): void
+	{
+		$this->db->setQuery(
+			$this->db->getQuery(true)
+				->update($this->db->quoteName('#__content'))
+				->set($this->db->quoteName('hits') . ' = ' . $hits)
+				->where($this->db->quoteName('id') . ' = ' . $id)
+		)->execute();
 	}
 }

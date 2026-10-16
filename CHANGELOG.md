@@ -29,6 +29,10 @@
 - **`update_menu_item` no longer drops a menu item's language associations** on multilingual sites. Joomla deletes the association group when a save leaves it out; the tool now sends the current associations unless you pass new ones.
 - **Every other update tool was checked for the same pattern**, by reading what each Joomla model writes to other tables rather than only comparing the item's own row. Modules (menu assignment) and users (groups) were already protected; field groups, tags, user groups and template styles write nothing else.
 
+### 🚀 Added — set an article's hit count
+
+- **New `hits` argument on `update_article`**, for merging duplicate articles: add the duplicates' hits to the copy you keep, then trash the duplicates. Until now that needed SQL. Requested by Susan on cybersalt.org. Leaving `hits` out keeps the current count, as with every other argument. The count is written directly, the way Joomla's own hit counter writes it. A call with only `id` and `hits` doesn't re-save the article, so its modified date stays the same and plugins that change text on save (for example ReReplacer) don't run. The response includes `previous_hits`.
+
 ### 🐛 Fixed — MCP clients could flood a site with GET requests
 
 - **A GET from an MCP client now gets `405 Method Not Allowed`.** After connecting, Claude Code and other clients built on the MCP SDKs open a GET on the endpoint to receive a server-to-client stream. The spec allows two answers, a stream or 405. MCP for Joomla answered `200` with its friendly information page, which the client took as "stream opened, then closed" and reconnected at once, forever: 286,000 requests in 10.5 hours from one session, and on 12 September enough load to take two sites down for ten minutes. Any GET carrying a token or asking for a stream now gets 405 and the client stops. A plain browser visit still gets the information page. With OAuth on, an expired OAuth token gets `401 invalid_token` instead, so the client refreshes.
