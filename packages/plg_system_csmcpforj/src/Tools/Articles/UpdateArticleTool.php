@@ -19,6 +19,13 @@ use Joomla\CMS\User\User;
  *   `publish_up` and every untouched column were byte-identical; only `modified`
  *   advanced, which is correct.
  *
+ *   ⚠️ TAGS were the exception that check could not see (2.9.0): they live in
+ *   #__contentitem_tag_map, not on the article row, and Joomla's Taggable
+ *   behaviour deletes them whenever `tags` is absent from the save. Found by
+ *   Susan on cybersalt.org, 2026-10-15. The tool now always sends tags,
+ *   re-supplying the current ones when the caller passes none. Verified on
+ *   mcpfree the same day: a metadesc-only update keeps both tags.
+ *
  *   ⚠️ Do NOT use Joomla's core web-services API (PATCH /v1/content/articles/<id>)
  *   as a substitute for this tool. The same test against that endpoint shifted
  *   BOTH `created` and `publish_up` forward by the site's UTC offset on EVERY
@@ -39,8 +46,9 @@ final class UpdateArticleTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'Update an existing article. Required: id. Only the fields you supply are changed; '
-			. 'all others are preserved. Use articletext to replace the body, or set state to '
-			. 'publish (1), unpublish (0), archive (2), or trash (-2).';
+			. 'all others are preserved, including tags. Use articletext to replace the body, or set state to '
+			. 'publish (1), unpublish (0), archive (2), or trash (-2). Pass tags (an array of tag ids) to '
+			. 'replace the tags on the article; an empty array removes them all.';
 	}
 
 	public function getInputSchema(): array
@@ -60,6 +68,7 @@ final class UpdateArticleTool extends AbstractTool
 				'access'      => ['type' => 'integer'],
 				'metadesc'    => ['type' => 'string'],
 				'metakey'     => ['type' => 'string'],
+				'tags'        => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Tag ids. Replaces the tags on the article; [] removes them all. Omit to keep the current tags.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -88,6 +97,10 @@ final class UpdateArticleTool extends AbstractTool
 		}
 		$data['modified_by'] = (int) $actor->id;
 
+		// Always send tags: Joomla's Taggable behaviour deletes them when the
+		// key is missing. See AbstractTool::resolveTags().
+		$data['tags'] = $this->resolveTags($arguments, 'com_content.article', $id);
+
 		$result = $this->saveAdminModel($model, $data);
 
 		// On update, the row already exists with $id — the model's state id is
@@ -105,7 +118,7 @@ final class UpdateArticleTool extends AbstractTool
 		$response = [
 			'ok'             => true,
 			'id'             => $id,
-			'fields_changed' => array_values(array_diff(array_keys($data), ['id', 'modified_by'])),
+			'fields_changed' => array_values(array_diff(array_keys($data), array_merge(['id', 'modified_by'], array_key_exists('tags', $arguments) ? [] : ['tags']))),
 			'edit_url'       => 'index.php?option=com_content&task=article.edit&id=' . $id,
 		];
 		if (!$result['ok'] && $result['error'] !== '') {

@@ -15,6 +15,11 @@ use Joomla\CMS\User\User;
  * Verified behaviourally on Joomla 6.1.4, 2026-10-09: created a category
  * with every field populated, changed only `title`, re-read and diffed all
  * 27 fields — nothing else moved.
+ *
+ * Tags are the exception that check could not see: they live in
+ * #__contentitem_tag_map and Joomla's Taggable behaviour deletes them when
+ * `tags` is absent from the save (2.9.0, found via update_article). The tool
+ * now always sends tags; see AbstractTool::resolveTags().
  */
 final class UpdateCategoryTool extends AbstractTool
 {
@@ -24,7 +29,9 @@ final class UpdateCategoryTool extends AbstractTool
 
 	public function getDescription(): string
 	{
-		return 'Update an existing category. Required: id. Only fields you supply are changed.';
+		return 'Update an existing category. Required: id. Only fields you supply are changed, '
+			. 'including tags. Pass tags (an array of tag ids) to replace the tags on the category; '
+			. 'an empty array removes them all.';
 	}
 
 	public function getInputSchema(): array
@@ -43,6 +50,7 @@ final class UpdateCategoryTool extends AbstractTool
 				'published'   => ['type' => 'integer', 'enum' => [0, 1]],
 				'language'    => ['type' => 'string'],
 				'access'      => ['type' => 'integer'],
+				'tags'        => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Tag ids. Replaces the tags on the category; [] removes them all. Omit to keep the current tags.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -70,9 +78,14 @@ final class UpdateCategoryTool extends AbstractTool
 		}
 		$data['modified_user_id'] = (int) $actor->id;
 
+		// Always send tags, or Joomla's Taggable behaviour deletes them. The
+		// type alias follows the category's extension (com_content.category,
+		// com_contact.category, ...).
+		$data['tags'] = $this->resolveTags($arguments, $existing->extension . '.category', $id);
+
 		if (!$model->save($data)) {
 			return ToolResult::error('com_categories rejected the update: ' . $model->getError());
 		}
-		return ToolResult::json(['ok' => true, 'id' => $id, 'fields_changed' => array_keys(array_diff_key($data, ['id' => 1, 'modified_user_id' => 1]))]);
+		return ToolResult::json(['ok' => true, 'id' => $id, 'fields_changed' => array_keys(array_diff_key($data, ['id' => 1, 'modified_user_id' => 1] + (array_key_exists('tags', $arguments) ? [] : ['tags' => 1])))]);
 	}
 }

@@ -337,6 +337,63 @@ abstract class AbstractTool implements ToolInterface
 	 *
 	 * @return array{ok: bool, id: int, error: string}
 	 */
+	/**
+	 * The tag ids to put in $data['tags'] when saving a taggable item.
+	 *
+	 * Joomla's Taggable behaviour reads a missing `tags` key as "this item has
+	 * no tags" and deletes every row in #__contentitem_tag_map for it. The
+	 * admin form always posts the tags, so this never shows there, but a
+	 * partial update that leaves tags out wipes them silently. Found by Susan
+	 * on cybersalt.org (2.9.0, 2026-10-15): update_article with only
+	 * articletext + metadesc stripped both tags from article 24061, while
+	 * reporting ok. The tool's earlier partial-save check compared the
+	 * article's own columns, so it could not see the separate tag map.
+	 *
+	 * So: when the caller passes `tags`, use those (an empty list clears
+	 * them); otherwise re-supply the item's current tags, read straight from
+	 * the map, so nothing changes.
+	 *
+	 * @param string $typeAlias e.g. 'com_content.article', 'com_content.category'
+	 *
+	 * @return int[]
+	 */
+	protected function resolveTags(array $arguments, string $typeAlias, int $itemId): array
+	{
+		if (array_key_exists('tags', $arguments)) {
+			if (!is_array($arguments['tags'])) {
+				throw new McpException(-32602, 'tags must be an array of tag ids (an empty array removes all tags).');
+			}
+
+			$ids = [];
+
+			foreach ($arguments['tags'] as $tag) {
+				if (!is_numeric($tag) || (int) $tag <= 0) {
+					throw new McpException(-32602, 'tags must contain only positive tag ids; got ' . json_encode($tag) . '.');
+				}
+
+				$ids[] = (int) $tag;
+			}
+
+			return array_values(array_unique($ids));
+		}
+
+		if ($itemId <= 0) {
+			return [];
+		}
+
+		$db = $this->db;
+
+		return array_map('intval', (array) $db->setQuery(
+			$db->getQuery(true)
+				->select($db->quoteName('tag_id'))
+				->from($db->quoteName('#__contentitem_tag_map'))
+				->where($db->quoteName('type_alias') . ' = :alias')
+				->where($db->quoteName('content_item_id') . ' = :id')
+				->bind(':alias', $typeAlias)
+				->bind(':id', $itemId, \Joomla\Database\ParameterType::INTEGER)
+		)->loadColumn());
+	}
+
 	protected function saveAdminModel(object $model, array $data): array
 	{
 		$ok = (bool) $model->save($data);

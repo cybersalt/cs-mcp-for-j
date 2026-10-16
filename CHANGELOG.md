@@ -17,6 +17,11 @@
 - Consents and disconnections are written to Joomla's **User Actions Log**.
 - Client registration is rate-limited per IP address. Redirect addresses must be https, a loopback http address, or an app-specific scheme.
 
+### 🐛 Fixed — editing an article or category silently removed its tags
+
+- **`update_article` and `update_category` no longer strip tags.** Joomla's tagging reads a save with no `tags` key as "this item has no tags" and deletes them. The admin form always sends the tags, so it never shows there, but every MCP edit that left tags out removed them all, while reporting success. Found by Susan on cybersalt.org: editing one article's text and meta description took both of its tags, and a planned bulk edit of about 130 articles was stopped in time. The tools now always send the item's current tags unless you pass new ones. The earlier "partial save is safe" check compared each item's own columns, so it could not see tags, which live in a separate table.
+- **New `tags` argument** on `create_article`, `update_article` and `update_category`: an array of tag ids. It replaces the item's tags; `[]` removes them all. Part of [#8](https://github.com/cybersalt/cs-mcp-for-j/issues/8).
+
 ### 🐛 Fixed — MCP clients could flood a site with GET requests
 
 - **A GET from an MCP client now gets `405 Method Not Allowed`.** After connecting, Claude Code and other clients built on the MCP SDKs open a GET on the endpoint to receive a server-to-client stream. The spec allows two answers, a stream or 405. MCP for Joomla answered `200` with its friendly information page, which the client took as "stream opened, then closed" and reconnected at once, forever: 286,000 requests in 10.5 hours from one session, and on 12 September enough load to take two sites down for ten minutes. Any GET carrying a token or asking for a stream now gets 405 and the client stops. A plain browser visit still gets the information page. With OAuth on, an expired OAuth token gets `401 invalid_token` instead, so the client refreshes.

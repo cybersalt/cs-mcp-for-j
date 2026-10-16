@@ -18,7 +18,8 @@ final class CreateArticleTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'Create a new article in com_content. Required: title, catid, articletext. '
-			. 'Use list_categories to find a valid catid. Returns the new article id and edit URL.';
+			. 'Use list_categories to find a valid catid. Optional tags: an array of tag ids (see list_tags). '
+			. 'Returns the new article id and edit URL.';
 	}
 
 	public function getInputSchema(): array
@@ -41,6 +42,7 @@ final class CreateArticleTool extends AbstractTool
 				'image_fulltext'     => ['type' => 'string'],
 				'image_fulltext_alt' => ['type' => 'string'],
 				'featured'           => ['type' => 'integer', 'enum' => [0, 1]],
+				'tags'               => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Tag ids to assign. Use list_tags to find them.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -87,6 +89,7 @@ final class CreateArticleTool extends AbstractTool
 			'attribs'     => json_encode(new \stdClass()),
 			'metadata'    => json_encode(new \stdClass()),
 			'created_by'  => (int) $actor->id,
+			'tags'        => $this->resolveTags($arguments, 'com_content.article', 0),
 		];
 
 		$model  = $this->getModel('com_content', 'Article');
