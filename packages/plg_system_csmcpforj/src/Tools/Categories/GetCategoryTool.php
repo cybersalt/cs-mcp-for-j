@@ -17,7 +17,8 @@ final class GetCategoryTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'Fetch a single category by id, returning its full record (title, alias, '
-			. 'extension, parent, level, language, access, description, params).';
+			. 'extension, parent, level, language, access, description, params) plus its '
+			. 'tags (array of {id, title}).';
 	}
 
 	public function getInputSchema(): array
@@ -45,6 +46,11 @@ final class GetCategoryTool extends AbstractTool
 		if (!$row) {
 			return ToolResult::error('Category ' . $id . ' not found.');
 		}
+
+		// Tags live in #__contentitem_tag_map under '<extension>.category'
+		// (the alias update_category saves them with), not on the row.
+		$row['tags'] = $this->itemTags((string) $row['extension'] . '.category', $id);
+
 		return ToolResult::json($row);
 	}
 }

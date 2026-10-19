@@ -16,6 +16,15 @@ use Joomla\CMS\User\User;
  * populated, changed only `title`, diffed all 30 fields — nothing else
  * moved. Note tags are a nested set like menus, so this was NOT assumed from
  * #__menu behaviour.
+ *
+ * It is safe partly by luck: TagModel::save() reads $data['parent_id']
+ * before bind (`if ($table->parent_id != $data['parent_id'] ...)
+ * setLocation($data['parent_id'], 'last-child')`). An absent key queues a
+ * move to location null, which Nested::store() only skips because null > 0
+ * is false — and the read raises an undefined-key warning that a site with
+ * display_errors on prints into the JSON response. parent_id is re-supplied
+ * from the row so the model sees "same parent" (reviewed against Joomla
+ * 6.2.0, 2026-10-19).
  */
 final class UpdateTagTool extends AbstractTool
 {
@@ -62,6 +71,12 @@ final class UpdateTagTool extends AbstractTool
 			}
 		}
 		$data['modified_user_id'] = (int) $actor->id;
+
+		// TagModel::save() compares $data['parent_id'] before bind; see the
+		// class docblock.
+		if (!array_key_exists('parent_id', $data)) {
+			$data['parent_id'] = (int) $existing->parent_id;
+		}
 
 		if (!$model->save($data)) {
 			return ToolResult::error('com_tags rejected the update: ' . $model->getError());

@@ -47,6 +47,12 @@ use Joomla\CMS\User\User;
  * when absent. The tool now re-supplies the current assignment (2.9.0, found
  * by Susan on cybersalt.org). Lesson: a partial-save check must diff the
  * related tables a model writes, not just the row.
+ *
+ * ⚠️ Nor could it see inside the params / fieldparams blobs: a `params`
+ * argument replaced the whole blob rather than patching it. Both are now
+ * merged key by key (2.9.0, reviewed 2026-10-19 against Joomla 6.2.0's
+ * FieldModel::save(), which reads nothing else off $data before bind outside
+ * the save2copy branch).
  */
 final class UpdateCustomFieldTool extends AbstractTool
 {
@@ -65,9 +71,12 @@ final class UpdateCustomFieldTool extends AbstractTool
 			. 'unassigned), access, language, default_value, ordering, note, only_use_in_subform '
 			. '(1 hides the field from the standard editor — required when building Subform '
 			. 'children via the API), assigned_cat_ids (array of category ids — pass [-1] for '
-			. '"no categories", [] for "all categories"), fieldparams (object — type-specific '
-			. 'config like the Subform options array), params (object — generic display options). '
-			. 'PATCH semantics: untouched properties preserve their current value. Context is '
+			. '"no categories", [] for "all categories"; omit to keep the current assignment), '
+			. 'fieldparams (object — type-specific config like the Subform options array), params '
+			. '(object — generic display options). fieldparams and params are MERGED into the '
+			. 'stored values key by key: pass only the keys to change, null deletes a key, and a '
+			. 'nested value such as the options array is replaced whole. PATCH semantics: '
+			. 'untouched properties preserve their current value. Context is '
 			. 'intentionally NOT updatable — create a new field in the new context instead.';
 	}
 
@@ -91,8 +100,8 @@ final class UpdateCustomFieldTool extends AbstractTool
 				'ordering'            => ['type' => 'integer'],
 				'only_use_in_subform' => ['type' => 'integer', 'enum' => [0, 1]],
 				'assigned_cat_ids'    => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Category ids the field shows on. [-1] = no categories. [] = all categories.'],
-				'fieldparams'         => ['type' => 'object'],
-				'params'              => ['type' => 'object'],
+				'fieldparams'         => ['type' => 'object', 'description' => 'Merged into the stored fieldparams key by key; null deletes a key.'],
+				'params'              => ['type' => 'object', 'description' => 'Merged into the stored params key by key; null deletes a key.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -139,11 +148,24 @@ final class UpdateCustomFieldTool extends AbstractTool
 			}
 		}
 
+		/*
+		 * params / fieldparams are MERGED onto the stored blob, key by key, as
+		 * the description promises ("untouched properties preserve their
+		 * current value"). They used to be replaced outright, so a call that
+		 * set only params.hint dropped every other key in the blob (display
+		 * position, label/render classes, layout, showon...) and the field fell
+		 * back to Joomla's defaults for all of them (spotted 2026-10-19 while
+		 * looking at a params-only update on newsite.westcoastwaterproofingltd
+		 * .com). A null value deletes a key.
+		 * The merge is one level deep: a nested value such as the Subform /
+		 * list `options` array is replaced as a whole, which is what a caller
+		 * editing that list means.
+		 */
 		if (array_key_exists('fieldparams', $arguments)) {
-			$data['fieldparams'] = json_encode((object) $arguments['fieldparams']);
+			$data['fieldparams'] = json_encode((object) $this->mergeBlob($existing->fieldparams ?? null, (array) $arguments['fieldparams']));
 		}
 		if (array_key_exists('params', $arguments)) {
-			$data['params'] = json_encode((object) $arguments['params']);
+			$data['params'] = json_encode((object) $this->mergeBlob($existing->params ?? null, (array) $arguments['params']));
 		}
 		if (array_key_exists('assigned_cat_ids', $arguments)) {
 			// Pass through as an array — com_fields' FieldModel persists the
@@ -174,5 +196,32 @@ final class UpdateCustomFieldTool extends AbstractTool
 		}
 
 		return ToolResult::json(['ok' => true, 'id' => $id]);
+	}
+
+	/**
+	 * Apply a one-level patch to a params-style blob. The stored value arrives
+	 * from FieldModel::getItem() as an array (fieldparams) or via AdminModel
+	 * as an array (params), but older code paths hand back a JSON string or an
+	 * object, so all three are accepted.
+	 */
+	private function mergeBlob(mixed $stored, array $patch): array
+	{
+		if (is_string($stored)) {
+			$stored = $stored !== '' ? json_decode($stored, true) : [];
+		} elseif (is_object($stored)) {
+			$stored = json_decode((string) json_encode($stored), true);
+		}
+
+		$merged = is_array($stored) ? $stored : [];
+
+		foreach ($patch as $key => $value) {
+			if ($value === null) {
+				unset($merged[$key]);
+			} else {
+				$merged[$key] = $value;
+			}
+		}
+
+		return $merged;
 	}
 }

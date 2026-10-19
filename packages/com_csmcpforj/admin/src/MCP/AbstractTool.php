@@ -322,22 +322,6 @@ abstract class AbstractTool implements ToolInterface
 	}
 
 	/**
-	 * Save data through a Joomla AdminModel and report the truthful outcome.
-	 *
-	 * Joomla's AdminModel::save() returns false when ANY plugin in the
-	 * onContentBeforeSave / onContentAfterSave chain throws — workflow,
-	 * contenthistory, fields, finder, etc. — EVEN IF $table->store() already
-	 * INSERTed the row. Trusting save()'s return value causes false-failure
-	 * reports, and an MCP agent will then retry the create, silently spawning
-	 * duplicates on every "failed" call.
-	 *
-	 * The id assigned to model state is the truthful signal: positive means
-	 * the row exists in the database, regardless of what post-save warnings
-	 * fired afterward.
-	 *
-	 * @return array{ok: bool, id: int, error: string}
-	 */
-	/**
 	 * The tag ids to put in $data['tags'] when saving a taggable item.
 	 *
 	 * Joomla's Taggable behaviour reads a missing `tags` key as "this item has
@@ -394,6 +378,55 @@ abstract class AbstractTool implements ToolInterface
 		)->loadColumn());
 	}
 
+	/**
+	 * The tags currently on an item, as [{id, title}], for the get_* tools.
+	 *
+	 * Read from #__contentitem_tag_map — the same rows resolveTags() re-supplies
+	 * on save — so a tag change made through an update_* tool can be verified
+	 * through MCP. Ordered by tag id for a stable diff.
+	 *
+	 * @param string $typeAlias e.g. 'com_content.article', 'com_content.category'
+	 *
+	 * @return array<int, array{id: int, title: string}>
+	 */
+	protected function itemTags(string $typeAlias, int $itemId): array
+	{
+		$db = $this->db;
+
+		$rows = (array) $db->setQuery(
+			$db->getQuery(true)
+				->select([$db->quoteName('t.id'), $db->quoteName('t.title')])
+				->from($db->quoteName('#__contentitem_tag_map', 'm'))
+				->join('INNER', $db->quoteName('#__tags', 't') . ' ON ' . $db->quoteName('t.id') . ' = ' . $db->quoteName('m.tag_id'))
+				->where($db->quoteName('m.type_alias') . ' = :alias')
+				->where($db->quoteName('m.content_item_id') . ' = :id')
+				->bind(':alias', $typeAlias)
+				->bind(':id', $itemId, \Joomla\Database\ParameterType::INTEGER)
+				->order($db->quoteName('t.id') . ' ASC')
+		)->loadAssocList();
+
+		return array_map(
+			static fn (array $r): array => ['id' => (int) $r['id'], 'title' => (string) $r['title']],
+			$rows
+		);
+	}
+
+	/**
+	 * Save data through a Joomla AdminModel and report the truthful outcome.
+	 *
+	 * Joomla's AdminModel::save() returns false when ANY plugin in the
+	 * onContentBeforeSave / onContentAfterSave chain throws — workflow,
+	 * contenthistory, fields, finder, etc. — EVEN IF $table->store() already
+	 * INSERTed the row. Trusting save()'s return value causes false-failure
+	 * reports, and an MCP agent will then retry the create, silently spawning
+	 * duplicates on every "failed" call.
+	 *
+	 * The id assigned to model state is the truthful signal: positive means
+	 * the row exists in the database, regardless of what post-save warnings
+	 * fired afterward.
+	 *
+	 * @return array{ok: bool, id: int, error: string}
+	 */
 	protected function saveAdminModel(object $model, array $data): array
 	{
 		$ok = (bool) $model->save($data);

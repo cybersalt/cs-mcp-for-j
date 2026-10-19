@@ -91,8 +91,7 @@ final class McpController extends BaseController
 		}
 
 		$registry = new ToolRegistry();
-		$dispatcher = $app->getDispatcher();
-		$dispatcher->dispatch(RegisterToolsEvent::EVENT_NAME, new RegisterToolsEvent($registry));
+		$this->registerTools($app, $registry, (int) $user->id);
 
 		// Server-side filters and the secret-guard's secret list. Built here
 		// because they all depend on request state (URL query, component config,
@@ -175,6 +174,85 @@ final class McpController extends BaseController
 	 *
 	 * @return array<int, string>
 	 */
+	/**
+	 * Lets every plugin register its tools, one listener at a time, so a broken
+	 * add-on costs only its own tools instead of the whole endpoint.
+	 *
+	 * A plain dispatch() runs the listeners in one loop, so a single throw (a
+	 * tool class with a parse error, a missing class after a half-finished
+	 * update, a constructor that fatals) aborted registration for everyone and
+	 * the endpoint answered every request with HTTP 500, core tools included.
+	 * Found 2026-10-19 on mcpfree when one add-on's quoting typo took MCP down
+	 * for every client. On a customer site that left no MCP route to fix it.
+	 *
+	 * Each listener now runs on its own. If one throws, the tools it had
+	 * already registered are dropped (half an add-on is worse than none), the
+	 * failure goes to the activity log naming the add-on, file and line, and
+	 * the remaining listeners still run. A tool it overwrote by name cannot be
+	 * restored, but names are unique by convention (see ToolRegistry).
+	 */
+	private function registerTools(CMSApplication $app, ToolRegistry $registry, int $userId): void
+	{
+		$dispatcher = $app->getDispatcher();
+		$event      = new RegisterToolsEvent($registry);
+
+		if (!method_exists($dispatcher, 'getListeners')) {
+			$dispatcher->dispatch(RegisterToolsEvent::EVENT_NAME, $event);
+			return;
+		}
+
+		foreach ($dispatcher->getListeners(RegisterToolsEvent::EVENT_NAME) as $listener) {
+			if ($event->isStopped()) {
+				break;
+			}
+
+			$before = array_keys($registry->all());
+
+			try {
+				$listener($event);
+			} catch (\Throwable $e) {
+				$added = array_diff(array_keys($registry->all()), $before);
+
+				foreach ($added as $name) {
+					$registry->remove($name);
+				}
+
+				$addon = $this->describeListener($listener, $e);
+
+				ActivityLog::exception('mcp', 'register_tools', $e, [
+					'user_id' => $userId,
+					'details' => [
+						'addon'         => $addon,
+						'tools_dropped' => array_values($added),
+						'note'          => 'This add-on was skipped; every other add-on and the core tools are still available.',
+					],
+				]);
+				error_log('cs-mcp-for-j: ' . $addon . ' failed to register its tools and was skipped: '
+					. get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+			}
+		}
+	}
+
+	/**
+	 * Names the add-on behind a failed listener: the plugin folder in the
+	 * failing file's path when there is one (a parse error is thrown from the
+	 * broken tool class, not from the listener), otherwise the listener class.
+	 */
+	private function describeListener(callable $listener, \Throwable $e): string
+	{
+		$path = str_replace('\\', '/', $e->getFile());
+
+		if (preg_match('#/plugins/([^/]+)/([^/]+)/#', $path, $m)) {
+			return 'plg_' . $m[1] . '_' . $m[2];
+		}
+
+		if (is_array($listener) && is_object($listener[0])) {
+			return get_class($listener[0]);
+		}
+
+		return is_object($listener) ? get_class($listener) : 'unknown listener';
+	}
+
 	private function parseCategoryFilter(CMSApplication $app): array
 	{
 		$raw = trim((string) $app->input->getString('categories', ''));

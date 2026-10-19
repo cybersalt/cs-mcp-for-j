@@ -16,6 +16,12 @@ final class ToolRegistry
 		$this->tools[$tool->getName()] = $tool;
 	}
 
+	/** Used to drop a failed add-on's partial registrations. */
+	public function remove(string $name): void
+	{
+		unset($this->tools[$name]);
+	}
+
 	public function has(string $name): bool
 	{
 		return isset($this->tools[$name]);

@@ -196,10 +196,19 @@ final class UpdateMenuItemTool extends AbstractTool
 		$paramsTouchedKeys = [];
 
 		if ($paramsTouched) {
-			// Existing params can arrive as a Registry, an object, a JSON string,
-			// or an array depending on which Joomla code path filled it in.
-			// Normalise to a plain assoc array.
-			$existingParams = $this->normaliseParams($existing->params ?? null);
+			/*
+			 * Merge onto the STORED params, read straight from #__menu — never
+			 * onto $existing->params. ItemModel::getItem() builds that for the
+			 * admin form: for component, alias and url items it array_merge()s
+			 * the link's query vars into it ("all request arguments become
+			 * reserved parameter names"), and for the Login item it injects
+			 * login/logoutredirectchoice. The admin form keeps those in separate
+			 * fieldsets so they never round-trip; merging onto them here wrote
+			 * option/view/id into params on every params_set (seen on
+			 * cybersalt.com 2026-10-16: an article link's params went from []
+			 * to {"option":"com_content","view":"article","id":"844",...}).
+			 */
+			$existingParams = $this->normaliseParams($this->storedParams($id));
 			$merged = $existingParams;
 
 			// 1. params_set (lowest precedence among new values)
@@ -302,6 +311,22 @@ final class UpdateMenuItemTool extends AbstractTool
 			->bind(':element', $option);
 
 		return (int) $db->setQuery($q)->loadResult();
+	}
+
+	/**
+	 * The item's params exactly as stored in #__menu, without the request
+	 * vars getItem() folds in for the edit form.
+	 */
+	private function storedParams(int $id): string
+	{
+		$db = $this->db;
+		$q  = $db->getQuery(true)
+			->select($db->quoteName('params'))
+			->from($db->quoteName('#__menu'))
+			->where($db->quoteName('id') . ' = :id')
+			->bind(':id', $id, \Joomla\Database\ParameterType::INTEGER);
+
+		return (string) $db->setQuery($q)->loadResult();
 	}
 
 	/**

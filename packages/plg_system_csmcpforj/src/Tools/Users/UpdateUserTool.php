@@ -105,6 +105,14 @@ final class UpdateUserTool extends AbstractTool
 			}
 		}
 
+		// UserModel::save() also reads $data['block'] before bind (the "cannot
+		// block yourself" check). Absent, it is null — harmless to the check,
+		// but an undefined-key warning that display_errors would print into
+		// the response. Re-supply the current value.
+		if (!array_key_exists('block', $data)) {
+			$data['block'] = (int) $existing->block;
+		}
+
 		if (!$model->save($data)) {
 			return ToolResult::error('com_users rejected the update: ' . $model->getError());
 		}

@@ -16,7 +16,8 @@ final class GetArticleTool extends AbstractTool
 
 	public function getDescription(): string
 	{
-		return 'Fetch a single article by id, returning its core fields and resolved category title.';
+		return 'Fetch a single article by id, returning its core fields, resolved category title, '
+			. 'and tags (array of {id, title}).';
 	}
 
 	public function getInputSchema(): array
@@ -63,6 +64,11 @@ final class GetArticleTool extends AbstractTool
 		}
 
 		$row['images'] = $row['images'] ? json_decode((string) $row['images'], true) : null;
+
+		// Tags live in #__contentitem_tag_map, not on the row. Returned so a
+		// change made with update_article's `tags` argument can be checked.
+		$row['tags'] = $this->itemTags('com_content.article', $id);
+
 		return ToolResult::json($row);
 	}
 }

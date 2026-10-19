@@ -45,6 +45,22 @@
 - **`update_menu_item` no longer drops a menu item's language associations** on multilingual sites. Joomla deletes the association group when a save leaves it out; the tool now sends the current associations unless you pass new ones.
 - **Every other update tool was checked for the same pattern**, by reading what each Joomla model writes to other tables rather than only comparing the item's own row. Modules (menu assignment) and users (groups) were already protected; field groups, tags, user groups and template styles write nothing else.
 
+### 🐛 Fixed — menu item params picked up the link; custom field params were replaced, not merged
+
+- **`update_menu_item` no longer copies the menu link into the item's params.** Setting any params key (`params_set` or a named one such as `browser_page_title`) on an article link also stored the link's `option`, `view` and `id` in params, so `[]` became `{"option":"com_content","view":"article","id":"844",…}`. Joomla's menu item model adds the link's parts to params to fill in the edit form, and the tool merged its change onto that copy. It now merges onto the params as stored. Found on cybersalt.com. Items already affected can be cleaned with `params_unset: ["option","view","id"]`.
+- **`update_custom_field` now merges `params` and `fieldparams`**, as its description always said ("untouched properties preserve their current value"). A `params` argument used to replace the whole set, so setting just a hint dropped the field's other display options (where it shows, CSS classes, layout), which fell back to Joomla's defaults. Pass only the keys to change; `null` deletes a key; a nested value such as a list's options is replaced as a whole.
+- **`update_user_group` ran Joomla's Super User check against the wrong parent.** Joomla works out whether a group will carry Super User rights from the parent in the save, and a title-only update didn't send one, so the check treated the group as having no parent. A non-Super User could rename a group under Super Users, and a Super User whose rights come through that group could be refused. The tool now sends the current parent.
+- **`update_tag` and `update_user` now send the current `parent_id` and `block`.** Joomla reads both before saving. Without them the save still worked, but raised a PHP warning that a site set to display errors would print into the response.
+- These came from a second pass over every update tool, reading each Joomla model's save for values it uses before saving, and inside params, which the earlier checks of each item's own row and related tables could not see.
+
+### 🛡️ Fixed — one broken add-on no longer takes the whole MCP endpoint down
+
+- **A broken add-on now costs only its own tools.** Before, if any add-on failed while registering its tools (a tool file with a syntax error, a class missing after a half-finished update), every MCP request failed with HTTP 500, core tools included, so there was no way to use MCP to fix it. Now each add-on registers on its own. One that fails is skipped, any tools it had already added are removed, and the rest of MCP keeps working. The failure is recorded under **Components → MCP for Joomla → Logs** with the add-on's name, the file and the line. Found on our test site when one add-on's typo stopped MCP for every client.
+
+### 🚀 Added — `get_article` and `get_category` return tags
+
+- **Both now include `tags`**, an array of `{id, title}`, so a tag change made with the `tags` argument can be checked without leaving MCP.
+
 ### 🚀 Added — set an article's hit count
 
 - **New `hits` argument on `update_article`**, for merging duplicate articles: add the duplicates' hits to the copy you keep, then trash the duplicates. Until now that needed SQL. Requested by Susan on cybersalt.org. Leaving `hits` out keeps the current count, as with every other argument. The count is written directly, the way Joomla's own hit counter writes it. A call with only `id` and `hits` doesn't re-save the article, so its modified date stays the same and plugins that change text on save (for example ReReplacer) don't run. The response includes `previous_hits`.

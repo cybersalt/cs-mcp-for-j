@@ -11,9 +11,20 @@ use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\User\User;
 
 /**
- * @partial-save-safe GroupModel::save() binds only supplied keys. Verified
- * behaviourally on Joomla 6.1.4, 2026-10-09: created a group, changed only
- * `title`, re-read from list_user_groups and diffed — nothing else moved.
+ * @partial-save-safe The row is safe — GroupModel::save() binds only
+ * supplied keys. Verified behaviourally on Joomla 6.1.4, 2026-10-09: created a
+ * group, changed only `title`, re-read from list_user_groups and diffed —
+ * nothing else moved.
+ *
+ * ⚠️ That diff could not see the permission check. com_users' GroupModel::
+ * save() reads $data['parent_id'] BEFORE bind, unconditionally, to work out
+ * whether the group will carry core.admin (Access::checkGroup($data['parent_id'],
+ * 'core.admin')). With the key absent that resolves to "inherit", so a title-
+ * only update of a group under Super Users was checked as an ordinary group:
+ * a non-Super-User actor got past JLIB_USER_ERROR_NOT_SUPERADMIN, and a Super
+ * User whose rights come through that group could be refused with
+ * CANNOT_DEMOTE_SELF. parent_id is now re-supplied from the row (reviewed
+ * against Joomla 6.2.0, 2026-10-19).
  */
 final class UpdateUserGroupTool extends AbstractTool
 {
@@ -63,6 +74,14 @@ final class UpdateUserGroupTool extends AbstractTool
 			return ToolResult::error('No updatable fields supplied. Pass title and/or parent_id.');
 		}
 
+		$changed = array_values(array_diff(array_keys($data), ['id']));
+
+		// GroupModel::save() runs its Super User check on $data['parent_id']
+		// before bind; see the class docblock.
+		if (!array_key_exists('parent_id', $data)) {
+			$data['parent_id'] = (int) $existing['parent_id'];
+		}
+
 		$model  = $this->getModel('com_users', 'Group');
 		$result = $this->saveAdminModel($model, $data);
 
@@ -76,7 +95,7 @@ final class UpdateUserGroupTool extends AbstractTool
 		$response = [
 			'ok'             => true,
 			'id'             => $id,
-			'fields_changed' => array_values(array_diff(array_keys($data), ['id'])),
+			'fields_changed' => $changed,
 		];
 		if (!$result['ok'] && $result['error'] !== '') {
 			$response['post_save_warning'] = $result['error'];
