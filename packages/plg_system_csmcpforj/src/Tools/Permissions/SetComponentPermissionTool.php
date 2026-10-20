@@ -56,6 +56,13 @@ final class SetComponentPermissionTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		if (!$actor->authorise('core.admin')) {
+			return ToolResult::error(
+				'set_component_permission requires Super User (core.admin). The csmcpforj.write grant alone '
+				. 'is not sufficient because changing an ACL cell can grant any group Super User rights. Joomla\'s own Permissions screens require core.admin for the same reason.'
+			);
+		}
+
 		$component  = $this->requireSafeAssetName($this->requireString($arguments, 'component'));
 		$groupId    = $this->requirePositiveInt($arguments, 'group_id');
 		$permission = $this->requireString($arguments, 'permission');

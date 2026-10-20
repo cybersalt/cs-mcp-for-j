@@ -80,7 +80,7 @@ All three are bundled in `pkg_csmcpforj` and enabled automatically on install.
 
 ## Built-in tools
 
-`read` tools require ACL `csmcpforj.use`; `write` tools require `csmcpforj.write`. Super Users / Administrators / Managers pass both automatically.
+`read` tools require ACL `csmcpforj.use`; `write` tools require `csmcpforj.write`. Administrators hold both through Joomla's default `core.manage` grant (Managers only where a site grants it), but still need Web Services Login before they can connect (see Connecting a client). Five tools are limited to **Super Users** whatever the ACL says, because they can change who has power over the site: `install_extension`, `set_component_permission`, `apply_joomla_update`, `set_extension_enabled` and `set_plugin_params`.
 
 ### Articles
 | Tool | Access |
@@ -146,7 +146,7 @@ All three are bundled in `pkg_csmcpforj` and enabled automatically on install.
 |---|---|
 | `list_extensions` | read |
 | `list_plugins` | read |
-| `set_extension_enabled` | write |
+| `set_extension_enabled` | write (Super User) |
 
 ### Templates
 | Tool | Access |

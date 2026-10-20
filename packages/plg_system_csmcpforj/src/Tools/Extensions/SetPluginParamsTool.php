@@ -52,6 +52,13 @@ final class SetPluginParamsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		if (!$actor->authorise('core.admin')) {
+			return ToolResult::error(
+				'set_plugin_params requires Super User (core.admin). The csmcpforj.write grant alone '
+				. 'is not sufficient because plugin settings include security plugins (two-factor authentication, firewalls, authentication).'
+			);
+		}
+
 		$folder  = $this->requireString($arguments, 'folder');
 		$element = $this->requireString($arguments, 'element');
 		$incoming = $arguments['params'] ?? null;

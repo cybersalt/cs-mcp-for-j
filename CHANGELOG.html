@@ -2,6 +2,10 @@
 <h1>📋 MCP for Joomla — Changelog</h1>
 <h2>🚀 Version 2.9.0 (October 10, 2026)</h2>
 <p><strong>Connect by signing in.</strong> ChatGPT custom connectors and claude.ai / Claude Desktop "Add custom connector" can now connect to a Joomla site: paste the site's MCP address, sign in with a Joomla account, approve. Most other clients (Claude Code, VS Code + Copilot, Cursor, Gemini CLI, Codex, Cline) can sign in the same way. API keys keep working exactly as before. (<a href="https://github.com/cybersalt/cs-mcp-for-j/issues/36">#36</a>)</p>
+<h3>🛡️ Security — four tools now need a Super User</h3>
+<ul>
+<li><strong><code>set_component_permission</code>, <code>apply_joomla_update</code>, <code>set_extension_enabled</code> and <code>set_plugin_params</code> refuse anyone who isn't a Super User.</strong> Before, they only needed MCP write access, which Administrators have through Joomla's default <code>core.manage</code> grant (and Managers on sites that grant it). On a site that gives Administrators Web Services Login, an Administrator could have used <code>set_component_permission</code> to give their own group <code>core.admin</code> on the root asset and become a Super User (reproduced on Joomla 6.1.4), or switched off a two-factor or firewall plugin. Joomla's own Permissions, Update and security screens are limited the same way. <code>install_extension</code> already worked like this. Found while preparing the JED listing.</li>
+</ul>
 <h3>🚀 Added — OAuth 2.1 sign-in (opt-in)</h3>
 <ul>
 <li><strong>Off by default.</strong> Switch it on in Options → <strong>OAuth sign-in</strong>. Switching it off cuts every OAuth connection immediately.</li>

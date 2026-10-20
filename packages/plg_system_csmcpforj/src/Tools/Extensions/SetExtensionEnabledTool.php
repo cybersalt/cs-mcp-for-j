@@ -41,6 +41,13 @@ final class SetExtensionEnabledTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		if (!$actor->authorise('core.admin')) {
+			return ToolResult::error(
+				'set_extension_enabled requires Super User (core.admin). The csmcpforj.write grant alone '
+				. 'is not sufficient because disabling an extension can switch off security plugins such as two-factor authentication or a firewall.'
+			);
+		}
+
 		$extensionId = (int) ($arguments['extension_id'] ?? 0);
 		if ($extensionId <= 0) {
 			return ToolResult::error('extension_id is required.');

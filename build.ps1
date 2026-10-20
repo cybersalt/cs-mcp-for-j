@@ -119,8 +119,10 @@ Copy-Item $pkgXml                              -Destination $staging -Force
 Copy-Item (Join-Path $root 'script.php')       -Destination $staging -Force
 Copy-Item (Join-Path $root 'language\*')       -Destination (Join-Path $staging 'language') -Recurse -Force
 
-if (Test-Path (Join-Path $root 'LICENSE.txt')) {
-    Copy-Item (Join-Path $root 'LICENSE.txt') -Destination $staging -Force
+foreach ($legal in 'LICENSE.txt', 'NOTICE.txt') {
+    if (Test-Path (Join-Path $root $legal)) {
+        Copy-Item (Join-Path $root $legal) -Destination $staging -Force
+    }
 }
 
 # Every release package carries its full changelog (Joomla-Brain VERSION-BUMP-CHECKLIST).

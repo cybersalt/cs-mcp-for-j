@@ -83,6 +83,13 @@ final class ApplyJoomlaUpdateTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		if (!$actor->authorise('core.admin')) {
+			return ToolResult::error(
+				'apply_joomla_update requires Super User (core.admin). The csmcpforj.write grant alone '
+				. 'is not sufficient because it replaces Joomla\'s core files. Joomla\'s own Update screen is limited to Super Users for the same reason.'
+			);
+		}
+
 		if (($arguments['confirm'] ?? null) !== true) {
 			return ToolResult::error(
 				'Refused: apply_joomla_update requires explicit confirm=true. This is '

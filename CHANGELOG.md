@@ -4,6 +4,10 @@
 
 **Connect by signing in.** ChatGPT custom connectors and claude.ai / Claude Desktop "Add custom connector" can now connect to a Joomla site: paste the site's MCP address, sign in with a Joomla account, approve. Most other clients (Claude Code, VS Code + Copilot, Cursor, Gemini CLI, Codex, Cline) can sign in the same way. API keys keep working exactly as before. ([#36](https://github.com/cybersalt/cs-mcp-for-j/issues/36))
 
+### 🛡️ Security — four tools now need a Super User
+
+- **`set_component_permission`, `apply_joomla_update`, `set_extension_enabled` and `set_plugin_params` refuse anyone who isn't a Super User.** Before, they only needed MCP write access, which Administrators have through Joomla's default `core.manage` grant (and Managers on sites that grant it). On a site that gives Administrators Web Services Login, an Administrator could have used `set_component_permission` to give their own group `core.admin` on the root asset and become a Super User (reproduced on Joomla 6.1.4), or switched off a two-factor or firewall plugin. Joomla's own Permissions, Update and security screens are limited the same way. `install_extension` already worked like this. Found while preparing the JED listing.
+
 ### 🚀 Added — OAuth 2.1 sign-in (opt-in)
 
 - **Off by default.** Switch it on in Options → **OAuth sign-in**. Switching it off cuts every OAuth connection immediately.
