@@ -1,5 +1,46 @@
 # Changelog
 
+## 🚀 Version 2.10.0 (unreleased, in test)
+
+**Everything on Joomla 6.2's edit screens, through MCP.** A review of every create, update and get tool against Joomla 6.2.0's own forms and tables, after Susan found `update_article` had no author field. Where a field is an options blob (images, links, Options tab, metadata, params), you pass only the keys you want to change; they are merged onto what's stored, and `null` removes a key. Leaving an argument out still changes nothing. Dates are UTC, in the same format the get tools return.
+
+### 🚀 Added — articles
+- **`update_article` and `create_article` can set the intro and full-text images**, including Joomla 6.2's new image class (`imgclass_intro` / `imgclass_fulltext`) alongside the figure class, alt text, the "No description" box and captions ([#24](https://github.com/cybersalt/cs-mcp-for-j/issues/24)).
+- **Also settable:** Links A–C (`urls`), the Options tab (`attribs`), robots / author / rights (`metadata`), the note, a version note, and the created, publish and featured dates. `get_article` returns all of them.
+
+### 🚀 Added — categories and tags
+- **`create_category` / `update_category`:** note, created by and created date, archived and trashed status, tags on create, a version note, the Options (layout, image, image alt text, workflow) and the meta author and robots.
+- **`create_tag` / `update_tag`:** meta description and keywords, note, created by, created-by alias, archived and trashed status, the Images tab, layout and link class, meta author and robots, and a version note.
+- **`get_category` and `get_tag` return options, images and metadata as objects**, in the shape the update tools take (they used to be JSON text).
+
+### 🚀 Added — menu items and modules
+- **`create_menu_item` / `update_menu_item`:** the Link Type options (Display in Menu, image, icon and link class, rel), publish up and down, ordering, alias targets (`alias_target`), language associations, and any component view option through `params` / `params_set`, such as Joomla 6.2's new `show_subcat_image`. `create_menu_item` can now set params at all.
+- **`create_module` / `update_module`:** publish up and down, ordering, trash and associations; `params` on update is merged instead of replaced. `get_module` returns the menu assignment in the form `update_module` accepts.
+
+### 🚀 Added — users and groups
+- **`create_user` / `update_user` can set every user setting on Joomla 6.2's user screen:** backend template, admin and site language, editor, time zone, colour scheme, guided-tour autostart and the four accessibility options. `get_user` returns them, plus whether the account is activated and which multi-factor methods are set up (never their secrets).
+- **Passwords set through MCP must meet the site's Password Options**, and changing another user's password or email is checked against the target account.
+
+### 🚀 Added — custom fields, field groups and template styles
+- **Custom fields and field groups can be set up fully:** the Options tab (`params`: placeholder, CSS classes, display position, label, layout, Smart Search), note, ordering, "only use in subform", name (update), created by and created date, archived and trashed states.
+- **`set_custom_field_value` handles multi-value fields:** pass `values` (an array) for checkboxes and multi-select lists.
+- **`update_template_style` can set the default per language** (`home` as a language code) **and the Menu Assignment** (`assigned_menu_item_ids`).
+
+### 🚀 Added — component Options
+- **New `get_component_params`** (read; needs the right to open that component's Options screen, because Options can hold API keys and other secrets): any component's Options (the settings behind the Options button, such as Articles, Contacts or Users), with every declared option's label, default and choices, and which ones have never been saved. This makes Joomla 6.2's new "Subcategories Image" (`show_subcat_image`) option visible.
+- **New `set_component_params`** (write, Super User only): changes component Options by merging. Joomla's settings cache is cleared so the change shows at once. Permissions, Global Configuration and MCP for J's own options are refused.
+
+### 🐛 Fixed
+- **`update_article` with `featured` wiped an already-featured article's Start / Finish Featured dates.** They are kept unless you pass `featured_up` / `featured_down`.
+- **`update_menu_item` could not edit the site's home page item at all**, not even its title ("cannot unset default").
+- **Robots values written by the menu tools didn't match Joomla's** (`index,follow` instead of `index, follow`), so the admin dropped them on its next save. The old spelling is still accepted and corrected.
+- **Creating a top-level menu item whose alias was already used in another menu crashed** instead of explaining the clash; alias, parent and language changes on update are now checked too.
+- **Alias-type menu items were created without a target.**
+- **`set_default_template_style` wiped the per-language defaults on multilingual sites**, and accepted a disabled template. `get_template_style` reported a per-language default as 0 and a child template's parent as 0.
+- **`set_custom_field_value` overwrote every stored value with the same one** on items that had several, and inserted a stray row for a field id that doesn't exist.
+- **`create_user` could report an existing account as newly created** when the username was taken.
+- **`update_user_group` reported refused saves as successful** and could move a group under its own child.
+
 ## 🚀 Version 2.9.4 (October 20, 2026)
 
 **New name: CS MCP for J.** No functional change.

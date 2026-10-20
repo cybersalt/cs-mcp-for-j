@@ -21,8 +21,12 @@ final class GetArticleTool extends AbstractTool
 
 	public function getDescription(): string
 	{
-		return 'Fetch a single article by id, returning its core fields, resolved category title, '
-			. 'author (created_by as {id, name, username}, plus created_by_alias) and tags (array of {id, title}).';
+		return 'Fetch a single article by id, returning every field on its edit screen: core fields, resolved category title, '
+			. 'author (created_by as {id, name, username}, plus created_by_alias), tags (array of {id, title}), note, '
+			. 'images (intro and full-text image, alt text, image class, figure class, caption), urls (links A to C), '
+			. 'attribs (the Options tab), metadata (robots, author, rights), the featured dates and the version number. '
+			. 'All dates (created, modified, publish_up, publish_down, featured_up, featured_down) are UTC, '
+			. 'in the same format update_article accepts.';
 	}
 
 	public function getInputSchema(): array
@@ -56,7 +60,10 @@ final class GetArticleTool extends AbstractTool
 				$this->db->quoteName('u.name', 'author_name'), $this->db->quoteName('u.username', 'author_username'),
 				$this->db->quoteName('a.modified'), $this->db->quoteName('a.modified_by'),
 				$this->db->quoteName('a.publish_up'), $this->db->quoteName('a.publish_down'),
-				$this->db->quoteName('a.hits'),
+				$this->db->quoteName('f.featured_up'), $this->db->quoteName('f.featured_down'),
+				$this->db->quoteName('a.hits'), $this->db->quoteName('a.note'),
+				$this->db->quoteName('a.urls'), $this->db->quoteName('a.attribs'), $this->db->quoteName('a.metadata'),
+				$this->db->quoteName('a.version'),
 			])
 			->from($this->db->quoteName('#__content', 'a'))
 			->leftJoin(
@@ -67,6 +74,11 @@ final class GetArticleTool extends AbstractTool
 				$this->db->quoteName('#__users', 'u')
 				. ' ON ' . $this->db->quoteName('u.id') . ' = ' . $this->db->quoteName('a.created_by')
 			)
+			// Start/Finish Featured live in the frontpage map, not on the row.
+			->leftJoin(
+				$this->db->quoteName('#__content_frontpage', 'f')
+				. ' ON ' . $this->db->quoteName('f.content_id') . ' = ' . $this->db->quoteName('a.id')
+			)
 			->where($this->db->quoteName('a.id') . ' = ' . $id);
 
 		$row = $this->db->setQuery($query)->loadAssoc();
@@ -74,7 +86,13 @@ final class GetArticleTool extends AbstractTool
 			return ToolResult::error('Article ' . $id . ' not found.');
 		}
 
-		$row['images'] = $row['images'] ? json_decode((string) $row['images'], true) : null;
+		// The JSON columns as objects. An empty column comes back as {} rather
+		// than [] so the shape matches what update_article accepts.
+		foreach (['images', 'urls', 'attribs', 'metadata'] as $column) {
+			$decoded      = $row[$column] ? json_decode((string) $row[$column], true) : null;
+			$row[$column] = is_array($decoded) && $decoded !== [] ? $decoded : new \stdClass();
+		}
+		$row['version'] = (int) $row['version'];
 
 		// 2.9.2: the author as {id, name, username} so it can be checked after
 		// update_article's created_by. name/username are null when the user

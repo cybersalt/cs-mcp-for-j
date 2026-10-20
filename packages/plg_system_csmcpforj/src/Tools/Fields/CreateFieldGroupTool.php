@@ -15,15 +15,28 @@ use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\User\User;
 
+/**
+ * Create a custom-field group through com_fields' GroupModel.
+ *
+ * Covers every field on Joomla 6.2's field-group edit screen (com_fields/
+ * forms/group.xml) except the Permissions tab (`rules`), left out on purpose:
+ * it writes the group's #__assets row, a privilege change that deserves its
+ * own tool. Checked against 6.2.0, 2026-10-20.
+ */
 final class CreateFieldGroupTool extends AbstractTool
 {
+	use FieldsArgumentsTrait;
+
 	public function getName(): string { return 'create_field_group'; }
 
 	public function getDescription(): string
 	{
 		return 'Create a custom-field group. Required: title, context (e.g. '
-			. '"com_content.article", "com_users.user"). Optional: state (default 1 published), '
-			. 'access (default 1 Public), language (default "*"), description, note. The group '
+			. '"com_content.article", "com_users.user"). Optional: state (1 published (default), '
+			. '0 unpublished, 2 archived, -2 trashed), access (default 1 Public), language (default '
+			. '"*"), description, note, ordering, created_by, created (UTC), params '
+			. '({display_readonly: "1" show the group\'s fields read-only to users who cannot edit '
+			. 'them (default), "0" hide them}). The group '
 			. 'becomes a tab in the article editor — assign custom fields to it via '
 			. 'update_custom_field(group_id=...). Goes through com_fields\' GroupModel so all '
 			. 'standard save hooks fire.';
@@ -37,11 +50,15 @@ final class CreateFieldGroupTool extends AbstractTool
 			'properties' => [
 				'title'       => ['type' => 'string'],
 				'context'     => ['type' => 'string'],
-				'state'       => ['type' => 'integer', 'enum' => [0, 1]],
-				'access'      => ['type' => 'integer'],
-				'language'    => ['type' => 'string'],
+				'state'       => ['type' => 'integer', 'enum' => [1, 0, 2, -2], 'description' => '1 published (default), 0 unpublished, 2 archived, -2 trashed.'],
+				'access'      => ['type' => 'integer', 'description' => 'Viewing access level id (list_access_levels). Default 1 (Public).'],
+				'language'    => ['type' => 'string', 'description' => 'Language code, or "*" for all (default).'],
 				'description' => ['type' => 'string'],
 				'note'        => ['type' => 'string'],
+				'ordering'    => ['type' => 'integer'],
+				'created_by'  => ['type' => 'integer', 'description' => 'Created by: user id. Defaults to you.'],
+				'created'     => ['type' => 'string', 'description' => 'Created date in UTC, e.g. "2026-10-20 14:30:00". Defaults to now.'],
+				'params'      => ['type' => 'object', 'description' => 'Options. Key: display_readonly ("1" show the fields read-only to users who cannot edit them, the default; "0" hide them).', 'additionalProperties' => true],
 			],
 			'additionalProperties' => false,
 		];
@@ -56,13 +73,24 @@ final class CreateFieldGroupTool extends AbstractTool
 			'id'          => 0,
 			'title'       => $this->requireString($arguments, 'title'),
 			'context'     => $context,
-			'state'       => isset($arguments['state']) ? (int) $arguments['state'] : 1,
+			'state'       => isset($arguments['state']) ? $this->fieldState($arguments['state']) : 1,
 			'access'      => isset($arguments['access']) ? (int) $arguments['access'] : 1,
 			'language'    => (string) ($arguments['language'] ?? '*'),
 			'description' => (string) ($arguments['description'] ?? ''),
 			'note'        => (string) ($arguments['note'] ?? ''),
-			'params'      => json_encode(new \stdClass()),
+			'params'      => json_encode((object) (isset($arguments['params'])
+				? array_filter($this->fieldObjectArg($arguments['params'], 'params'), static fn ($v) => $v !== null)
+				: [])),
 		];
+		if (isset($arguments['ordering'])) {
+			$data['ordering'] = (int) $arguments['ordering'];
+		}
+		if (isset($arguments['created_by'])) {
+			$data['created_by'] = $this->fieldCreatorId($arguments['created_by'], 'created_by');
+		}
+		if (isset($arguments['created'])) {
+			$data['created'] = $this->fieldCreatedDate($arguments['created'], 'created');
+		}
 
 		$model = $this->getModel('com_fields', 'Group');
 		// GroupModel keys state by its own name (e.g. "group.context"). Set the context state

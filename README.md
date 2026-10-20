@@ -61,12 +61,12 @@ The Joomla user who owns the token (or who signed in) is the actor on every tool
 
 - **Web Services Login** (`core.login.api`) gates all of Joomla's API, MCP included. Only Super Users have it by default. Grant it to other groups in **System → Global Configuration → Permissions**.
 - **Use MCP endpoint** (`csmcpforj.use`) allows read tools; **Write through MCP endpoint** (`csmcpforj.write`) allows tools that change things. Set them in **Components → MCP for J → Options → Permissions**. `core.manage` or `core.admin` on the component also pass, so with Joomla's defaults Super Users and Administrators have both. Managers and other groups need them granted.
-- **Five tools are limited to Super Users** whatever the permissions say, because they can change who has power over the site: `install_extension`, `set_component_permission`, `apply_joomla_update`, `set_extension_enabled`, `set_plugin_params`.
+- **Six tools are limited to Super Users** whatever the permissions say, because they can change who has power over the site: `install_extension`, `set_component_permission`, `apply_joomla_update`, `set_extension_enabled`, `set_plugin_params`, `set_component_params`.
 - Tools that manage other users' API tokens refuse to act on a user whose group is equal to or above the caller's.
 
 **Read-only mode** (Options → MCP server) makes the endpoint announce and accept read-only tools only. A client can also add `?read_only=1` to the endpoint URL to narrow a session further, but can't unlock writes on a site set to read-only. `?categories=articles,users` limits a session to some tool groups.
 
-## Built-in tools (93)
+## Built-in tools (95)
 
 `read` = Use MCP endpoint, `write` = Write through MCP endpoint, `write (Super User)` = also needs a Super User. Every tool publishes its JSON schema and MCP annotations through `tools/list`.
 
@@ -167,14 +167,16 @@ The Joomla user who owns the token (or who signed in) is the actor on every tool
 | `list_component_permissions` | read | Return the ACL state for a component or the root asset. |
 | `set_component_permission` | write (Super User) | Set one ACL cell on a component or the root asset. |
 
-### Extensions and plugins (6)
+### Extensions and plugins (8)
 
 | Tool | Access | What it does |
 |---|---|---|
+| `get_component_params` | read (needs the component's Options right) | Read a component's Options (the settings behind its Options button), with each option's label, default and choices. |
 | `get_plugin_params` | read | Read a Joomla plugin's params (its Options screen settings). |
 | `install_extension` | write (Super User) | Install (or upgrade) a Joomla extension from a URL or local zip. |
 | `list_extensions` | read | List installed extensions of any type (component, plugin, module, template, library, package, language, file). |
 | `list_plugins` | read | List installed plugins, optionally filtered by group (system, content, authentication, etc.) and enabled state. |
+| `set_component_params` | write (Super User) | Change a component's Options; only the keys you pass change. Permissions, Global Configuration and MCP for J's own options are refused. |
 | `set_extension_enabled` | write (Super User) | Enable or disable an installed extension by extension_id. |
 | `set_plugin_params` | write (Super User) | Modify a Joomla plugin's params (its Options screen settings). |
 

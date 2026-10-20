@@ -21,8 +21,12 @@ final class GetUserTool extends AbstractTool
 
 	public function getDescription(): string
 	{
-		return 'Fetch a single user by id (or by username). Returns the user record including '
-			. 'group memberships. Password hash, otpKey, otep, and activation tokens are NEVER returned. '
+		return 'Fetch a single user by id (or by username or email). Returns the Account Details fields '
+			. '(name, username, email, block, sendEmail, requireReset, registerDate, lastvisitDate, lastResetTime, '
+			. 'resetCount, authProvider), activated (false while an activation link is outstanding), group '
+			. 'memberships, params (Basic and Accessibility Settings, decoded) and mfa (the Multi-factor '
+			. 'Authentication methods set up: method, title, default, dates — never their secrets). '
+			. 'Password hash, otpKey, otep, MFA options and activation tokens are NEVER returned. '
 			. 'Set include_profile=true to also return #__user_profiles rows (joomlatoken state, '
 			. 'profile plugin fields, vendor plugin fields, etc.); the raw joomlatoken.token secret '
 			. 'is redacted but its presence is reported.';
@@ -65,6 +69,22 @@ final class GetUserTool extends AbstractTool
 			return ToolResult::error('User not found.');
 		}
 
+		foreach (['id', 'block', 'sendEmail', 'resetCount', 'requireReset'] as $intKey) {
+			$user[$intKey] = (int) $user[$intKey];
+		}
+
+		// Decoded, so it reads the same shape update_user's params patch takes.
+		$params         = json_decode((string) $user['params'], true);
+		$user['params'] = (object) (is_array($params) ? $params : []);
+
+		// Only whether an activation is pending — never the code itself.
+		$user['activated'] = (string) $this->db->setQuery(
+			$this->db->getQuery(true)
+				->select($this->db->quoteName('activation'))
+				->from($this->db->quoteName('#__users'))
+				->where($this->db->quoteName('id') . ' = ' . $user['id'])
+		)->loadResult() === '';
+
 		$gq = $this->db->getQuery(true)
 			->select([$this->db->quoteName('g.id'), $this->db->quoteName('g.title')])
 			->from($this->db->quoteName('#__user_usergroup_map', 'm'))
@@ -72,11 +92,45 @@ final class GetUserTool extends AbstractTool
 			->where($this->db->quoteName('m.user_id') . ' = ' . (int) $user['id']);
 		$user['groups'] = $this->db->setQuery($gq)->loadAssocList() ?: [];
 
+		$user['mfa'] = $this->loadMfaMethods($user['id']);
+
 		if (!empty($arguments['include_profile'])) {
 			$user['profile'] = $this->loadProfile((int) $user['id']);
 		}
 
 		return ToolResult::json($user);
+	}
+
+	/**
+	 * The Multi-factor Authentication methods on the user's MFA tab, without
+	 * the `options` column — that holds the (encrypted) TOTP secret, backup
+	 * codes, WebAuthn keys and so on. Retry counters are left out too.
+	 *
+	 * @return array<int, array<string, mixed>>
+	 */
+	private function loadMfaMethods(int $userId): array
+	{
+		try {
+			$rows = $this->db->setQuery(
+				$this->db->getQuery(true)
+					->select($this->db->quoteName(['id', 'method', 'title', 'default', 'created_on', 'last_used']))
+					->from($this->db->quoteName('#__user_mfa'))
+					->where($this->db->quoteName('user_id') . ' = ' . $userId)
+					->order($this->db->quoteName('id') . ' ASC')
+			)->loadAssocList() ?: [];
+		} catch (\Throwable) {
+			// No #__user_mfa table (pre-4.2 schema): nothing set up.
+			return [];
+		}
+
+		return array_map(static fn (array $r): array => [
+			'id'         => (int) $r['id'],
+			'method'     => (string) $r['method'],
+			'title'      => (string) $r['title'],
+			'default'    => (bool) $r['default'],
+			'created_on' => $r['created_on'],
+			'last_used'  => $r['last_used'],
+		], $rows);
 	}
 
 	/**

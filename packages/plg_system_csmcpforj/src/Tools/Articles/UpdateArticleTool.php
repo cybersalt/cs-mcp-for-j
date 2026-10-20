@@ -15,6 +15,7 @@ use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\McpException;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\User\User;
+use Joomla\Registry\Registry;
 
 /**
  * @partial-save-safe com_content's ArticleModel::save() binds only the keys it is
@@ -52,15 +53,43 @@ use Joomla\CMS\User\User;
  *   fills `created_by` from the current user on a NEW row, so an update keeps
  *   whatever is bound. After the save the stored values are read back and the
  *   call fails if they differ from what was asked for.
+ *
+ *   The rest of the edit screen (the release after 2.9.2, checked against Joomla 6.2.0's
+ *   forms/article.xml and ArticleModel::save()):
+ *
+ *   - `images`, `urls`, `attribs`, `metadata` are JSON columns. Each is sent
+ *     ONLY when its argument is supplied, and then as the stored blob with the
+ *     caller's keys merged on (mergeJsonPatch), so keys the caller did not
+ *     name keep their values. `urls` goes over as a JSON string, not an array:
+ *     ArticleModel::save() runs an array of urls through a check that reads
+ *     the raw jform POST, which an MCP request does not have. We do its
+ *     punycode step ourselves in ArticleFieldsTrait.
+ *   - `note`, `created`, `publish_up`, `publish_down` are plain columns, sent
+ *     only when supplied. Dates are taken as UTC and bound as-is (no form
+ *     filter runs on this path, unlike the admin form's user_utc and the core
+ *     API above), then read back and any difference is reported.
+ *   - ⚠️ FEATURED DATES. ArticleModel::save() calls featured() whenever
+ *     `featured` is in $data, passing `$data['featured_up'] ?? null`, and
+ *     featured() writes those straight to #__content_frontpage. So sending
+ *     `featured` alone WIPES an already-featured article's Start/Finish
+ *     Featured dates. Up to 2.9.2 this tool did exactly that. Now, when any of
+ *     featured / featured_up / featured_down is supplied, all three are sent,
+ *     the missing ones re-supplied from the loaded row; when none is supplied
+ *     none is sent and featured() is not called.
+ *   - `version_note` is not a column; it is passed where Joomla 5 and 6 each
+ *     look for it (see ArticleFieldsTrait::withArticleVersionNote()).
  */
 final class UpdateArticleTool extends AbstractTool
 {
 	use ArticleAuthorTrait;
+	use ArticleFieldsTrait;
 
 	private const UPDATABLE_SCALARS = [
 		'title', 'alias', 'catid', 'state', 'language', 'access',
-		'metadesc', 'metakey', 'featured',
+		'metadesc', 'metakey',
 	];
+
+	private const JSON_COLUMNS = ['images', 'urls', 'attribs', 'metadata'];
 
 	public function getName(): string { return 'update_article'; }
 
@@ -73,7 +102,13 @@ final class UpdateArticleTool extends AbstractTool
 			. 'article\'s hit count (for example when merging duplicates); a call with only id and hits '
 			. 'changes nothing else and does not re-save the article. Pass created_by (a user id, username or '
 			. 'email of an existing user) to change the author, and created_by_alias to set the "written by" '
-			. 'name shown instead of the author\'s; an empty string clears the alias.';
+			. 'name shown instead of the author\'s; an empty string clears the alias. '
+			. 'The rest of the edit screen is here too: images (intro and full-text image, alt text, image class, '
+			. 'figure class, caption), urls (links A to C), attribs (the Options tab), metadata (robots, author, rights), '
+			. 'note, version_note, and the dates created, publish_up, publish_down, featured_up and featured_down. '
+			. 'images, urls, attribs and metadata are objects: pass only the keys to change; they are merged onto '
+			. 'what is stored, and a null value removes a key. Dates are UTC ("YYYY-MM-DD HH:MM:SS"), the same as '
+			. 'get_article returns them.';
 	}
 
 	public function getInputSchema(): array
@@ -88,16 +123,16 @@ final class UpdateArticleTool extends AbstractTool
 				'catid'       => ['type' => 'integer'],
 				'articletext' => ['type' => 'string', 'description' => 'Replacement HTML body.'],
 				'state'       => ['type' => 'integer', 'enum' => [0, 1, 2, -2]],
-				'featured'    => ['type' => 'integer', 'enum' => [0, 1]],
+				'featured'    => ['type' => 'integer', 'enum' => [0, 1], 'description' => '1 features the article, 0 unfeatures it. Its Start/Finish Featured dates are kept unless you also pass featured_up / featured_down.'],
 				'language'    => ['type' => 'string'],
 				'access'      => ['type' => 'integer'],
 				'metadesc'    => ['type' => 'string'],
 				'metakey'     => ['type' => 'string'],
 				'tags'        => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Tag ids. Replaces the tags on the article; [] removes them all. Omit to keep the current tags.'],
 				'hits'        => ['type' => 'integer', 'minimum' => 0, 'description' => 'Sets the hit count. Omit to keep the current count. Written directly; does not change the modified date.'],
-				'created_by'  => ['type' => ['integer', 'string'], 'description' => 'The article\'s author: a user id, username or email address. Must match exactly one existing user. Omit to keep the current author.'],
+				'created_by'  => ['type' => 'string', 'description' => 'The article\'s author: a user id, username or email address. Must match exactly one existing user. Omit to keep the current author.'],
 				'created_by_alias' => ['type' => 'string', 'description' => 'Author alias shown instead of the author\'s name. An empty string clears it. Omit to keep the current alias.'],
-			],
+			] + $this->articleFieldsSchema(true),
 			'additionalProperties' => false,
 		];
 	}
@@ -153,13 +188,73 @@ final class UpdateArticleTool extends AbstractTool
 		if (array_key_exists('created_by_alias', $arguments)) {
 			$data['created_by_alias'] = $this->articleAuthorAlias($arguments['created_by_alias']);
 		}
+		if (array_key_exists('note', $arguments)) {
+			$data['note'] = $this->articleShortText($arguments['note'], 'note');
+		}
+		$versionNote = null;
+		if (array_key_exists('version_note', $arguments)) {
+			$versionNote          = $this->articleShortText($arguments['version_note'], 'version_note');
+			$data['version_note'] = $versionNote;
+		}
+
+		// Row dates, UTC, only the ones supplied. Kept for the read-back check.
+		$askedDates = [];
+		foreach (['created' => false, 'publish_up' => true, 'publish_down' => true] as $key => $nullable) {
+			if (array_key_exists($key, $arguments)) {
+				$data[$key] = $askedDates[$key] = $this->articleDate($arguments[$key], $key, $nullable);
+			}
+		}
+
+		// Featured: send all three or none. ArticleModel::save() passes
+		// featured_up/down to featured() whenever `featured` is present, and a
+		// missing one is written as NULL. See the class docblock.
+		if (array_intersect(['featured', 'featured_up', 'featured_down'], array_keys($arguments)) !== []) {
+			$featured = array_key_exists('featured', $arguments) ? $arguments['featured'] : (int) $existing->featured;
+			if (!in_array($featured, [0, 1, '0', '1'], true)) {
+				throw new McpException(-32602, 'featured must be 0 or 1; got ' . json_encode($featured) . '.');
+			}
+			$featured         = (int) $featured;
+			$data['featured'] = $featured;
+
+			foreach (['featured_up', 'featured_down'] as $key) {
+				if (!array_key_exists($key, $arguments)) {
+					$current    = $featured === 1 ? ($existing->$key ?? null) : null;
+					$data[$key] = ($current === null || $current === '') ? null : (string) $current;
+					continue;
+				}
+
+				$data[$key] = $this->articleDate($arguments[$key], $key, true);
+
+				if ($featured === 1) {
+					$askedDates[$key] = $data[$key];
+				} elseif ($data[$key] !== null) {
+					throw new McpException(-32602, $key . ' only applies to a featured article, and article ' . $id
+						. (array_key_exists('featured', $arguments) ? ' would be unfeatured by this call' : ' is not featured')
+						. '. Pass featured: 1 as well.');
+				}
+			}
+		}
+
+		// JSON columns: the stored blob with the caller's keys merged on, and
+		// only when the argument is supplied.
+		foreach (self::JSON_COLUMNS as $column) {
+			if (!array_key_exists($column, $arguments)) {
+				continue;
+			}
+
+			$merged = $this->mergeJsonPatch($existing->$column ?? null, $this->articleJsonArg($arguments[$column], $column));
+
+			// urls as a string, so ArticleModel::save() skips its raw-POST check.
+			$data[$column] = $column === 'urls' ? (string) new Registry($merged) : $merged;
+		}
+
 		$data['modified_by'] = (int) $actor->id;
 
 		// Always send tags: Joomla's Taggable behaviour deletes them when the
 		// key is missing. See AbstractTool::resolveTags().
 		$data['tags'] = $this->resolveTags($arguments, 'com_content.article', $id);
 
-		$result = $this->saveAdminModel($model, $data);
+		$result = $this->withArticleVersionNote($versionNote, fn (): array => $this->saveAdminModel($model, $data));
 
 		// On update, the row already exists with $id — the model's state id is
 		// less critical than on create, but a "false" save() with no fatal
@@ -196,10 +291,12 @@ final class UpdateArticleTool extends AbstractTool
 			$this->writeHits($id, $hits);
 		}
 
-		$changed = array_values(array_diff(array_keys($data), array_merge(['id', 'modified_by'], array_key_exists('tags', $arguments) ? [] : ['tags'])));
-		if ($hits !== null) {
-			$changed[] = 'hits';
-		}
+		// Dates are compared with what landed: Joomla adjusts some on save.
+		$dateWarning = $this->articleDateWarning($id, $askedDates);
+
+		// What the caller asked to change. Not array_keys($data): that also
+		// holds what was re-supplied to keep it (tags, the featured dates).
+		$changed = array_values(array_diff(array_keys($arguments), ['id', 'version_note']));
 
 		$response = [
 			'ok'             => true,
@@ -218,6 +315,12 @@ final class UpdateArticleTool extends AbstractTool
 		if (array_key_exists('created_by_alias', $data)) {
 			$response['created_by_alias']          = $data['created_by_alias'];
 			$response['previous_created_by_alias'] = (string) $existing->created_by_alias;
+		}
+		if ($versionNote !== null) {
+			$response['version_note'] = $versionNote;
+		}
+		if ($dateWarning !== null) {
+			$response['date_warning'] = $dateWarning;
 		}
 		if (!$result['ok'] && $result['error'] !== '') {
 			$response['post_save_warning'] = $result['error'];

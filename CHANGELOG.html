@@ -1,5 +1,52 @@
 <div class="changelog-container">
 <h1>📋 MCP for J — Changelog</h1>
+<h2>🚀 Version 2.10.0 (unreleased, in test)</h2>
+<p><strong>Everything on Joomla 6.2's edit screens, through MCP.</strong> A review of every create, update and get tool against Joomla 6.2.0's own forms and tables, after Susan found <code>update_article</code> had no author field. Where a field is an options blob (images, links, Options tab, metadata, params), you pass only the keys you want to change; they are merged onto what's stored, and <code>null</code> removes a key. Leaving an argument out still changes nothing. Dates are UTC, in the same format the get tools return.</p>
+<h3>🚀 Added — articles</h3>
+<ul>
+<li><strong><code>update_article</code> and <code>create_article</code> can set the intro and full-text images</strong>, including Joomla 6.2's new image class (<code>imgclass_intro</code> / <code>imgclass_fulltext</code>) alongside the figure class, alt text, the "No description" box and captions (<a href="https://github.com/cybersalt/cs-mcp-for-j/issues/24">#24</a>).</li>
+<li><strong>Also settable:</strong> Links A–C (<code>urls</code>), the Options tab (<code>attribs</code>), robots / author / rights (<code>metadata</code>), the note, a version note, and the created, publish and featured dates. <code>get_article</code> returns all of them.</li>
+</ul>
+<h3>🚀 Added — categories and tags</h3>
+<ul>
+<li><strong><code>create_category</code> / <code>update_category</code>:</strong> note, created by and created date, archived and trashed status, tags on create, a version note, the Options (layout, image, image alt text, workflow) and the meta author and robots.</li>
+<li><strong><code>create_tag</code> / <code>update_tag</code>:</strong> meta description and keywords, note, created by, created-by alias, archived and trashed status, the Images tab, layout and link class, meta author and robots, and a version note.</li>
+<li><strong><code>get_category</code> and <code>get_tag</code> return options, images and metadata as objects</strong>, in the shape the update tools take (they used to be JSON text).</li>
+</ul>
+<h3>🚀 Added — menu items and modules</h3>
+<ul>
+<li><strong><code>create_menu_item</code> / <code>update_menu_item</code>:</strong> the Link Type options (Display in Menu, image, icon and link class, rel), publish up and down, ordering, alias targets (<code>alias_target</code>), language associations, and any component view option through <code>params</code> / <code>params_set</code>, such as Joomla 6.2's new <code>show_subcat_image</code>. <code>create_menu_item</code> can now set params at all.</li>
+<li><strong><code>create_module</code> / <code>update_module</code>:</strong> publish up and down, ordering, trash and associations; <code>params</code> on update is merged instead of replaced. <code>get_module</code> returns the menu assignment in the form <code>update_module</code> accepts.</li>
+</ul>
+<h3>🚀 Added — users and groups</h3>
+<ul>
+<li><strong><code>create_user</code> / <code>update_user</code> can set every user setting on Joomla 6.2's user screen:</strong> backend template, admin and site language, editor, time zone, colour scheme, guided-tour autostart and the four accessibility options. <code>get_user</code> returns them, plus whether the account is activated and which multi-factor methods are set up (never their secrets).</li>
+<li><strong>Passwords set through MCP must meet the site's Password Options</strong>, and changing another user's password or email is checked against the target account.</li>
+</ul>
+<h3>🚀 Added — custom fields, field groups and template styles</h3>
+<ul>
+<li><strong>Custom fields and field groups can be set up fully:</strong> the Options tab (<code>params</code>: placeholder, CSS classes, display position, label, layout, Smart Search), note, ordering, "only use in subform", name (update), created by and created date, archived and trashed states.</li>
+<li><strong><code>set_custom_field_value</code> handles multi-value fields:</strong> pass <code>values</code> (an array) for checkboxes and multi-select lists.</li>
+<li><strong><code>update_template_style</code> can set the default per language</strong> (<code>home</code> as a language code) <strong>and the Menu Assignment</strong> (<code>assigned_menu_item_ids</code>).</li>
+</ul>
+<h3>🚀 Added — component Options</h3>
+<ul>
+<li><strong>New <code>get_component_params</code></strong> (read; needs the right to open that component's Options screen, because Options can hold API keys and other secrets): any component's Options (the settings behind the Options button, such as Articles, Contacts or Users), with every declared option's label, default and choices, and which ones have never been saved. This makes Joomla 6.2's new "Subcategories Image" (<code>show_subcat_image</code>) option visible.</li>
+<li><strong>New <code>set_component_params</code></strong> (write, Super User only): changes component Options by merging. Joomla's settings cache is cleared so the change shows at once. Permissions, Global Configuration and MCP for J's own options are refused.</li>
+</ul>
+<h3>🐛 Fixed</h3>
+<ul>
+<li><strong><code>update_article</code> with <code>featured</code> wiped an already-featured article's Start / Finish Featured dates.</strong> They are kept unless you pass <code>featured_up</code> / <code>featured_down</code>.</li>
+<li><strong><code>update_menu_item</code> could not edit the site's home page item at all</strong>, not even its title ("cannot unset default").</li>
+<li><strong>Robots values written by the menu tools didn't match Joomla's</strong> (<code>index,follow</code> instead of <code>index, follow</code>), so the admin dropped them on its next save. The old spelling is still accepted and corrected.</li>
+<li><strong>Creating a top-level menu item whose alias was already used in another menu crashed</strong> instead of explaining the clash; alias, parent and language changes on update are now checked too.</li>
+<li><strong>Alias-type menu items were created without a target.</strong></li>
+<li><strong><code>set_default_template_style</code> wiped the per-language defaults on multilingual sites</strong>, and accepted a disabled template. <code>get_template_style</code> reported a per-language default as 0 and a child template's parent as 0.</li>
+<li><strong><code>set_custom_field_value</code> overwrote every stored value with the same one</strong> on items that had several, and inserted a stray row for a field id that doesn't exist.</li>
+<li><strong><code>create_user</code> could report an existing account as newly created</strong> when the username was taken.</li>
+<li><strong><code>update_user_group</code> reported refused saves as successful</strong> and could move a group under its own child.</li>
+</ul>
+<h1>📋 MCP for J — Changelog</h1>
 <h2>🚀 Version 2.9.4 (October 20, 2026)</h2>
 <p><strong>New name: CS MCP for J.</strong> No functional change.</p>
 <h3>📝 Changed — the product name</h3>

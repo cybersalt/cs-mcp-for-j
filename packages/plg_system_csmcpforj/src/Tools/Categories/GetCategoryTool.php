@@ -17,12 +17,17 @@ use Joomla\CMS\User\User;
 
 final class GetCategoryTool extends AbstractTool
 {
+	use CategoryTagFieldsTrait;
+
 	public function getName(): string { return 'get_category'; }
 
 	public function getDescription(): string
 	{
-		return 'Fetch a single category by id, returning its full record (title, alias, '
-			. 'extension, parent, level, language, access, description, params) plus its '
+		return 'Fetch a single category by id, returning its full record: title, alias, '
+			. 'extension, parent, level, path, note, description, status, access, language, '
+			. 'metadesc, metakey, created/modified user and time (UTC), hits, version, '
+			. 'params (the Options: layout, image, image alt text, workflow) and metadata '
+			. '(author, robots) as objects in the shape update_category takes, plus its '
 			. 'tags (array of {id, title}).';
 	}
 
@@ -55,6 +60,10 @@ final class GetCategoryTool extends AbstractTool
 		// Tags live in #__contentitem_tag_map under '<extension>.category'
 		// (the alias update_category saves them with), not on the row.
 		$row['tags'] = $this->itemTags((string) $row['extension'] . '.category', $id);
+
+		// params and metadata are JSON text in the table; return them as
+		// objects, the shape update_category takes.
+		$row = $this->ctDecodeJsonColumns($row, ['params', 'metadata']);
 
 		return ToolResult::json($row);
 	}

@@ -18,12 +18,17 @@ use Joomla\CMS\User\User;
 
 final class CreateCategoryTool extends AbstractTool
 {
+	use CategoryTagFieldsTrait;
+
 	public function getName(): string { return 'create_category'; }
 
 	public function getDescription(): string
 	{
 		return 'Create a new category. Required: title, extension (e.g. "com_content"). '
-			. 'parent_id defaults to 1 (the root). Returns the new category id.';
+			. 'parent_id defaults to 1 (the root). Everything on the category edit screen can be set: '
+			. 'description, note, status, access, language, tags, the Options (params: layout, image, '
+			. 'image alt text, workflow), the Publishing tab (created_user_id, created_time, metadesc, '
+			. 'metakey, metadata: author and robots) and a version note. Returns the new category id.';
 	}
 
 	public function getInputSchema(): array
@@ -32,16 +37,23 @@ final class CreateCategoryTool extends AbstractTool
 			'type'     => 'object',
 			'required' => ['title', 'extension'],
 			'properties' => [
-				'title'       => ['type' => 'string'],
-				'alias'       => ['type' => 'string'],
-				'extension'   => ['type' => 'string', 'description' => 'e.g. "com_content".'],
-				'parent_id'   => ['type' => 'integer', 'description' => 'Default 1 (root).'],
-				'description' => ['type' => 'string', 'description' => 'On-page category description (HTML).'],
-				'metadesc'    => ['type' => 'string', 'description' => 'Meta description tag for SEO (plain text, no HTML).'],
-				'metakey'     => ['type' => 'string', 'description' => 'Comma-separated meta keywords.'],
-				'published'   => ['type' => 'integer', 'enum' => [0, 1]],
-				'language'    => ['type' => 'string'],
-				'access'      => ['type' => 'integer'],
+				'title'           => ['type' => 'string'],
+				'alias'           => ['type' => 'string', 'description' => 'URL alias. Generated from the title when omitted.'],
+				'extension'       => ['type' => 'string', 'description' => 'e.g. "com_content".'],
+				'parent_id'       => ['type' => 'integer', 'description' => 'Parent category id, in the same extension. Default 1 (root).'],
+				'description'     => ['type' => 'string', 'description' => 'On-page category description (HTML).'],
+				'note'            => ['type' => 'string', 'description' => 'Admin-only note shown under the title in the Categories list. Up to 255 characters.'],
+				'published'       => ['type' => 'integer', 'enum' => [1, 0, 2, -2], 'description' => '1 published (default), 0 unpublished, 2 archived, -2 trashed.'],
+				'access'          => ['type' => 'integer', 'description' => 'Viewing access level id (see list_access_levels). Default 1 (Public).'],
+				'language'        => ['type' => 'string', 'description' => 'Language code such as "en-GB", or "*" for all (default).'],
+				'tags'            => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Tag ids to put on the category.'],
+				'metadesc'        => ['type' => 'string', 'description' => 'Meta description tag for SEO (plain text, no HTML).'],
+				'metakey'         => ['type' => 'string', 'description' => 'Comma-separated meta keywords.'],
+				'metadata'        => $this->ctMetadataSchema(false),
+				'params'          => $this->ctCategoryParamsSchema(false),
+				'created_user_id' => ['type' => 'integer', 'description' => 'Created By: the user id shown as the category\'s creator. Defaults to the MCP user.'],
+				'created_time'    => $this->ctCreatedTimeSchema(false),
+				'version_note'    => ['type' => 'string', 'description' => 'A note stored with this save in the category\'s Versions history (only kept when the site has version history on). Up to 255 characters.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -59,9 +71,12 @@ final class CreateCategoryTool extends AbstractTool
 			$alias = OutputFilter::stringURLSafe($title);
 		}
 
+		$parentId = isset($arguments['parent_id']) ? (int) $arguments['parent_id'] : 1;
+		$this->ctCheckParent('#__categories', $parentId, 0, $extension);
+
 		$data = [
 			'id'          => 0,
-			'parent_id'   => isset($arguments['parent_id']) ? (int) $arguments['parent_id'] : 1,
+			'parent_id'   => $parentId,
 			'extension'   => $extension,
 			'title'       => $title,
 			'alias'       => $alias,
@@ -71,15 +86,33 @@ final class CreateCategoryTool extends AbstractTool
 			'published'   => isset($arguments['published']) ? (int) $arguments['published'] : 1,
 			'language'    => (string) ($arguments['language'] ?? '*'),
 			'access'      => isset($arguments['access']) ? (int) $arguments['access'] : 1,
-			'params'      => json_encode(new \stdClass()),
-			'metadata'    => json_encode(new \stdClass()),
-			'created_user_id' => (int) $actor->id,
+			'params'      => $this->ctMergeJson('{}', array_key_exists('params', $arguments) ? $this->ctJsonArg($arguments['params'], 'cat_params', 'params') : []),
+			'metadata'    => $this->ctMergeJson('{}', array_key_exists('metadata', $arguments) ? $this->ctJsonArg($arguments['metadata'], 'metadata', 'metadata') : []),
+			'created_user_id' => array_key_exists('created_user_id', $arguments)
+				? $this->ctUserId($arguments['created_user_id'], 'created_user_id')
+				: (int) $actor->id,
 		];
+
+		if (array_key_exists('note', $arguments)) {
+			$data['note'] = $this->ctShortText($arguments['note'], 'note');
+		}
+		if (array_key_exists('created_time', $arguments)) {
+			$data['created_time'] = $this->ctDate($arguments['created_time'], 'created_time');
+		}
+		if (array_key_exists('tags', $arguments)) {
+			$data['tags'] = $this->resolveTags($arguments, $extension . '.category', 0);
+		}
+
+		$versionNote = null;
+		if (array_key_exists('version_note', $arguments)) {
+			$versionNote          = $this->ctShortText($arguments['version_note'], 'version_note');
+			$data['version_note'] = $versionNote;
+		}
 
 		$model = $this->getModel('com_categories', 'Category');
 		$model->setState($model->getName() . '.extension', $extension);
 
-		$result = $this->saveAdminModel($model, $data);
+		$result = $this->ctWithVersionNote($versionNote, fn (): array => $this->saveAdminModel($model, $data));
 		if ($result['id'] <= 0) {
 			return ToolResult::error('com_categories rejected the category: ' . ($result['error'] ?: 'unknown error'));
 		}

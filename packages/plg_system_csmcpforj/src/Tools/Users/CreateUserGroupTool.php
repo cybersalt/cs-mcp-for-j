@@ -34,8 +34,8 @@ final class CreateUserGroupTool extends AbstractTool
 			'type'     => 'object',
 			'required' => ['title'],
 			'properties' => [
-				'title'     => ['type' => 'string'],
-				'parent_id' => ['type' => 'integer', 'description' => 'Defaults to 1 (Public). Set 0 for a top-level group with no parent — rarely what you want.'],
+				'title'     => ['type' => 'string', 'description' => 'Group title. Must be unique among the groups with the same parent.'],
+				'parent_id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Id of the parent group (list_user_groups). Defaults to 1 (Public). Joomla allows only one root group, so 0 is refused. Only a Super User can create a group under a group that has Super User rights.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -46,7 +46,13 @@ final class CreateUserGroupTool extends AbstractTool
 	protected function run(array $arguments, User $actor): ToolResult
 	{
 		$title    = $this->requireString($arguments, 'title');
-		$parentId = isset($arguments['parent_id']) ? (int) $arguments['parent_id'] : 1;
+		$parentId = array_key_exists('parent_id', $arguments) ? (int) $arguments['parent_id'] : 1;
+
+		// Table\Usergroup::check() refuses these too, but with a bare
+		// "parent not valid"; say which group id was wrong.
+		if ($parentId <= 0 || !$this->groupExists($parentId)) {
+			return ToolResult::error('parent_id must be the id of an existing user group (list_user_groups); got ' . json_encode($arguments['parent_id'] ?? null) . '.');
+		}
 
 		$data = [
 			'id'        => 0,
@@ -71,5 +77,15 @@ final class CreateUserGroupTool extends AbstractTool
 			$response['post_save_warning'] = $result['error'];
 		}
 		return ToolResult::json($response);
+	}
+
+	private function groupExists(int $id): bool
+	{
+		return (int) $this->db->setQuery(
+			$this->db->getQuery(true)
+				->select('COUNT(*)')
+				->from($this->db->quoteName('#__usergroups'))
+				->where($this->db->quoteName('id') . ' = ' . $id)
+		)->loadResult() > 0;
 	}
 }

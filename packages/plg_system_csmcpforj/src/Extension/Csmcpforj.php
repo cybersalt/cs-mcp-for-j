@@ -112,6 +112,8 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Extensions\SetExtensionEnabledTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Extensions\GetPluginParamsTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Extensions\SetPluginParamsTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Extensions\GetComponentParamsTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Extensions\SetComponentParamsTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Extensions\InstallExtensionTool::class,
 		],
 		'Templates' => [

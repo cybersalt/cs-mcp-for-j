@@ -417,6 +417,34 @@ abstract class AbstractTool implements ToolInterface
 	}
 
 	/**
+	 * Apply a one-level patch to a JSON options blob (params, attribs, images,
+	 * urls, metadata...). Pass only the keys to change; a null value deletes
+	 * the key; a nested value (a list's options, a subform) is replaced whole.
+	 * The stored value may arrive as an array, an object, a Registry-shaped
+	 * object or a JSON string, depending on the model and Joomla version.
+	 */
+	protected function mergeJsonPatch(mixed $stored, array $patch): array
+	{
+		if (is_string($stored)) {
+			$stored = $stored !== '' ? json_decode($stored, true) : [];
+		} elseif (is_object($stored)) {
+			$stored = method_exists($stored, 'toArray') ? $stored->toArray() : json_decode((string) json_encode($stored), true);
+		}
+
+		$merged = is_array($stored) ? $stored : [];
+
+		foreach ($patch as $key => $value) {
+			if ($value === null) {
+				unset($merged[$key]);
+			} else {
+				$merged[$key] = $value;
+			}
+		}
+
+		return $merged;
+	}
+
+	/**
 	 * Save data through a Joomla AdminModel and report the truthful outcome.
 	 *
 	 * Joomla's AdminModel::save() returns false when ANY plugin in the

@@ -40,7 +40,18 @@ use Joomla\CMS\User\User;
  *
  * Context is intentionally NOT updatable — changing a field's context
  * orphans its existing values; create a new field in the new context
- * instead.
+ * instead. Type is not updatable either: Joomla 6.2's edit screen makes it
+ * read-only once the field exists (FieldModel::preprocessForm()), because the
+ * stored values and fieldparams belong to the old type.
+ *
+ * Field parity with Joomla 6.2.0's edit screen (com_fields/forms/field.xml),
+ * reviewed 2026-10-20: every field is reachable here except type and context
+ * (above), the read-only modified_* / checked_out* columns, and the
+ * Permissions tab (`rules`). Rules are left out on purpose: they rewrite the
+ * field's #__assets row, a privilege change that should not ride along on a
+ * routine field edit (and save() would REPLACE the rules, not merge them).
+ * `name`, `created_user_id` and `created_time` were added that day; each is
+ * bound only when supplied.
  *
  * @partial-save-safe FieldModel::save() binds only supplied keys for the
  * field's own columns. Verified behaviourally on Joomla 6.1.4, 2026-10-09:
@@ -61,8 +72,10 @@ use Joomla\CMS\User\User;
  */
 final class UpdateCustomFieldTool extends AbstractTool
 {
+	use FieldsArgumentsTrait;
+
 	private const UPDATABLE_SCALARS = [
-		'title', 'label', 'description', 'required', 'state', 'group_id',
+		'title', 'name', 'label', 'description', 'required', 'group_id',
 		'access', 'language', 'default_value', 'note', 'ordering',
 		'only_use_in_subform',
 	];
@@ -71,9 +84,12 @@ final class UpdateCustomFieldTool extends AbstractTool
 
 	public function getDescription(): string
 	{
-		return 'Update a custom field. Required: id. Any of: title, label, description, required, '
-			. 'state, group_id (assign to a field group tab — see list_field_groups; 0 = '
-			. 'unassigned), access, language, default_value, ordering, note, only_use_in_subform '
+		return 'Update a custom field. Required: id. Any of: title, name (the unique machine name; '
+			. 'layout overrides that look a field up by name must be updated to match), label, '
+			. 'description, required, state (1 published, 0 unpublished, 2 archived, -2 trashed), '
+			. 'group_id (assign to a field group tab — see list_field_groups; 0 = '
+			. 'unassigned), access, language, default_value, ordering, note, created_user_id, '
+			. 'created_time (UTC), only_use_in_subform '
 			. '(1 hides the field from the standard editor — required when building Subform '
 			. 'children via the API), assigned_cat_ids (array of category ids — pass [-1] for '
 			. '"no categories", [] for "all categories"; omit to keep the current assignment), '
@@ -81,8 +97,9 @@ final class UpdateCustomFieldTool extends AbstractTool
 			. '(object — generic display options). fieldparams and params are MERGED into the '
 			. 'stored values key by key: pass only the keys to change, null deletes a key, and a '
 			. 'nested value such as the options array is replaced whole. PATCH semantics: '
-			. 'untouched properties preserve their current value. Context is '
-			. 'intentionally NOT updatable — create a new field in the new context instead.';
+			. 'untouched properties preserve their current value. Context and type are '
+			. 'intentionally NOT updatable (Joomla does not allow a type change either) — create a '
+			. 'new field instead.';
 	}
 
 	public function getInputSchema(): array
@@ -93,20 +110,23 @@ final class UpdateCustomFieldTool extends AbstractTool
 			'properties' => [
 				'id'                  => ['type' => 'integer'],
 				'title'               => ['type' => 'string'],
+				'name'                => ['type' => 'string', 'description' => 'Unique machine name. Joomla makes it URL-safe and refuses a name another field already has.'],
 				'label'               => ['type' => 'string'],
 				'description'         => ['type' => 'string'],
 				'required'            => ['type' => 'integer', 'enum' => [0, 1]],
-				'state'               => ['type' => 'integer', 'enum' => [0, 1]],
+				'state'               => ['type' => 'integer', 'enum' => [1, 0, 2, -2], 'description' => '1 published, 0 unpublished, 2 archived, -2 trashed.'],
 				'group_id'            => ['type' => 'integer'],
 				'access'              => ['type' => 'integer'],
 				'language'            => ['type' => 'string'],
 				'default_value'       => ['type' => 'string'],
 				'note'                => ['type' => 'string'],
 				'ordering'            => ['type' => 'integer'],
-				'only_use_in_subform' => ['type' => 'integer', 'enum' => [0, 1]],
+				'only_use_in_subform' => ['type' => 'integer', 'enum' => [0, 1], 'description' => '1 = only usable inside a Subform field; Joomla then forces its categories to none.'],
+				'created_user_id'     => ['type' => 'integer', 'description' => 'Created by: user id (list_users).'],
+				'created_time'        => ['type' => 'string', 'description' => 'Created date in UTC, e.g. "2026-10-20 14:30:00".'],
 				'assigned_cat_ids'    => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Category ids the field shows on. [-1] = no categories. [] = all categories.'],
 				'fieldparams'         => ['type' => 'object', 'description' => 'Merged into the stored fieldparams key by key; null deletes a key.'],
-				'params'              => ['type' => 'object', 'description' => 'Merged into the stored params key by key; null deletes a key.'],
+				'params'              => $this->customFieldParamsSchema('The Options tab. Merged into the stored params key by key; null deletes a key.'),
 			],
 			'additionalProperties' => false,
 		];
@@ -152,6 +172,19 @@ final class UpdateCustomFieldTool extends AbstractTool
 				$data[$key] = $arguments[$key];
 			}
 		}
+		if (array_key_exists('state', $arguments)) {
+			$data['state'] = $this->fieldState($arguments['state']);
+		}
+		// Publishing-tab fields: bound only when supplied, so an update that
+		// leaves them out never touches them (FieldTable::check() only fills
+		// created_time when it is empty and never touches created_user_id on
+		// an existing row).
+		if (array_key_exists('created_user_id', $arguments)) {
+			$data['created_user_id'] = $this->fieldCreatorId($arguments['created_user_id'], 'created_user_id');
+		}
+		if (array_key_exists('created_time', $arguments)) {
+			$data['created_time'] = $this->fieldCreatedDate($arguments['created_time'], 'created_time');
+		}
 
 		/*
 		 * params / fieldparams are MERGED onto the stored blob, key by key, as
@@ -167,10 +200,10 @@ final class UpdateCustomFieldTool extends AbstractTool
 		 * editing that list means.
 		 */
 		if (array_key_exists('fieldparams', $arguments)) {
-			$data['fieldparams'] = json_encode((object) $this->mergeBlob($existing->fieldparams ?? null, (array) $arguments['fieldparams']));
+			$data['fieldparams'] = json_encode((object) $this->mergeJsonPatch($existing->fieldparams ?? null, $this->fieldObjectArg($arguments['fieldparams'], 'fieldparams')));
 		}
 		if (array_key_exists('params', $arguments)) {
-			$data['params'] = json_encode((object) $this->mergeBlob($existing->params ?? null, (array) $arguments['params']));
+			$data['params'] = json_encode((object) $this->mergeJsonPatch($existing->params ?? null, $this->fieldObjectArg($arguments['params'], 'params')));
 		}
 		if (array_key_exists('assigned_cat_ids', $arguments)) {
 			// Pass through as an array — com_fields' FieldModel persists the
@@ -201,32 +234,5 @@ final class UpdateCustomFieldTool extends AbstractTool
 		}
 
 		return ToolResult::json(['ok' => true, 'id' => $id]);
-	}
-
-	/**
-	 * Apply a one-level patch to a params-style blob. The stored value arrives
-	 * from FieldModel::getItem() as an array (fieldparams) or via AdminModel
-	 * as an array (params), but older code paths hand back a JSON string or an
-	 * object, so all three are accepted.
-	 */
-	private function mergeBlob(mixed $stored, array $patch): array
-	{
-		if (is_string($stored)) {
-			$stored = $stored !== '' ? json_decode($stored, true) : [];
-		} elseif (is_object($stored)) {
-			$stored = json_decode((string) json_encode($stored), true);
-		}
-
-		$merged = is_array($stored) ? $stored : [];
-
-		foreach ($patch as $key => $value) {
-			if ($value === null) {
-				unset($merged[$key]);
-			} else {
-				$merged[$key] = $value;
-			}
-		}
-
-		return $merged;
 	}
 }

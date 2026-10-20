@@ -13,64 +13,59 @@ namespace Cybersalt\Plugin\System\Csmcpforj\Tools\Menus;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
+use Joomla\CMS\Language\Associations;
 use Joomla\CMS\User\User;
-use Joomla\Registry\Registry;
+use Joomla\Component\Menus\Administrator\Helper\MenusHelper;
+use Joomla\Database\ParameterType;
 
+/**
+ * @partial-save-safe com_menus' ItemModel::save() and Table\Menu::bind() are NOT
+ *   partial-payload safe; this tool backfills every key they read
+ *   unconditionally from the stored row before saving. Reviewed against Joomla
+ *   6.2.0, 2026-10-20:
+ *   - ItemModel::save() reads parent_id, menuordering and menutype (#31) —
+ *     re-supplied, menuordering 0 = "leave the position alone".
+ *   - Table\Menu::bind() reads home, language and published to protect the
+ *     default home page: with them absent, `null !== '*'` refused every update
+ *     of the "All languages" home item ("cannot unset default"). Re-supplied.
+ *   - ItemModel::save() rebuilds #__associations from $data['associations'];
+ *     absent, it unlinked the item from its translations. Re-supplied.
+ *   - params are merged onto the STORED blob, never onto getItem()'s copy
+ *     (which has the link's request vars folded in).
+ *   Nothing else on the row is touched unless the caller passes it; the model
+ *   loads the row and binds only supplied keys.
+ */
 final class UpdateMenuItemTool extends AbstractTool
 {
-	private const UPDATABLE = ['title', 'alias', 'menutype', 'parent_id', 'link', 'published', 'language', 'access', 'home', 'note', 'browserNav', 'template_style_id'];
+	use MenuItemFieldsTrait;
 
-	/**
-	 * Public arg name → Joomla #__menu.params key. Named args are the safe
-	 * path: they map to the keys Joomla's own admin form writes, and the
-	 * agent can't typo the Joomla key (e.g. menu-meta_description vs
-	 * meta_description). Anything not in this map is reachable via
-	 * params_set.
-	 */
-	private const NAMED_PARAMS = [
-		'browser_page_title' => 'page_title',
-		'meta_description'   => 'menu-meta_description',
-		'meta_keywords'      => 'menu-meta_keywords',
-		'robots'             => 'robots',
-		'page_heading'       => 'page_heading',
-		'show_page_heading'  => 'show_page_heading',
-		'page_class_sfx'     => 'pageclass_sfx',
-		'menu_anchor_title'  => 'menu-anchor_title',
-		'secure'             => 'secure',
+	private const UPDATABLE = [
+		'title', 'alias', 'menutype', 'parent_id', 'link', 'published', 'language', 'access',
+		'home', 'note', 'browserNav', 'template_style_id',
 	];
-
-	/**
-	 * No empty-string member, deliberately. Google's Gemini API validates tool
-	 * schemas against a strict OpenAPI subset and rejects the ENTIRE catalogue
-	 * at parse time if any enum contains "" — HTTP 400 before a prompt even
-	 * runs, so no Gemini-backed client could use this server at all. Anthropic
-	 * tolerates it, which is why it went unnoticed.
-	 *
-	 * Nothing is lost: this constant is advertised in the schema only and is
-	 * never validated against at run time, and clearing the directive already
-	 * has a better route — params_unset: ["robots"] removes the key outright
-	 * rather than storing an empty string.
-	 *
-	 * Reported 2026-09-16 by Mathew John via Cline/gemini-2.5-flash. See #29.
-	 */
-	private const VALID_ROBOTS = ['index,follow', 'noindex,follow', 'index,nofollow', 'noindex,nofollow'];
 
 	public function getName(): string { return 'update_menu_item'; }
 
 	public function getDescription(): string
 	{
-		return 'Update a menu item. Required: id. Top-level columns: title, alias, menutype, '
-			. 'parent_id, link, published, home, language, access, note, browserNav, '
-			. 'template_style_id. PARAMS (the JSON blob templates and SEO plugins read): use '
-			. 'named args browser_page_title (the <title> tag override), meta_description, '
-			. 'meta_keywords, robots ("index,follow", "noindex,follow", "index,nofollow", '
-			. '"noindex,nofollow" — to clear it use params_unset: ["robots"]), '
-			. 'page_heading, show_page_heading, page_class_sfx, '
-			. 'menu_anchor_title, secure (0=off, 1=HTTPS, 2=HTTP). For any params key NOT in '
-			. 'the named list, use params_set: object — merged into the existing params. To '
-			. 'delete a key, list it in params_unset: string[]. Existing params keys you don\'t '
-			. 'touch are preserved byte-for-byte. Named args take precedence over params_set on '
-			. 'collision.';
+		return 'Update a menu item. Required: id. Only the fields you pass change; everything else '
+			. '(menu, parent, position, params, associations) is kept. Top-level fields: title, alias, '
+			. 'note, menutype (moves the item and its children to another menu), parent_id, '
+			. 'menuordering (-1 first, -2 last, or the id of a sibling to place it after), link, '
+			. 'published (1, 0, -2 trash), publish_up / publish_down (UTC "YYYY-MM-DD HH:MM:SS", '
+			. 'empty string clears), home, language, access, browserNav (target window), '
+			. 'template_style_id (0 = default), associations ({"fr-FR": id} replaces the item\'s '
+			. 'language associations, like the Associations tab). PARAMS: named args cover the '
+			. 'core edit screen — Link Type tab: menu_anchor_title, menu_anchor_css, menu_anchor_rel, '
+			. 'menu_icon_css, menu_image, menu_image_css, menu_text, menu_show; Page Display tab: '
+			. 'browser_page_title, show_page_heading, page_heading, page_class_sfx; Metadata tab: '
+			. 'meta_description, robots ("index, follow" etc.; clear with params_unset: ["robots"]); '
+			. 'alias items: alias_target, alias_redirect. Every other params key (the component '
+			. 'view\'s own options, e.g. show_subcat_image on a category view in Joomla 6.2, '
+			. 'num_leading_articles, show_title) goes in params_set: an object merged into the '
+			. 'existing params, where a null value deletes the key. params_unset: string[] also '
+			. 'deletes keys. Named args win over params_set on collision. List-type view options '
+			. 'store strings ("1", "0"); removing the key means "Use Global".';
 	}
 
 	public function getInputSchema(): array
@@ -78,36 +73,28 @@ final class UpdateMenuItemTool extends AbstractTool
 		return [
 			'type' => 'object',
 			'required' => ['id'],
-			'properties' => [
+			'properties' => array_merge([
 				'id'                => ['type' => 'integer'],
 				'title'             => ['type' => 'string'],
 				'alias'             => ['type' => 'string'],
-				'menutype'          => ['type' => 'string'],
-				'parent_id'         => ['type' => 'integer'],
-				'link'              => ['type' => 'string'],
-				'published'         => ['type' => 'integer', 'enum' => [0, 1]],
-				'home'              => ['type' => 'integer', 'enum' => [0, 1]],
-				'language'          => ['type' => 'string'],
-				'access'            => ['type' => 'integer'],
 				'note'              => ['type' => 'string'],
-				'browserNav'        => ['type' => 'integer', 'enum' => [0, 1, 2]],
-				'template_style_id' => ['type' => 'integer'],
-
-				// Named SEO params — write into the row's `params` blob.
-				'browser_page_title' => ['type' => 'string', 'description' => 'params.page_title — overrides the <title> tag for this page.'],
-				'meta_description'   => ['type' => 'string', 'description' => 'params.menu-meta_description — overrides <meta name="description">.'],
-				'meta_keywords'      => ['type' => 'string', 'description' => 'params.menu-meta_keywords — meta keywords (Bing-only, low SEO value).'],
-				'robots'             => ['type' => 'string', 'enum' => self::VALID_ROBOTS, 'description' => 'params.robots — meta robots directive.'],
-				'page_heading'       => ['type' => 'string', 'description' => 'params.page_heading — H1 override.'],
-				'show_page_heading'  => ['type' => 'integer', 'enum' => [0, 1], 'description' => 'params.show_page_heading — whether to render the heading.'],
-				'page_class_sfx'     => ['type' => 'string', 'description' => 'params.pageclass_sfx — body class suffix.'],
-				'menu_anchor_title'  => ['type' => 'string', 'description' => 'params.menu-anchor_title — <a title="..."> tooltip on the menu link.'],
-				'secure'             => ['type' => 'integer', 'enum' => [0, 1, 2], 'description' => 'params.secure — 0 off, 1 force HTTPS, 2 force HTTP.'],
-
-				// Escape hatches for keys not in NAMED_PARAMS.
-				'params_set'   => ['type' => 'object', 'description' => 'Arbitrary key/value pairs merged into the existing params blob. Named args win on collision.'],
-				'params_unset' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Keys to delete from the params blob.'],
-			],
+				'menutype'          => ['type' => 'string', 'description' => 'Move the item (and its children) to this menu. Omit to keep it where it is.'],
+				'parent_id'         => ['type' => 'integer', 'description' => '1 = top level. A new parent puts the item last under it.'],
+				'menuordering'      => ['type' => 'integer', 'description' => 'Position under its parent: -1 first, -2 last, or the id of a sibling to place it after. Ignored when parent_id changes (the item goes last). Omit to keep the current position.'],
+				'link'              => ['type' => 'string'],
+				'published'         => ['type' => 'integer', 'enum' => [0, 1, -2], 'description' => '1 published, 0 unpublished, -2 trashed.'],
+				'publish_up'        => ['type' => 'string', 'description' => 'Start Publishing, UTC "YYYY-MM-DD HH:MM:SS". Empty string clears it.'],
+				'publish_down'      => ['type' => 'string', 'description' => 'Finish Publishing, UTC "YYYY-MM-DD HH:MM:SS". Empty string clears it.'],
+				'home'              => ['type' => 'integer', 'enum' => [0, 1], 'description' => '1 makes this the home page for its language (component items only).'],
+				'language'          => ['type' => 'string', 'description' => 'Language tag, or "*" for all.'],
+				'access'            => ['type' => 'integer', 'description' => 'Viewing access level id (list_access_levels).'],
+				'browserNav'        => ['type' => 'integer', 'enum' => [0, 1, 2], 'description' => 'Target Window: 0 parent, 1 new window with navigation, 2 new window without navigation.'],
+				'template_style_id' => ['type' => 'integer', 'description' => 'Template Style id (list_template_styles); 0 = use the default.'],
+				'associations'      => ['type' => 'object', 'description' => 'Multilingual sites: language tag => menu item id for every translation of this item. Replaces the current set, like saving the Associations tab. Requires the item to have a specific language (not "*").'],
+			], $this->menuNamedParamSchema(), [
+				'params_set'   => ['type' => 'object', 'description' => 'Any params key => value, merged into the existing params. A null value deletes that key. Named args win on collision.'],
+				'params_unset' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'params keys to delete (the "Use Global" state for list options).'],
+			]),
 			'additionalProperties' => false,
 		];
 	}
@@ -127,6 +114,13 @@ final class UpdateMenuItemTool extends AbstractTool
 		foreach (self::UPDATABLE as $key) {
 			if (array_key_exists($key, $arguments)) {
 				$data[$key] = $arguments[$key];
+			}
+		}
+
+		foreach (['publish_up', 'publish_down'] as $dateKey) {
+			$date = $this->normalisePublishDate($arguments, $dateKey);
+			if ($date !== null) {
+				$data[$dateKey] = $date;
 			}
 		}
 
@@ -151,7 +145,7 @@ final class UpdateMenuItemTool extends AbstractTool
 		 * item, which is the documented behaviour.
 		 *
 		 * menuordering 0 means "leave the position alone" — we never reorder on a
-		 * field update, because the caller did not ask us to.
+		 * field update unless the caller asked to.
 		 */
 		if (!array_key_exists('menutype', $data)) {
 			$data['menutype'] = $existing->menutype;
@@ -160,6 +154,51 @@ final class UpdateMenuItemTool extends AbstractTool
 			$data['parent_id'] = (int) $existing->parent_id;
 		}
 		$data['menuordering'] = 0;
+
+		/*
+		 * Table\Menu::bind() reads home, language and published straight off the
+		 * payload to stop the "All languages" default home page from being
+		 * unset, re-languaged or unpublished:
+		 *
+		 *     if ($this->home == '1' && $this->language === '*' && $array['language'] !== '*')
+		 *
+		 * With the key absent that is `null !== '*'`, so every partial update of
+		 * the site's home item — even a title change — was refused with
+		 * "cannot unset default". Re-supplying the stored values is a no-op for
+		 * every other item: the table already holds them.
+		 */
+		if (!array_key_exists('home', $data)) {
+			$data['home'] = (int) $existing->home;
+		}
+		if (!array_key_exists('language', $data)) {
+			$data['language'] = (string) $existing->language;
+		}
+		if (!array_key_exists('published', $data)) {
+			$data['published'] = (int) $existing->published;
+		}
+
+		if (array_key_exists('menuordering', $arguments)) {
+			$ordering = (int) $arguments['menuordering'];
+
+			if ($ordering < -2) {
+				return ToolResult::error('menuordering must be -1 (first), -2 (last), or the id of a sibling menu item.');
+			}
+
+			if ((int) $data['parent_id'] === (int) $existing->parent_id && $ordering !== 0) {
+				/*
+				 * A positive value is "after this sibling". Joomla calls
+				 * setLocation($ordering, 'after') with no check that it IS a
+				 * sibling, so any other id silently re-parents the item next to
+				 * that node — possibly into another menu's tree. Refuse that.
+				 */
+				if ($ordering > 0 && $ordering !== $id && !$this->isSibling($ordering, (int) $data['parent_id'], (int) $existing->client_id)) {
+					return ToolResult::error('menuordering ' . $ordering . ' is not a sibling of menu item ' . $id
+						. ' (parent ' . (int) $data['parent_id'] . '). Pass -1 (first), -2 (last), or the id of an item with the same parent.');
+				}
+
+				$data['menuordering'] = $ordering;
+			}
+		}
 
 		/*
 		 * Issue #18, second half: when the link changes, component_id must follow
@@ -187,15 +226,27 @@ final class UpdateMenuItemTool extends AbstractTool
 			}
 		}
 
+		/*
+		 * Refuse an alias clash ourselves: Table\Menu::store() reports one by
+		 * calling Route::_(), which is fatal under the API application. Only
+		 * worth checking when something that feeds the clash scope changes.
+		 */
+		if (array_key_exists('alias', $arguments) || array_key_exists('parent_id', $arguments) || array_key_exists('language', $arguments)) {
+			$alias = array_key_exists('alias', $arguments) ? (string) $arguments['alias'] : (string) $existing->alias;
+			$title = array_key_exists('title', $arguments) ? (string) $arguments['title'] : (string) $existing->title;
+			$alias = $this->effectiveMenuAlias($alias, $title, (string) $data['language']);
+
+			if ($clash = $this->findMenuAliasClash($alias, (int) $data['parent_id'], (int) $existing->client_id, (string) $data['language'], $id)) {
+				return ToolResult::error($this->menuAliasClashMessage($clash, $alias, (int) $data['parent_id']));
+			}
+		}
+
 		// Decide whether any params-touching arg was supplied. If not, skip
 		// params handling entirely so the existing blob isn't re-serialised
 		// (matches Joomla's own "don't touch what you didn't change" feel).
-		$paramsTouched = false;
-		foreach (self::NAMED_PARAMS as $publicArg => $_) {
+		$paramsTouched = isset($arguments['params_set']) || isset($arguments['params_unset']);
+		foreach (self::menuNamedParams() as $publicArg => $_) {
 			if (array_key_exists($publicArg, $arguments)) { $paramsTouched = true; break; }
-		}
-		if (!$paramsTouched && (isset($arguments['params_set']) || isset($arguments['params_unset']))) {
-			$paramsTouched = true;
 		}
 
 		$paramsTouchedKeys = [];
@@ -213,25 +264,21 @@ final class UpdateMenuItemTool extends AbstractTool
 			 * cybersalt.com 2026-10-16: an article link's params went from []
 			 * to {"option":"com_content","view":"article","id":"844",...}).
 			 */
-			$existingParams = $this->normaliseParams($this->storedParams($id));
-			$merged = $existingParams;
+			$merged = $this->mergeJsonPatch($this->storedParams($id), []);
 
-			// 1. params_set (lowest precedence among new values)
+			// 1. params_set (lowest precedence among new values); null deletes.
 			if (isset($arguments['params_set']) && is_array($arguments['params_set'])) {
-				foreach ($arguments['params_set'] as $k => $v) {
-					$key = (string) $k;
-					$merged[$key] = $v;
-					$paramsTouchedKeys[$key] = true;
+				if ($arguments['params_set'] !== [] && array_is_list($arguments['params_set'])) {
+					return ToolResult::error('params_set must be an object of key/value pairs, not a list.');
+				}
+				$merged = $this->mergeJsonPatch($merged, $arguments['params_set']);
+				foreach ($arguments['params_set'] as $k => $_) {
+					$paramsTouchedKeys[(string) $k] = true;
 				}
 			}
 
 			// 2. Named args (override params_set on collision)
-			foreach (self::NAMED_PARAMS as $publicArg => $jKey) {
-				if (array_key_exists($publicArg, $arguments)) {
-					$merged[$jKey] = $arguments[$publicArg];
-					$paramsTouchedKeys[$jKey] = true;
-				}
-			}
+			$merged = $this->applyMenuNamedParams($merged, $arguments, $paramsTouchedKeys);
 
 			// 3. params_unset (highest precedence — explicit deletion)
 			if (isset($arguments['params_unset']) && is_array($arguments['params_unset'])) {
@@ -240,6 +287,10 @@ final class UpdateMenuItemTool extends AbstractTool
 					unset($merged[$key]);
 					$paramsTouchedKeys[$key] = true;
 				}
+			}
+
+			if ((string) $existing->type === 'alias' && isset($merged['aliasoptions']) && (int) $merged['aliasoptions'] === $id) {
+				return ToolResult::error('An alias menu item cannot point to itself (alias_target ' . $id . ').');
 			}
 
 			$data['params'] = $merged;
@@ -272,10 +323,34 @@ final class UpdateMenuItemTool extends AbstractTool
 		 * categories (2.9.0). Re-supply the current associations unless the
 		 * caller is setting them.
 		 */
-		if (!array_key_exists('associations', $data)
-			&& (int) $existing->client_id === 0
-			&& \Joomla\CMS\Language\Associations::isEnabled()) {
-			$data['associations'] = \Joomla\Component\Menus\Administrator\Helper\MenusHelper::getAssociations($id);
+		$assocEnabled = (int) $existing->client_id === 0 && Associations::isEnabled();
+
+		if (array_key_exists('associations', $arguments)) {
+			if (!$assocEnabled) {
+				return ToolResult::error('associations can only be set on a site menu item while language associations are enabled (System - Language Filter plugin, "Item Associations").');
+			}
+
+			$associations = $this->normaliseAssociationsArg($arguments['associations']);
+
+			if ($associations !== [] && (string) $data['language'] === '*') {
+				return ToolResult::error('A menu item set to "All" languages cannot have associations. Set language to a specific tag first (it can be done in the same call).');
+			}
+
+			$data['associations'] = $associations;
+		} elseif ($assocEnabled) {
+			$data['associations'] = MenusHelper::getAssociations($id);
+		}
+
+		if (isset($data['associations']) && is_array($data['associations'])) {
+			/*
+			 * Never hand the item its own id. getAssociations() includes the item
+			 * itself under its CURRENT language, and ItemModel::save() adds it again
+			 * under the language being saved: on a language change that is two keys
+			 * for one id, a duplicate key on #__associations, and save() fails after
+			 * the old association group was already deleted. The admin form never
+			 * posts the item's own id, so neither do we.
+			 */
+			$data['associations'] = array_filter($data['associations'], static fn ($v): bool => (int) $v !== $id);
 		}
 
 		if (!$model->save($data)) {
@@ -289,33 +364,21 @@ final class UpdateMenuItemTool extends AbstractTool
 		return ToolResult::json($response);
 	}
 
-	/**
-	 * Resolve `option=` in a menu link to its #__extensions.extension_id.
-	 *
-	 * Returns 0 when the link carries no option, or names a component that is
-	 * not installed — in which case the caller leaves component_id alone rather
-	 * than writing a 0 that would orphan the item from its component.
-	 */
-	private function componentIdForLink(string $link): int
+	/** True when $candidateId is a menu item with the given parent (and client). */
+	private function isSibling(int $candidateId, int $parentId, int $clientId): bool
 	{
-		$query = [];
-		parse_str((string) parse_url($link, PHP_URL_QUERY), $query);
-
-		$option = isset($query['option']) ? trim((string) $query['option']) : '';
-
-		if ($option === '') {
-			return 0;
-		}
-
 		$db = $this->db;
 		$q  = $db->getQuery(true)
-			->select($db->quoteName('extension_id'))
-			->from($db->quoteName('#__extensions'))
-			->where($db->quoteName('type') . ' = ' . $db->quote('component'))
-			->where($db->quoteName('element') . ' = :element')
-			->bind(':element', $option);
+			->select('1')
+			->from($db->quoteName('#__menu'))
+			->where($db->quoteName('id') . ' = :id')
+			->where($db->quoteName('parent_id') . ' = :parent')
+			->where($db->quoteName('client_id') . ' = :client')
+			->bind(':id', $candidateId, ParameterType::INTEGER)
+			->bind(':parent', $parentId, ParameterType::INTEGER)
+			->bind(':client', $clientId, ParameterType::INTEGER);
 
-		return (int) $db->setQuery($q)->loadResult();
+		return (bool) $db->setQuery($q)->loadResult();
 	}
 
 	/**
@@ -329,29 +392,8 @@ final class UpdateMenuItemTool extends AbstractTool
 			->select($db->quoteName('params'))
 			->from($db->quoteName('#__menu'))
 			->where($db->quoteName('id') . ' = :id')
-			->bind(':id', $id, \Joomla\Database\ParameterType::INTEGER);
+			->bind(':id', $id, ParameterType::INTEGER);
 
 		return (string) $db->setQuery($q)->loadResult();
-	}
-
-	/**
-	 * Coerce com_menus' polymorphic params return into a plain assoc array.
-	 */
-	private function normaliseParams(mixed $params): array
-	{
-		if ($params instanceof Registry) {
-			return $params->toArray();
-		}
-		if (is_array($params)) {
-			return $params;
-		}
-		if (is_object($params)) {
-			return json_decode(json_encode($params), true) ?? [];
-		}
-		if (is_string($params) && $params !== '') {
-			$decoded = json_decode($params, true);
-			return is_array($decoded) ? $decoded : [];
-		}
-		return [];
 	}
 }

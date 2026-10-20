@@ -12,6 +12,7 @@ namespace Cybersalt\Plugin\System\Csmcpforj\Tools\Users;
 \defined('_JEXEC') or die;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
+use Cybersalt\Component\Csmcpforj\Administrator\MCP\McpException;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\User\User;
 
@@ -23,17 +24,38 @@ use Joomla\CMS\User\User;
  * update worked at all. existingUserGroups() now re-supplies them when the
  * caller does not. Verified on Joomla 6.1.4, 2026-10-09: renaming a user
  * succeeds and group membership survives.
+ *
+ * Reviewed against Joomla 6.2.0 source, 2026-10-20, when params was added:
+ *   - UserModel::save() reads $data['block'] and $data['groups'] before bind;
+ *     both are re-supplied from the stored user when omitted.
+ *   - User::bind() starts from the user as loaded, so name, username, email,
+ *     sendEmail and requireReset keep their stored values when omitted, and
+ *     the stored password hash is kept when no password is passed.
+ *   - User::bind() only touches params when $data['params'] is present; it
+ *     then MERGES into the loaded params (Registry::loadArray), so a patch of
+ *     one key leaves the others alone. Merge-only is also why a key cannot be
+ *     deleted: null maps to "" (Use Default), which is what Joomla stores.
+ *   - registerDate, lastvisitDate, lastResetTime and resetCount are unset by
+ *     User::bind() on every update, so they cannot move.
+ * The params behaviour is from reading the source; the live one-field diff
+ * (see tests/partial-save-guard.php) has not been re-run for it yet.
  */
 final class UpdateUserTool extends AbstractTool
 {
+	use UserArgumentsTrait;
+
 	private const UPDATABLE = ['name', 'username', 'email', 'block', 'sendEmail', 'requireReset'];
 
 	public function getName(): string { return 'update_user'; }
 
 	public function getDescription(): string
 	{
-		return 'Update an existing user. Required: id. Pass groups[] to replace the entire '
-			. 'set of group memberships. Pass password (min 12 chars) to reset the password.';
+		return 'Update an existing user — the fields on the Account Details, Assigned User Groups, Basic Settings '
+			. 'and Accessibility Settings tabs. Required: id. Only fields you supply are changed. '
+			. 'groups[] replaces the entire set of group memberships. params is merged key by key. '
+			. 'password (min 12 chars, and the site\'s Password Options) sets a new password and signs the user out '
+			. 'everywhere; block=1 also signs them out. Changing another user\'s password or email needs a Super User '
+			. '(or an account that outranks the target). You cannot block yourself or set requireReset on yourself.';
 	}
 
 	public function getInputSchema(): array
@@ -44,13 +66,14 @@ final class UpdateUserTool extends AbstractTool
 			'properties' => [
 				'id'           => ['type' => 'integer'],
 				'name'         => ['type' => 'string'],
-				'username'     => ['type' => 'string'],
+				'username'     => ['type' => 'string', 'description' => 'Login name. At least 2 characters; no < > " \' % ; ( ) & \\ or leading/trailing spaces.'],
 				'email'        => ['type' => 'string'],
-				'password'     => ['type' => 'string', 'minLength' => 12],
-				'groups'       => ['type' => 'array', 'items' => ['type' => 'integer']],
-				'block'        => ['type' => 'integer', 'enum' => [0, 1]],
-				'sendEmail'    => ['type' => 'integer', 'enum' => [0, 1]],
-				'requireReset' => ['type' => 'integer', 'enum' => [0, 1]],
+				'password'     => ['type' => 'string', 'minLength' => 12, 'description' => 'New password, plain text — Joomla hashes it. Must meet the site\'s Password Options. Signs the user out of every session.'],
+				'groups'       => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Complete list of user group ids (list_user_groups). Replaces the current memberships.'],
+				'block'        => ['type' => 'integer', 'enum' => [0, 1], 'description' => '1 = blocked (cannot log in), 0 = enabled.'],
+				'sendEmail'    => ['type' => 'integer', 'enum' => [0, 1], 'description' => 'Receive System Emails.'],
+				'requireReset' => ['type' => 'integer', 'enum' => [0, 1], 'description' => 'Require Password Reset at next login.'],
+				'params'       => ['type' => 'object', 'additionalProperties' => true, 'description' => self::userParamsDescription('null or "" resets that key to Use Default.')],
 			],
 			'additionalProperties' => false,
 		];
@@ -71,18 +94,49 @@ final class UpdateUserTool extends AbstractTool
 		$data = ['id' => $id];
 		foreach (self::UPDATABLE as $key) {
 			if (array_key_exists($key, $arguments)) {
-				$data[$key] = $arguments[$key];
+				$data[$key] = in_array($key, ['block', 'sendEmail', 'requireReset'], true)
+					? $this->userFlag($arguments[$key], $key)
+					: trim((string) $arguments[$key]);
 			}
 		}
-		if (!empty($arguments['password'])) {
-			if (strlen((string) $arguments['password']) < 12) {
-				return ToolResult::error('password must be at least 12 characters.');
-			}
-			$data['password']  = $arguments['password'];
-			$data['password2'] = $arguments['password'];
+
+		$changed = array_values(array_diff(array_keys($arguments), ['id']));
+		if ($changed === []) {
+			return ToolResult::error('No updatable fields supplied. Pass any of name, username, email, password, groups, block, sendEmail, requireReset, params.');
 		}
-		if (isset($arguments['groups']) && is_array($arguments['groups'])) {
-			$data['groups'] = array_map('intval', $arguments['groups']);
+
+		// Credentials of someone else's account: see requireCanChangeCredentials().
+		$credentials = [];
+		if (array_key_exists('password', $arguments)) {
+			$credentials[] = 'password';
+		}
+		if (array_key_exists('email', $arguments) && strcasecmp((string) $data['email'], (string) $existing->email) !== 0) {
+			$credentials[] = 'email';
+		}
+		if ($credentials !== []) {
+			$this->requireCanChangeCredentials($actor, $id, $credentials);
+		}
+
+		// The edit form removes Require Password Reset from your own account.
+		if (array_key_exists('requireReset', $data) && (int) $actor->id === $id && $data['requireReset'] !== (int) $existing->requireReset) {
+			return ToolResult::error('Joomla does not let you set Require Password Reset on your own account.');
+		}
+
+		if (array_key_exists('password', $arguments)) {
+			$password = (string) $arguments['password'];
+			$this->checkUserPassword($password);
+			$data['password']  = $password;
+			$data['password2'] = $password;
+		}
+
+		if (array_key_exists('params', $arguments)) {
+			// Stored params + the patch. User::bind() merges this into the
+			// params it loaded too, so untouched keys survive either way.
+			$data['params'] = $this->mergeJsonPatch($existing->params ?? null, $this->userParamsPatch($arguments['params']));
+		}
+
+		if (array_key_exists('groups', $arguments)) {
+			$data['groups'] = $this->userGroupIds($arguments['groups']);
 		} else {
 			/*
 			 * Re-supply the user's existing groups when the caller did not pass
@@ -121,7 +175,38 @@ final class UpdateUserTool extends AbstractTool
 		if (!$model->save($data)) {
 			return ToolResult::error('com_users rejected the update: ' . $model->getError());
 		}
-		return ToolResult::json(['ok' => true, 'id' => $id]);
+
+		$response = ['ok' => true, 'id' => $id, 'fields_changed' => $changed];
+
+		if (array_key_exists('params', $arguments)) {
+			$response['params'] = (object) $this->storedUserParams($id);
+		}
+
+		return ToolResult::json($response);
+	}
+
+	private function userFlag(mixed $value, string $key): int
+	{
+		if (!in_array($value, [0, 1, '0', '1', true, false], true)) {
+			throw new McpException(-32602, $key . ' must be 0 or 1; got ' . json_encode($value) . '.');
+		}
+
+		return (int) $value;
+	}
+
+	/** @return array<string, mixed> */
+	private function storedUserParams(int $userId): array
+	{
+		$raw = (string) $this->db->setQuery(
+			$this->db->getQuery(true)
+				->select($this->db->quoteName('params'))
+				->from($this->db->quoteName('#__users'))
+				->where($this->db->quoteName('id') . ' = ' . $userId)
+		)->loadResult();
+
+		$decoded = $raw !== '' ? json_decode($raw, true) : [];
+
+		return is_array($decoded) ? $decoded : [];
 	}
 
 	/**
