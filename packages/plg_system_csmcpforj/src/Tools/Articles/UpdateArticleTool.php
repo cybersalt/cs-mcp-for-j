@@ -46,9 +46,17 @@ use Joomla\CMS\User\User;
  *   skips the save entirely, so content plugins that rewrite the text on save
  *   (ReReplacer appended a bio on every save on cybersalt.org) and the
  *   `modified` date are left alone.
+ *
+ *   `created_by` / `created_by_alias` (2.9.2, Susan again) go through the save
+ *   like any other scalar, and only when supplied. Content table store() only
+ *   fills `created_by` from the current user on a NEW row, so an update keeps
+ *   whatever is bound. After the save the stored values are read back and the
+ *   call fails if they differ from what was asked for.
  */
 final class UpdateArticleTool extends AbstractTool
 {
+	use ArticleAuthorTrait;
+
 	private const UPDATABLE_SCALARS = [
 		'title', 'alias', 'catid', 'state', 'language', 'access',
 		'metadesc', 'metakey', 'featured',
@@ -63,7 +71,9 @@ final class UpdateArticleTool extends AbstractTool
 			. 'publish (1), unpublish (0), archive (2), or trash (-2). Pass tags (an array of tag ids) to '
 			. 'replace the tags on the article; an empty array removes them all. Pass hits to set the '
 			. 'article\'s hit count (for example when merging duplicates); a call with only id and hits '
-			. 'changes nothing else and does not re-save the article.';
+			. 'changes nothing else and does not re-save the article. Pass created_by (a user id, username or '
+			. 'email of an existing user) to change the author, and created_by_alias to set the "written by" '
+			. 'name shown instead of the author\'s; an empty string clears the alias.';
 	}
 
 	public function getInputSchema(): array
@@ -85,6 +95,8 @@ final class UpdateArticleTool extends AbstractTool
 				'metakey'     => ['type' => 'string'],
 				'tags'        => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Tag ids. Replaces the tags on the article; [] removes them all. Omit to keep the current tags.'],
 				'hits'        => ['type' => 'integer', 'minimum' => 0, 'description' => 'Sets the hit count. Omit to keep the current count. Written directly; does not change the modified date.'],
+				'created_by'  => ['type' => ['integer', 'string'], 'description' => 'The article\'s author: a user id, username or email address. Must match exactly one existing user. Omit to keep the current author.'],
+				'created_by_alias' => ['type' => 'string', 'description' => 'Author alias shown instead of the author\'s name. An empty string clears it. Omit to keep the current alias.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -133,6 +145,14 @@ final class UpdateArticleTool extends AbstractTool
 		if (array_key_exists('articletext', $arguments)) {
 			$data['articletext'] = (string) $arguments['articletext'];
 		}
+		$author = null;
+		if (array_key_exists('created_by', $arguments)) {
+			$author             = $this->resolveArticleAuthor($arguments['created_by']);
+			$data['created_by'] = $author['id'];
+		}
+		if (array_key_exists('created_by_alias', $arguments)) {
+			$data['created_by_alias'] = $this->articleAuthorAlias($arguments['created_by_alias']);
+		}
 		$data['modified_by'] = (int) $actor->id;
 
 		// Always send tags: Joomla's Taggable behaviour deletes them when the
@@ -150,6 +170,24 @@ final class UpdateArticleTool extends AbstractTool
 			$check = $model->getItem($id);
 			if (!$check || empty($check->id)) {
 				return ToolResult::error('com_content rejected the update: ' . $result['error']);
+			}
+		}
+
+		// The author is the point of the call when it is supplied, so check it
+		// landed rather than trusting save()'s return value.
+		if ($author !== null || array_key_exists('created_by_alias', $data)) {
+			$stored = $this->storedArticleAuthor($id);
+			$wrong  = [];
+
+			if ($author !== null && ($stored['created_by'] ?? null) !== $author['id']) {
+				$wrong[] = 'created_by is ' . json_encode($stored['created_by'] ?? null) . ', not ' . $author['id'];
+			}
+			if (array_key_exists('created_by_alias', $data) && ($stored['created_by_alias'] ?? null) !== $data['created_by_alias']) {
+				$wrong[] = 'created_by_alias is ' . json_encode($stored['created_by_alias'] ?? null) . ', not ' . json_encode($data['created_by_alias']);
+			}
+			if ($wrong !== []) {
+				return ToolResult::error('Article ' . $id . ' was saved, but the author did not change as asked: '
+					. implode('; ', $wrong) . '.' . ($result['error'] !== '' ? ' Joomla said: ' . $result['error'] : ''));
 			}
 		}
 
@@ -172,6 +210,14 @@ final class UpdateArticleTool extends AbstractTool
 		if ($hits !== null) {
 			$response['hits']          = $hits;
 			$response['previous_hits'] = (int) $existing->hits;
+		}
+		if ($author !== null) {
+			$response['created_by']          = $author;
+			$response['previous_created_by'] = (int) $existing->created_by;
+		}
+		if (array_key_exists('created_by_alias', $data)) {
+			$response['created_by_alias']          = $data['created_by_alias'];
+			$response['previous_created_by_alias'] = (string) $existing->created_by_alias;
 		}
 		if (!$result['ok'] && $result['error'] !== '') {
 			$response['post_save_warning'] = $result['error'];

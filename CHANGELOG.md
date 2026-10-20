@@ -1,5 +1,21 @@
 # Changelog
 
+## 🚀 Version 2.9.2 (October 20, 2026)
+
+### 🚀 Added — article author
+- **`update_article` can change an article's author.** Pass `created_by` as a user id, username or email address. It must match exactly one existing user; otherwise the call is refused and nothing is saved. `created_by_alias` sets the "written by" name shown instead of the author's, and an empty string clears it. Leave either out and the current value stays. After saving, the tool reads both back and reports an error if they didn't change. Requested by Susan, who merges duplicate articles and needs the copy she keeps to show the original author.
+- **`create_article` takes the same two arguments.** Without `created_by` the author is still you.
+- **`get_article` returns the author as `created_by: {id, name, username}`, plus `created_by_alias`.** `created_by` used to be a bare user id; that id is now `created_by.id`.
+
+### 🔧 Fixed — a broken add-on filled the Logs
+- **A broken add-on is now logged at most once an hour, not on every request.** Since 2.9.0 an add-on whose tools fail to load is skipped while every other tool keeps working, but the error was written to the Logs on every MCP request, which on a busy site could push everything else out. The add-on is still skipped on every request until it is fixed. The PHP error log line follows the same hourly rule.
+
+### 📝 Changed — claude.ai connector steps
+- **claude.ai steps match the app as it is now**, checked by connecting claude.ai to a live site on 2.9.0. claude.ai moved custom connectors to **Customize → Connectors → Add → Add custom connector**, and the dialog no longer shows OAuth Client ID/Secret fields. It detects the sign-in settings by itself ("Sign in now", "Register automatically"), so the Setup Guide and Dashboard now say to keep those. The sign-in troubleshooting also says to click **Allow** soon after the login page opens: apps give up on a pending sign-in after a while, and a late Allow ends in an error. Starting Connect again fixes it.
+
+### 🐛 Fixed — every claude.ai connection added a warning to the Logs
+- **Apps asking for an optional method this server doesn't offer are now logged as Info, not Warning.** claude.ai and Claude Code send `server/discover` on every connect and carry on normally when told "method not found".
+
 ## 🚀 Version 2.9.1 (October 19, 2026)
 
 Clean-up for the Joomla Extensions Directory submission. No behaviour changes.

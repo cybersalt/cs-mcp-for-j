@@ -22,7 +22,7 @@ final class GetArticleTool extends AbstractTool
 	public function getDescription(): string
 	{
 		return 'Fetch a single article by id, returning its core fields, resolved category title, '
-			. 'and tags (array of {id, title}).';
+			. 'author (created_by as {id, name, username}, plus created_by_alias) and tags (array of {id, title}).';
 	}
 
 	public function getInputSchema(): array
@@ -52,6 +52,8 @@ final class GetArticleTool extends AbstractTool
 				$this->db->quoteName('a.language'), $this->db->quoteName('a.access'),
 				$this->db->quoteName('a.metadesc'), $this->db->quoteName('a.metakey'), $this->db->quoteName('a.images'),
 				$this->db->quoteName('a.created'), $this->db->quoteName('a.created_by'),
+				$this->db->quoteName('a.created_by_alias'),
+				$this->db->quoteName('u.name', 'author_name'), $this->db->quoteName('u.username', 'author_username'),
 				$this->db->quoteName('a.modified'), $this->db->quoteName('a.modified_by'),
 				$this->db->quoteName('a.publish_up'), $this->db->quoteName('a.publish_down'),
 				$this->db->quoteName('a.hits'),
@@ -61,6 +63,10 @@ final class GetArticleTool extends AbstractTool
 				$this->db->quoteName('#__categories', 'c')
 				. ' ON ' . $this->db->quoteName('c.id') . ' = ' . $this->db->quoteName('a.catid')
 			)
+			->leftJoin(
+				$this->db->quoteName('#__users', 'u')
+				. ' ON ' . $this->db->quoteName('u.id') . ' = ' . $this->db->quoteName('a.created_by')
+			)
 			->where($this->db->quoteName('a.id') . ' = ' . $id);
 
 		$row = $this->db->setQuery($query)->loadAssoc();
@@ -69,6 +75,16 @@ final class GetArticleTool extends AbstractTool
 		}
 
 		$row['images'] = $row['images'] ? json_decode((string) $row['images'], true) : null;
+
+		// 2.9.2: the author as {id, name, username} so it can be checked after
+		// update_article's created_by. name/username are null when the user
+		// account no longer exists.
+		$row['created_by'] = [
+			'id'       => (int) $row['created_by'],
+			'name'     => $row['author_name'],
+			'username' => $row['author_username'],
+		];
+		unset($row['author_name'], $row['author_username']);
 
 		// Tags live in #__contentitem_tag_map, not on the row. Returned so a
 		// change made with update_article's `tags` argument can be checked.

@@ -122,8 +122,17 @@ final class Server
 				default                     => throw new McpException(-32601, 'Method not found: ' . $method),
 			};
 		} catch (McpException $e) {
-			ActivityLog::warning('mcp', $method, $this->describeCall($method, $params) . ' refused: ' . $e->getMessage(),
-				$this->logContext($method, $params, $started, ['jsonrpc_error' => $e->getCode()]));
+			// Clients probe for optional methods we don't offer (claude.ai and
+			// Claude Code send server/discover on every connect) and carry on
+			// when told "method not found", so that is not a problem worth a warning.
+			if ($e->getCode() === -32601) {
+				ActivityLog::info('mcp', $method, 'The app asked for "' . mb_substr($method, 0, 64)
+					. '", which this server does not offer. It was told so (method not found); apps carry on normally.',
+					$this->logContext($method, $params, $started, ['jsonrpc_error' => $e->getCode()]));
+			} else {
+				ActivityLog::warning('mcp', $method, $this->describeCall($method, $params) . ' refused: ' . $e->getMessage(),
+					$this->logContext($method, $params, $started, ['jsonrpc_error' => $e->getCode()]));
+			}
 
 			return $isNotification ? null : $this->errorResponse($id, $e->getCode(), $e->getMessage(), $e->getData());
 		} catch (Throwable $e) {

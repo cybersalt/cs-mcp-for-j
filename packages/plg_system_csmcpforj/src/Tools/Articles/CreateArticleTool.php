@@ -18,12 +18,16 @@ use Joomla\CMS\User\User;
 
 final class CreateArticleTool extends AbstractTool
 {
+	use ArticleAuthorTrait;
+
 	public function getName(): string { return 'create_article'; }
 
 	public function getDescription(): string
 	{
 		return 'Create a new article in com_content. Required: title, catid, articletext. '
 			. 'Use list_categories to find a valid catid. Optional tags: an array of tag ids (see list_tags). '
+			. 'The author is you unless you pass created_by (a user id, username or email of an existing user); '
+			. 'created_by_alias sets the "written by" name shown instead. '
 			. 'Returns the new article id and edit URL.';
 	}
 
@@ -48,6 +52,8 @@ final class CreateArticleTool extends AbstractTool
 				'image_fulltext_alt' => ['type' => 'string'],
 				'featured'           => ['type' => 'integer', 'enum' => [0, 1]],
 				'tags'               => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Tag ids to assign. Use list_tags to find them.'],
+				'created_by'         => ['type' => ['integer', 'string'], 'description' => 'The article\'s author: a user id, username or email address. Must match exactly one existing user. Defaults to you.'],
+				'created_by_alias'   => ['type' => 'string', 'description' => 'Author alias shown instead of the author\'s name.'],
 			],
 			'additionalProperties' => false,
 		];
@@ -60,6 +66,11 @@ final class CreateArticleTool extends AbstractTool
 		$title = $this->requireString($arguments, 'title');
 		$catid = $this->requirePositiveInt($arguments, 'catid');
 		$body  = $this->requireString($arguments, 'articletext');
+
+		// Validated before anything is written, so a bad author creates nothing.
+		$author = array_key_exists('created_by', $arguments)
+			? $this->resolveArticleAuthor($arguments['created_by'])
+			: ['id' => (int) $actor->id, 'name' => (string) $actor->name, 'username' => (string) $actor->username];
 
 		$alias = (string) ($arguments['alias'] ?? '');
 		if ($alias === '') {
@@ -93,9 +104,12 @@ final class CreateArticleTool extends AbstractTool
 			'urls'        => json_encode(new \stdClass()),
 			'attribs'     => json_encode(new \stdClass()),
 			'metadata'    => json_encode(new \stdClass()),
-			'created_by'  => (int) $actor->id,
+			'created_by'  => $author['id'],
 			'tags'        => $this->resolveTags($arguments, 'com_content.article', 0),
 		];
+		if (array_key_exists('created_by_alias', $arguments)) {
+			$data['created_by_alias'] = $this->articleAuthorAlias($arguments['created_by_alias']);
+		}
 
 		$model  = $this->getModel('com_content', 'Article');
 		$result = $this->saveAdminModel($model, $data);
@@ -111,8 +125,20 @@ final class CreateArticleTool extends AbstractTool
 			'alias'    => $alias,
 			'catid'    => $catid,
 			'state'    => $data['state'],
+			'created_by' => $author,
 			'edit_url' => 'index.php?option=com_content&task=article.edit&id=' . $result['id'],
 		];
+		if (array_key_exists('created_by_alias', $data)) {
+			$response['created_by_alias'] = $data['created_by_alias'];
+		}
+
+		// Read the author back: the row exists now, so a mismatch is reported
+		// as a warning on a created article, not as a failure to create it.
+		$stored = $this->storedArticleAuthor($result['id']);
+		if ($stored !== null && $stored['created_by'] !== $author['id']) {
+			$response['author_warning'] = 'The article was created, but its stored author is user '
+				. $stored['created_by'] . ', not ' . $author['id'] . '. Fix it with update_article.';
+		}
 		if (!$result['ok'] && $result['error'] !== '') {
 			$response['post_save_warning'] = $result['error'];
 		}

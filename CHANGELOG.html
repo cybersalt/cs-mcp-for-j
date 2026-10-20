@@ -1,5 +1,24 @@
 <div class="changelog-container">
 <h1>📋 MCP for Joomla — Changelog</h1>
+<h2>🚀 Version 2.9.2 (October 20, 2026)</h2>
+<h3>🚀 Added — article author</h3>
+<ul>
+<li><strong><code>update_article</code> can change an article's author.</strong> Pass <code>created_by</code> as a user id, username or email address. It must match exactly one existing user; otherwise the call is refused and nothing is saved. <code>created_by_alias</code> sets the "written by" name shown instead of the author's, and an empty string clears it. Leave either out and the current value stays. After saving, the tool reads both back and reports an error if they didn't change. Requested by Susan, who merges duplicate articles and needs the copy she keeps to show the original author.</li>
+<li><strong><code>create_article</code> takes the same two arguments.</strong> Without <code>created_by</code> the author is still you.</li>
+<li><strong><code>get_article</code> returns the author as <code>created_by: {id, name, username}</code>, plus <code>created_by_alias</code>.</strong> <code>created_by</code> used to be a bare user id; that id is now <code>created_by.id</code>.</li>
+</ul>
+<h3>🔧 Fixed — a broken add-on filled the Logs</h3>
+<ul>
+<li><strong>A broken add-on is now logged at most once an hour, not on every request.</strong> Since 2.9.0 an add-on whose tools fail to load is skipped while every other tool keeps working, but the error was written to the Logs on every MCP request, which on a busy site could push everything else out. The add-on is still skipped on every request until it is fixed. The PHP error log line follows the same hourly rule.</li>
+</ul>
+<h3>📝 Changed — claude.ai connector steps</h3>
+<ul>
+<li><strong>claude.ai steps match the app as it is now</strong>, checked by connecting claude.ai to a live site on 2.9.0. claude.ai moved custom connectors to <strong>Customize → Connectors → Add → Add custom connector</strong>, and the dialog no longer shows OAuth Client ID/Secret fields. It detects the sign-in settings by itself ("Sign in now", "Register automatically"), so the Setup Guide and Dashboard now say to keep those. The sign-in troubleshooting also says to click <strong>Allow</strong> soon after the login page opens: apps give up on a pending sign-in after a while, and a late Allow ends in an error. Starting Connect again fixes it.</li>
+</ul>
+<h3>🐛 Fixed — every claude.ai connection added a warning to the Logs</h3>
+<ul>
+<li><strong>Apps asking for an optional method this server doesn't offer are now logged as Info, not Warning.</strong> claude.ai and Claude Code send <code>server/discover</code> on every connect and carry on normally when told "method not found".</li>
+</ul>
 <h2>🚀 Version 2.9.1 (October 19, 2026)</h2>
 <p>Clean-up for the Joomla Extensions Directory submission. No behaviour changes.</p>
 <h3>🔧 Fixed</h3>

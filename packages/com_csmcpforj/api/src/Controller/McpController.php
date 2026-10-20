@@ -20,6 +20,7 @@ use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
 use Joomla\CMS\MVC\Controller\BaseController;
 use Joomla\CMS\User\User;
+use Joomla\Database\DatabaseInterface;
 use JsonException;
 
 /**
@@ -191,7 +192,8 @@ final class McpController extends BaseController
 	 *
 	 * Each listener now runs on its own. If one throws, the tools it had
 	 * already registered are dropped (half an add-on is worse than none), the
-	 * failure goes to the activity log naming the add-on, file and line, and
+	 * failure goes to the activity log naming the add-on, file and line (at
+	 * most once an hour per add-on, see registerFailureLoggedRecently()), and
 	 * the remaining listeners still run. A tool it overwrote by name cannot be
 	 * restored, but names are unique by convention (see ToolRegistry).
 	 */
@@ -223,17 +225,65 @@ final class McpController extends BaseController
 
 				$addon = $this->describeListener($listener, $e);
 
+				// A broken add-on fails on every request, so log it once an
+				// hour, not once per request (2.9.2).
+				if ($this->registerFailureLoggedRecently($addon)) {
+					continue;
+				}
+
 				ActivityLog::exception('mcp', 'register_tools', $e, [
 					'user_id' => $userId,
+					'subject' => $addon,
 					'details' => [
 						'addon'         => $addon,
 						'tools_dropped' => array_values($added),
-						'note'          => 'This add-on was skipped; every other add-on and the core tools are still available.',
+						'note'          => 'This add-on was skipped; every other add-on and the core tools are still available. '
+							. 'It is skipped on every request until fixed, but logged at most once an hour.',
 					],
 				]);
 				error_log('cs-mcp-for-j: ' . $addon . ' failed to register its tools and was skipped: '
-					. get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+					. get_class($e) . ': ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine()
+					. ' (logged at most once an hour while it keeps failing)');
 			}
+		}
+	}
+
+	/**
+	 * True when this add-on's registration failure is already in the activity
+	 * log from the last hour.
+	 *
+	 * Before 2.9.2 a broken add-on wrote an error row on EVERY MCP request,
+	 * which on a busy site (or one chatty client) floods the Logs view and
+	 * pushes real entries out under the row cap. The log row itself is the
+	 * marker: it is written with the add-on as its subject, so one indexed
+	 * look-up on (source, created) answers the question. No cache or extra
+	 * table, and clearing the Logs naturally re-arms it. The look-up only runs
+	 * when an add-on has actually failed, so a healthy site never pays for it.
+	 *
+	 * The PHP error_log line follows the same decision: the full detail is in
+	 * the log row, and the server error log stays readable. If the activity log
+	 * is switched off or unavailable this finds nothing and both are written,
+	 * so the failure is never silent.
+	 */
+	private function registerFailureLoggedRecently(string $addon): bool
+	{
+		try {
+			$db    = Factory::getContainer()->get(DatabaseInterface::class);
+			$since = gmdate('Y-m-d H:i:s', time() - 3600);
+			$query = $db->getQuery(true)
+				->select('1')
+				->from($db->quoteName(ActivityLog::TABLE))
+				->where($db->quoteName('source') . ' = ' . $db->quote('mcp'))
+				->where($db->quoteName('created') . ' >= :since')
+				->where($db->quoteName('event') . ' = ' . $db->quote('register_tools'))
+				->where($db->quoteName('subject') . ' = :addon')
+				->bind(':since', $since)
+				->bind(':addon', $addon)
+				->setLimit(1);
+
+			return (bool) $db->setQuery($query)->loadResult();
+		} catch (\Throwable $e) {
+			return false;
 		}
 	}
 
