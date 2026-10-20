@@ -49,11 +49,33 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 			}
 		}
 
+		try {
+			$this->removeApiAuthorizationSnippet();
+		} catch (\Throwable $e) {
+		}
+
 		return true;
 	}
 
 	public function preflight(string $type, InstallerAdapter $adapter): bool
 	{
+		if (!in_array($type, ['install', 'update', 'discover_install'], true)) {
+			return true;
+		}
+
+		// Same minimums the update server advertises (php_minimum 8.2, Joomla 5 and 6).
+		if (version_compare(PHP_VERSION, '8.2', '<')) {
+			Factory::getApplication()->enqueueMessage(Text::sprintf('JLIB_INSTALLER_MINIMUM_PHP', '8.2'), 'error');
+
+			return false;
+		}
+
+		if (version_compare(JVERSION, '5.0', '<')) {
+			Factory::getApplication()->enqueueMessage(Text::sprintf('JLIB_INSTALLER_MINIMUM_JOOMLA', '5.0'), 'error');
+
+			return false;
+		}
+
 		return true;
 	}
 
@@ -340,6 +362,32 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 			. "</IfModule>\n";
 
 		@file_put_contents($htaccess, $current . $snippet);
+	}
+
+	/**
+	 * Uninstall counterpart of ensureApiAuthorizationPreserved(): remove exactly
+	 * the block it appended (marker line + IfModule block), nothing else.
+	 * Best-effort, like the rest of uninstall().
+	 */
+	private function removeApiAuthorizationSnippet(): void
+	{
+		$htaccess = JPATH_ROOT . '/api/.htaccess';
+		if (!is_file($htaccess) || !is_writable($htaccess)) {
+			return;
+		}
+
+		$current = (string) @file_get_contents($htaccess);
+		$cleaned = preg_replace(
+			'~\R?# cs-mcp-for-j: preserve Authorization header \(cPanel/PHP-FPM strips it otherwise\)\R'
+			. '<IfModule mod_rewrite\.c>\R\s*RewriteEngine On\R\s*RewriteRule \.\* - \[E=HTTP_AUTHORIZATION:%\{HTTP:Authorization\}\]\R</IfModule>\R?~',
+			'',
+			$current,
+			1
+		);
+
+		if (is_string($cleaned) && $cleaned !== $current) {
+			@file_put_contents($htaccess, $cleaned);
+		}
 	}
 
 	/**

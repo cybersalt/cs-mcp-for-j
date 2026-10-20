@@ -48,6 +48,20 @@ final class JoomlaUpdateHealthcheckTool extends AbstractTool
 
 	public function getRequiredPermission(): string { return 'use'; }
 
+	/**
+	 * Read-only, but the name has no read verb (list_/get_/check_...), so the
+	 * prefix heuristic would mark it as a write and read-only mode would hide it.
+	 */
+	public function getMcpAnnotations(): array
+	{
+		return [
+			'readOnlyHint'    => true,
+			'destructiveHint' => false,
+			'idempotentHint'  => true,
+			'openWorldHint'   => false,
+		];
+	}
+
 	protected function run(array $arguments, User $actor): ToolResult
 	{
 		$db = Factory::getContainer()->get(DatabaseInterface::class);

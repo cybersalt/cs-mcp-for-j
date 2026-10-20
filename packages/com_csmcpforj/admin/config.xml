@@ -283,4 +283,22 @@
 			filter="string"
 		/>
 	</fieldset>
+
+	<!-- Standard Joomla Permissions tab: the only place to grant "Use MCP endpoint"
+	     (csmcpforj.use) and "Write through MCP endpoint" (csmcpforj.write) from access.xml. -->
+	<fieldset
+		name="permissions"
+		label="JCONFIG_PERMISSIONS_LABEL"
+		description="JCONFIG_PERMISSIONS_DESC"
+	>
+		<field
+			name="rules"
+			type="rules"
+			label="JCONFIG_PERMISSIONS_LABEL"
+			filter="rules"
+			validate="rules"
+			component="com_csmcpforj"
+			section="component"
+		/>
+	</fieldset>
 </config>

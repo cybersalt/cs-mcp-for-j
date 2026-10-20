@@ -29,9 +29,11 @@ use Joomla\Database\ParameterType;
  * where hmac_hex = hash_hmac($algo, base64_decode($seed), $siteSecret).
  *
  * plg_user_token will only display the token to the user themselves. This
- * helper bypasses that check because cs-mcp-for-j tools are explicitly
- * Super-User-gated admin operations — the whole point of the four
- * *_user_api_token tools is programmatic per-user token management.
+ * helper bypasses that check because the whole point of the four
+ * *_user_api_token tools is programmatic per-user token management. They are
+ * not Super-User-only: each tool calls AbstractTool::requireCanEditTargetUser(),
+ * which refuses to touch a user whose highest group is equal to or above the
+ * caller's (Super Users and the user themselves excepted).
  */
 final class JoomlatokenHelper
 {

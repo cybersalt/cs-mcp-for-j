@@ -78,10 +78,9 @@ $snippetCursor = <<<HTML
 }
 HTML;
 
+// ChatGPT's "Add custom MCP server" dialog only takes the URL (sign-in is by OAuth); it has no header field.
 $snippetChatGpt = <<<HTML
-URL:    {$endpoint}
-Header: Authorization
-Value:  Bearer {$tokenPlaceholder}
+{$endpoint}
 HTML;
 
 $snippetCodexWindows = <<<POWERSHELL
@@ -487,7 +486,7 @@ details.csmcpforj-setup-advanced[open] summary::before {
 								<p class="mb-2"><small class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CHATGPT_TIER_NOTE'); ?></small></p>
 								<div class="position-relative">
 									<pre id="csmcpforj-snippet-chatgpt" data-csmcpforj-snippet><code><?php echo htmlspecialchars($snippetChatGpt, ENT_QUOTES, 'UTF-8'); ?></code></pre>
-									<button type="button" class="btn btn-sm btn-primary text-white csmcpforj-setup-copy-btn position-absolute top-0 end-0 m-2" data-csmcpforj-copy="csmcpforj-snippet-chatgpt" data-csmcpforj-token-substitute="1" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED')); ?>" data-copied-substituted-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED_WITH_TOKEN')); ?>">
+									<button type="button" class="btn btn-sm btn-primary text-white csmcpforj-setup-copy-btn position-absolute top-0 end-0 m-2" data-csmcpforj-copy="csmcpforj-snippet-chatgpt" data-default-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY')); ?>" data-copied-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED')); ?>" data-copied-substituted-label="<?php echo $this->escape(Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPIED_WITH_TOKEN')); ?>">
 										<span class="icon-copy" aria-hidden="true"></span> <?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_COPY'); ?>
 									</button>
 								</div>

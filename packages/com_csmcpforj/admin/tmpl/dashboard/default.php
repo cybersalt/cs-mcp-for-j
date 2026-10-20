@@ -415,7 +415,7 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 						<tbody>
 							<tr><td><strong>Super Users</strong></td><td><span class="badge bg-success"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PERMISSIONS_YES'); ?></span></td><td><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PERMISSIONS_REASON_SUPER'); ?></td></tr>
 							<tr><td><strong>Administrator</strong></td><td><span class="badge bg-warning text-dark"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PERMISSIONS_NEEDS_API_LOGIN'); ?></span></td><td><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PERMISSIONS_REASON_ADMIN'); ?></td></tr>
-							<tr><td><strong>Manager</strong></td><td><span class="badge bg-warning text-dark"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PERMISSIONS_NEEDS_API_LOGIN'); ?></span></td><td><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PERMISSIONS_REASON_MANAGER'); ?></td></tr>
+							<tr><td><strong>Manager</strong></td><td><span class="badge bg-warning text-dark"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PERMISSIONS_NEEDS_GRANT'); ?></span></td><td><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PERMISSIONS_REASON_MANAGER'); ?></td></tr>
 							<tr><td><strong><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PERMISSIONS_GROUP_OTHER'); ?></strong></td><td><span class="badge bg-warning text-dark"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PERMISSIONS_NEEDS_GRANT'); ?></span></td><td><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PERMISSIONS_REASON_OTHER'); ?></td></tr>
 						</tbody>
 					</table>
