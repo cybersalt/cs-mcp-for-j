@@ -32,6 +32,6 @@
 
 	<changelogurl>https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.changelogxml&amp;format=raw&amp;element=pkg_csmcpforj</changelogurl>
 	<updateservers>
-		<server type="extension" name="MCP for Joomla">https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.updatexml&amp;format=raw&amp;element=pkg_csmcpforj</server>
+		<server type="extension" name="Cybersalt MCP for Joomla">https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.updatexml&amp;format=raw&amp;element=pkg_csmcpforj</server>
 	</updateservers>
 </extension>

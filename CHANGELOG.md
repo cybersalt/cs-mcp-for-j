@@ -1,6 +1,6 @@
 # Changelog
 
-## 🚀 Version 2.9.0 (October 10, 2026)
+## 🚀 Version 2.9.0 (October 19, 2026)
 
 **Connect by signing in.** ChatGPT custom connectors and claude.ai / Claude Desktop "Add custom connector" can now connect to a Joomla site: paste the site's MCP address, sign in with a Joomla account, approve. Most other clients (Claude Code, VS Code + Copilot, Cursor, Gemini CLI, Codex, Cline) can sign in the same way. API keys keep working exactly as before. ([#36](https://github.com/cybersalt/cs-mcp-for-j/issues/36))
 
