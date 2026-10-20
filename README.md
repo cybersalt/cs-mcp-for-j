@@ -1,12 +1,12 @@
-# Cybersalt MCP for J (`cs-mcp-for-j`)
+# CS MCP for J (`cs-mcp-for-j`)
 
 Turns a Joomla 5/6 site into its own [MCP](https://modelcontextprotocol.io) server, so an AI app can work on the site directly: articles, categories, menus, modules, users, custom fields, templates, extensions, Schema.org and more. It works with any MCP-capable app: ChatGPT, Claude (claude.ai, Desktop, Code), Codex, Cursor, VS Code + GitHub Copilot, Gemini CLI, Cline, Windsurf and others. The site itself is the server. There's no separate server process to run and no third-party proxy.
 
 **Documentation:** <https://docs.cybersalt.com/extensions/mcp-for-j> · **Download:** <https://www.cybersalt.com/extensions/mcp-for-j>
 
-> **Status:** v2.9.3. Since 2.9.0: optional OAuth sign-in (so ChatGPT and claude.ai can connect), an activity log, and Super-User-only gates on the tools that can change who has power over a site. Free and fully featured; optional add-ons extend it to specific third-party extensions.
+> **Status:** v2.9.4. Since 2.9.0: optional OAuth sign-in (so ChatGPT and claude.ai can connect), an activity log, and Super-User-only gates on the tools that can change who has power over a site. Free and fully featured; optional add-ons extend it to specific third-party extensions.
 
-> **Name:** this extension was called "Cybersalt MCP for Joomla" until 2.9.3. The Joomla trademark rules, which the Joomla Extensions Directory enforces, need a licence from Open Source Matters for any extension name containing "Joomla", so it is now **Cybersalt MCP for J**. Only the name changed: the element (`pkg_csmcpforj`), the endpoint, settings, tokens and updates are all the same.
+> **Name:** this extension was called "Cybersalt MCP for Joomla" until 2.9.3. The Joomla trademark rules, which the Joomla Extensions Directory enforces, need a licence from Open Source Matters for any extension name containing "Joomla", so 2.9.3 renamed it "Cybersalt MCP for J". Since 2.9.4 its install name is **CS MCP for J**, matching its JED listing (the JED asks that the two match). The component is "MCP for J" in the Components menu. Only the name changed: the element (`pkg_csmcpforj`), the endpoint, settings, tokens and updates are all the same.
 
 ## What it ships
 
@@ -284,7 +284,7 @@ public function onCsMcpRegisterTools(\Cybersalt\Component\Csmcpforj\Administrato
 
 ## Uninstalling
 
-Uninstall the **Cybersalt MCP for J** package in System → Manage → Extensions. That removes all four parts, the OAuth and log tables, and the `api/.htaccess` rule. Add-ons are separate extensions and are uninstalled on their own.
+Uninstall the **CS MCP for J** package in System → Manage → Extensions. That removes all four parts, the OAuth and log tables, and the `api/.htaccess` rule. Add-ons are separate extensions and are uninstalled on their own.
 
 ## Licensing
 

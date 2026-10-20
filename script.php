@@ -246,7 +246,7 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 		$db = Factory::getContainer()->get(DatabaseInterface::class);
 
 		$updateUrl  = 'https://www.cybersalt.com/index.php?option=com_csreleasemanager&task=api.updatexml&format=raw&element=pkg_csmcpforj';
-		$updateName = 'Cybersalt MCP for J';
+		$updateName = 'CS MCP for J';
 
 		// 1. Find the package's extension_id.
 		$query = $db->getQuery(true)
