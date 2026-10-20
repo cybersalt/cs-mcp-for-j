@@ -315,7 +315,7 @@ final class ProActivationHelper
 			throw new \RuntimeException(
 				'Cannot register this installation: no site host is available. This usually means '
 				. 'the call came from the CLI, where Joomla cannot know the site URL. Register from '
-				. 'Components -> MCP for Joomla -> Dashboard in the browser instead.'
+				. 'Components -> MCP for J -> Dashboard in the browser instead.'
 			);
 		}
 

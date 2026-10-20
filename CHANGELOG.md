@@ -1,5 +1,16 @@
 # Changelog
 
+## 🚀 Version 2.9.3 (October 20, 2026)
+
+**New name: Cybersalt MCP for J.** No functional change.
+
+### 📝 Changed — the product name
+- **"Cybersalt MCP for Joomla" is now "Cybersalt MCP for J".** The Joomla trademark rules, which the Joomla Extensions Directory enforces, need a licence from Open Source Matters for any extension name containing "Joomla". The JED listing becomes "CS MCP for J" to match.
+- **What you'll see:** the package is "Cybersalt MCP for J" in Extensions → Manage, the component is "MCP for J" in the Components menu, and the plugins are "System - MCP for J", "Web Services - MCP for J" and "API Authentication - MCP for J OAuth". The Dashboard, Setup Guide, Support and Logs pages, the OAuth sign-in pages and the update site use the new name too.
+- **What stays the same:** the element (`pkg_csmcpforj`), folders, the endpoint URL (`/api/index.php/v1/mcp`), every tool, your settings, API tokens, OAuth connections and the update server. Updating from 2.9.2 is all that's needed; nothing has to be reconnected.
+
+Sub-extensions: component 2.9.3, system plugin 1.17.3, Web Services plugin 1.1.2, API authentication plugin 1.0.2 (names only).
+
 ## 🚀 Version 2.9.2 (October 20, 2026)
 
 ### 🚀 Added — article author

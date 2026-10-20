@@ -1,10 +1,12 @@
-# Cybersalt MCP for Joomla (`cs-mcp-for-j`)
+# Cybersalt MCP for J (`cs-mcp-for-j`)
 
 Turns a Joomla 5/6 site into its own [MCP](https://modelcontextprotocol.io) server, so an AI app can work on the site directly: articles, categories, menus, modules, users, custom fields, templates, extensions, Schema.org and more. It works with any MCP-capable app: ChatGPT, Claude (claude.ai, Desktop, Code), Codex, Cursor, VS Code + GitHub Copilot, Gemini CLI, Cline, Windsurf and others. The site itself is the server. There's no separate server process to run and no third-party proxy.
 
 **Documentation:** <https://docs.cybersalt.com/extensions/mcp-for-j> · **Download:** <https://www.cybersalt.com/extensions/mcp-for-j>
 
-> **Status:** v2.9.0. Adds optional OAuth sign-in (so ChatGPT and claude.ai can connect), an activity log, and Super-User-only gates on the tools that can change who has power over a site. Free and fully featured; optional add-ons extend it to specific third-party extensions.
+> **Status:** v2.9.3. Since 2.9.0: optional OAuth sign-in (so ChatGPT and claude.ai can connect), an activity log, and Super-User-only gates on the tools that can change who has power over a site. Free and fully featured; optional add-ons extend it to specific third-party extensions.
+
+> **Name:** this extension was called "Cybersalt MCP for Joomla" until 2.9.3. The Joomla trademark rules, which the Joomla Extensions Directory enforces, need a licence from Open Source Matters for any extension name containing "Joomla", so it is now **Cybersalt MCP for J**. Only the name changed: the element (`pkg_csmcpforj`), the endpoint, settings, tokens and updates are all the same.
 
 ## What it ships
 
@@ -13,13 +15,13 @@ Turns a Joomla 5/6 site into its own [MCP](https://modelcontextprotocol.io) serv
 | `com_csmcpforj` | Component | The JSON-RPC MCP server at `/api/index.php/v1/mcp`, the tool registry and permission checks, the OAuth server, the activity log, and the admin screens (Dashboard, Browse MCP Add-ons, Setup Guide, Logs, Support). |
 | `plg_webservices_csmcpforj` | Web Services plugin | Registers the `/v1/mcp` API route. **Required**: without it the route returns 404. |
 | `plg_system_csmcpforj` | System plugin | Registers the built-in tools and turns `Authorization: Bearer` into `X-Joomla-Token` for Joomla's token plugin. |
-| `plg_api-authentication_csmcpforj` | API authentication plugin | Accepts MCP for Joomla OAuth access tokens on the MCP route, only when OAuth sign-in is switched on. |
+| `plg_api-authentication_csmcpforj` | API authentication plugin | Accepts MCP for J OAuth access tokens on the MCP route, only when OAuth sign-in is switched on. |
 
 All four are in `pkg_csmcpforj` and are enabled automatically on install. **Requirements:** Joomla 5.0+ (native on Joomla 5 and 6), PHP 8.2+, MySQL or MariaDB for OAuth and the activity log.
 
 ## Connecting an AI app
 
-Open **Components → MCP for Joomla → Dashboard**. The *Connect an AI app to this site* card has three ways in:
+Open **Components → MCP for J → Dashboard**. The *Connect an AI app to this site* card has three ways in:
 
 1. **Log in (easiest).** Switch on **OAuth sign-in** in Options. Then paste the site's Endpoint URL into the AI app, log in with your normal Joomla username and password, and click **Allow**. This is the only way **ChatGPT** (Plugins → Add → Add custom MCP server; works on Plus) and **claude.ai / Claude Desktop** (Settings → Connectors → Add custom connector) can connect. Claude Code, Codex, Cursor, VS Code + Copilot, Gemini CLI and Cline can sign in the same way. Connected apps are listed on the Dashboard, where each can be disconnected.
 2. **Paste a setup prompt**, for AI apps that can run commands (Codex, Claude Code, Cursor, Cline, Copilot agent mode). Paste your API token into the Dashboard, copy the prompt, and paste it into a new chat. The AI tests the connection and can offer to save it.
@@ -55,10 +57,10 @@ If the host strips `Authorization`, use `env_http_headers = { "X-Joomla-Token" =
 
 ## Permissions
 
-The Joomla user who owns the token (or who signed in) is the actor on every tool call. MCP for Joomla never grants anything that user couldn't do in the Joomla admin.
+The Joomla user who owns the token (or who signed in) is the actor on every tool call. MCP for J never grants anything that user couldn't do in the Joomla admin.
 
 - **Web Services Login** (`core.login.api`) gates all of Joomla's API, MCP included. Only Super Users have it by default. Grant it to other groups in **System → Global Configuration → Permissions**.
-- **Use MCP endpoint** (`csmcpforj.use`) allows read tools; **Write through MCP endpoint** (`csmcpforj.write`) allows tools that change things. Set them in **Components → MCP for Joomla → Options → Permissions**. `core.manage` or `core.admin` on the component also pass, so with Joomla's defaults Super Users and Administrators have both. Managers and other groups need them granted.
+- **Use MCP endpoint** (`csmcpforj.use`) allows read tools; **Write through MCP endpoint** (`csmcpforj.write`) allows tools that change things. Set them in **Components → MCP for J → Options → Permissions**. `core.manage` or `core.admin` on the component also pass, so with Joomla's defaults Super Users and Administrators have both. Managers and other groups need them granted.
 - **Five tools are limited to Super Users** whatever the permissions say, because they can change who has power over the site: `install_extension`, `set_component_permission`, `apply_joomla_update`, `set_extension_enabled`, `set_plugin_params`.
 - Tools that manage other users' API tokens refuse to act on a user whose group is equal to or above the caller's.
 
@@ -238,7 +240,7 @@ The Joomla user who owns the token (or who signed in) is the actor on every tool
 
 ## Add-ons
 
-**Browse MCP Add-ons** (Components → MCP for Joomla) lists optional add-ons that give the AI tools for specific third-party extensions: AcyMailing, Akeeba Backup, Akeeba Ticket System, Community Builder, Convert Forms, DPCalendar, J2Commerce, JCE, Maximenu CK, Page Builder CK, VirtueMart and more (31 at the time of writing). Each add-on is a separate plugin; install only the ones you need.
+**Browse MCP Add-ons** (Components → MCP for J) lists optional add-ons that give the AI tools for specific third-party extensions: AcyMailing, Akeeba Backup, Akeeba Ticket System, Community Builder, Convert Forms, DPCalendar, J2Commerce, JCE, Maximenu CK, Page Builder CK, VirtueMart and more (31 at the time of writing). Each add-on is a separate plugin; install only the ones you need.
 
 - **Free add-ons** install with one click.
 - **Pro add-ons**, for commercial third-party extensions, are sold separately at [cybersalt.com](https://www.cybersalt.com/membership-plans). Link your Cybersalt account once on the Dashboard and they install and update from the same screen.
@@ -249,7 +251,7 @@ The add-ons are built independently by Cybersalt; you need the third-party exten
 
 ## Activity log
 
-**Components → MCP for Joomla → Logs** records connections, every tool call (with redacted arguments and timing), refusals and OAuth sign-in steps, with filters and CSV export. Entries are kept 30 days by default (never more than the newest 20,000). Tokens, codes, client secrets and password-like arguments are never written to it.
+**Components → MCP for J → Logs** records connections, every tool call (with redacted arguments and timing), refusals and OAuth sign-in steps, with filters and CSV export. Entries are kept 30 days by default (never more than the newest 20,000). Tokens, codes, client secrets and password-like arguments are never written to it.
 
 ## Safety features
 
@@ -282,7 +284,7 @@ public function onCsMcpRegisterTools(\Cybersalt\Component\Csmcpforj\Administrato
 
 ## Uninstalling
 
-Uninstall the **Cybersalt MCP for Joomla** package in System → Manage → Extensions. That removes all four parts, the OAuth and log tables, and the `api/.htaccess` rule. Add-ons are separate extensions and are uninstalled on their own.
+Uninstall the **Cybersalt MCP for J** package in System → Manage → Extensions. That removes all four parts, the OAuth and log tables, and the `api/.htaccess` rule. Add-ons are separate extensions and are uninstalled on their own.
 
 ## Licensing
 

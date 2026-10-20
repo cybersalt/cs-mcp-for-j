@@ -138,7 +138,7 @@ final class LogsModel extends ListModel
 	}
 
 	/** Plain text for pasting into a support email or ticket. */
-	public function getTextDump(?array $items = null, string $heading = 'MCP for Joomla - Activity Log'): string
+	public function getTextDump(?array $items = null, string $heading = 'MCP for J - Activity Log'): string
 	{
 		$items ??= $this->getAllFiltered();
 		$stats   = $this->getStats();

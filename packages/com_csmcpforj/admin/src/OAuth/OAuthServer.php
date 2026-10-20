@@ -161,7 +161,7 @@ final class OAuthServer
 			'authorization_servers'    => [self::issuer()],
 			'scopes_supported'         => [self::SCOPE],
 			'bearer_methods_supported' => ['header'],
-			'resource_name'            => (string) Factory::getApplication()->get('sitename', 'Joomla') . ' (MCP for Joomla)',
+			'resource_name'            => (string) Factory::getApplication()->get('sitename', 'Joomla') . ' (MCP for J)',
 		];
 	}
 
@@ -254,7 +254,7 @@ final class OAuthServer
 			ActivityLog::exception('oauth', 'oauth.' . $route, $e, self::$logCtx);
 			self::sendJson([
 				'error'             => 'server_error',
-				'error_description' => 'The authorization server hit an error. A site administrator can see the details under Components > MCP for Joomla > Logs.',
+				'error_description' => 'The authorization server hit an error. A site administrator can see the details under Components > MCP for J > Logs.',
 			], 500, true);
 		}
 
@@ -519,7 +519,7 @@ final class OAuthServer
 		self::$logCtx['user_id'] = (int) $user->id;
 
 		if (!self::userMayUseMcp($user)) {
-			self::log('warning', 'oauth.authorize', $user->username . ' signed in but may not use MCP (needs Web Services Login plus MCP for Joomla access).', [
+			self::log('warning', 'oauth.authorize', $user->username . ' signed in but may not use MCP (needs Web Services Login plus MCP for J access).', [
 				'details' => [
 					'core.login.api'      => $user->authorise('core.login.api'),
 					'csmcpforj.use'       => $user->authorise('csmcpforj.use', 'com_csmcpforj'),
@@ -529,8 +529,8 @@ final class OAuthServer
 			]);
 			self::renderPage(
 				'Your account cannot use MCP',
-				'<p>You are signed in as <strong>' . self::e($user->name) . '</strong> (' . self::e($user->username) . '), but this account is not allowed to use MCP for Joomla on this site.</p>'
-				. '<p>A Super User can allow it: the account\'s group needs Joomla\'s <em>Web Services Login</em> permission (System &rarr; Global Configuration &rarr; Permissions), plus access to MCP for Joomla in the component\'s Options &rarr; Permissions.</p>',
+				'<p>You are signed in as <strong>' . self::e($user->name) . '</strong> (' . self::e($user->username) . '), but this account is not allowed to use MCP for J on this site.</p>'
+				. '<p>A Super User can allow it: the account\'s group needs Joomla\'s <em>Web Services Login</em> permission (System &rarr; Global Configuration &rarr; Permissions), plus access to MCP for J in the component\'s Options &rarr; Permissions.</p>',
 				403
 			);
 
@@ -613,11 +613,11 @@ final class OAuthServer
 
 		$hidden .= '<input type="hidden" name="' . Session::getFormToken() . '" value="1">';
 
-		$body = '<p class="lead"><strong>' . self::e((string) $client->client_name) . '</strong> wants to connect to <strong>' . self::e($site) . '</strong> through MCP for Joomla.</p>'
+		$body = '<p class="lead"><strong>' . self::e((string) $client->client_name) . '</strong> wants to connect to <strong>' . self::e($site) . '</strong> through MCP for J.</p>'
 			. '<ul>'
 			. '<li>It will act as <strong>' . self::e($user->name) . '</strong> (' . self::e($user->username) . '), with exactly the permissions this account has on the site, including making changes if the account can.</li>'
 			. '<li>After you allow it, you will be sent back to <strong>' . self::e($host) . '</strong>.</li>'
-			. '<li>You can disconnect it at any time under Components &rarr; MCP for Joomla.</li>'
+			. '<li>You can disconnect it at any time under Components &rarr; MCP for J.</li>'
 			. '</ul>'
 			. '<p class="muted">Only allow apps you added yourself. If you did not just add a connector, choose Deny.</p>'
 			. '<form method="post" action="' . self::e(self::endpoint('authorize')) . '">' . $hidden
@@ -1034,7 +1034,7 @@ final class OAuthServer
 		}
 
 		if (!str_starts_with($token, self::ACCESS_PREFIX) || strlen($token) > 200) {
-			return $reject('Not an MCP for Joomla access token.');
+			return $reject('Not an MCP for J access token.');
 		}
 
 		$db  = self::db();
@@ -1412,7 +1412,7 @@ final class OAuthServer
 			. 'button{font:inherit;padding:10px 22px;border-radius:6px;border:1px solid transparent;cursor:pointer;margin-top:8px}'
 			. '.allow{background:#1f7a3a;color:#fff}.deny{background:transparent;border-color:#8c959f;color:inherit}'
 			. '@media (prefers-color-scheme:dark){body{background:#0d1117;color:#e6edf3}main{background:#161b22;box-shadow:none}.site,.muted{color:#9da7b3}}'
-			. '</style></head><body><main><h1>' . self::e($title) . '</h1><p class="site">' . $site . ' &middot; MCP for Joomla</p>'
+			. '</style></head><body><main><h1>' . self::e($title) . '</h1><p class="site">' . $site . ' &middot; MCP for J</p>'
 			. $bodyHtml . '</main></body></html>';
 	}
 }

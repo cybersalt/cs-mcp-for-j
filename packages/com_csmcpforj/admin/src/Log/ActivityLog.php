@@ -225,7 +225,7 @@ final class ActivityLog
 			}
 		} catch (\Throwable $e) {
 			self::$broken = true;
-			error_log('[MCP for Joomla] ' . strtoupper($status) . ' ' . $event . ': ' . $summary
+			error_log('[MCP for J] ' . strtoupper($status) . ' ' . $event . ': ' . $summary
 				. ' (activity log unavailable: ' . $e->getMessage() . ')');
 		}
 	}
