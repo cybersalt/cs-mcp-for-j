@@ -1,5 +1,13 @@
 <div class="changelog-container">
 <h1>📋 MCP for Joomla — Changelog</h1>
+<h2>🚀 Version 2.9.1 (October 19, 2026)</h2>
+<p>Clean-up for the Joomla Extensions Directory submission. No behaviour changes.</p>
+<h3>🔧 Fixed</h3>
+<ul>
+<li><strong>Every PHP file now carries its GPL licence notice.</strong> JED Checker found the notice in only one of 137 files; the JED requires it in each.</li>
+<li><strong>Windows paths in the Setup Guide's Claude Desktop steps showed doubled backslashes.</strong> Since Joomla 4.4.1 / 5.0.1 language strings don't need backslashes escaped, so they were shown twice.</li>
+<li><strong>The MCP endpoint no longer falls back to <code>Factory::getUser()</code></strong>, which JED Checker flags as removed; a request with no loaded identity is treated as a guest, as before.</li>
+</ul>
 <h2>🚀 Version 2.9.0 (October 19, 2026)</h2>
 <p><strong>Connect by signing in.</strong> ChatGPT custom connectors and claude.ai / Claude Desktop "Add custom connector" can now connect to a Joomla site: paste the site's MCP address, sign in with a Joomla account, approve. Most other clients (Claude Code, VS Code + Copilot, Cursor, Gemini CLI, Codex, Cline) can sign in the same way. API keys keep working exactly as before. (<a href="https://github.com/cybersalt/cs-mcp-for-j/issues/36">#36</a>)</p>
 <h3>🛡️ Security — four tools now need a Super User</h3>

@@ -1,4 +1,9 @@
 <?php
+/**
+ * @package     Cybersalt MCP for Joomla
+ * @copyright   Copyright (C) 2026 Cybersalt Consulting Ltd.
+ * @license     GNU General Public License version 2 or later; see LICENSE.txt
+ */
 
 declare(strict_types=1);
 
@@ -14,6 +19,7 @@ use Joomla\CMS\Application\CMSApplication;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
 use Joomla\CMS\MVC\Controller\BaseController;
+use Joomla\CMS\User\User;
 use JsonException;
 
 /**
@@ -69,10 +75,8 @@ final class McpController extends BaseController
 			return;
 		}
 
-		$user = $app->getIdentity();
-		if ($user === null) {
-			$user = Factory::getUser();
-		}
+		// No identity loaded = guest (Factory::getUser() is gone in Joomla 6).
+		$user = $app->getIdentity() ?? new User();
 
 		$raw = (string) file_get_contents('php://input');
 

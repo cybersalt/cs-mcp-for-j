@@ -1,4 +1,9 @@
 <?php
+/**
+ * @package     Cybersalt MCP for Joomla
+ * @copyright   Copyright (C) 2026 Cybersalt Consulting Ltd.
+ * @license     GNU General Public License version 2 or later; see LICENSE.txt
+ */
 
 /**
  * Logs view. Joomla-Brain "Standard Log Viewer": clickable stats cards,

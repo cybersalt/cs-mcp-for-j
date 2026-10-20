@@ -1,5 +1,14 @@
 # Changelog
 
+## 🚀 Version 2.9.1 (October 19, 2026)
+
+Clean-up for the Joomla Extensions Directory submission. No behaviour changes.
+
+### 🔧 Fixed
+- **Every PHP file now carries its GPL licence notice.** JED Checker found the notice in only one of 137 files; the JED requires it in each.
+- **Windows paths in the Setup Guide's Claude Desktop steps showed doubled backslashes.** Since Joomla 4.4.1 / 5.0.1 language strings don't need backslashes escaped, so they were shown twice.
+- **The MCP endpoint no longer falls back to `Factory::getUser()`**, which JED Checker flags as removed; a request with no loaded identity is treated as a guest, as before.
+
 ## 🚀 Version 2.9.0 (October 19, 2026)
 
 **Connect by signing in.** ChatGPT custom connectors and claude.ai / Claude Desktop "Add custom connector" can now connect to a Joomla site: paste the site's MCP address, sign in with a Joomla account, approve. Most other clients (Claude Code, VS Code + Copilot, Cursor, Gemini CLI, Codex, Cline) can sign in the same way. API keys keep working exactly as before. ([#36](https://github.com/cybersalt/cs-mcp-for-j/issues/36))
