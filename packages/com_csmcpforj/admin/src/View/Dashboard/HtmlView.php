@@ -99,6 +99,13 @@ final class HtmlView extends BaseHtmlView
 	public string $proSignupUrl = '';
 	public string $proMessage = '';
 	public string $proPackageTitle = '';
+	/**
+	 * Only for proStatus 'lapsed', which covers three different people (#38):
+	 *   'expired' — held All-Access and it ran out          → Membership Expired + Renew
+	 *   'addons'  — never had All-Access, owns paid add-on(s) → add-ons licensed separately
+	 *   'none'    — never had All-Access, owns nothing paid   → no All-Access membership
+	 */
+	public string $proLapsedKind = '';
 
 	private const PLUGIN_TOOL_MAPS = [
 		'__core' => [
@@ -198,6 +205,14 @@ final class HtmlView extends BaseHtmlView
 		$this->proSignupUrl      = $pro['signup_url'];
 		$this->proMessage        = $pro['message'];
 		$this->proPackageTitle   = $pro['package_title'];
+
+		if ($this->proStatus === 'lapsed') {
+			$this->proLapsedKind = match (true) {
+				$pro['access_reason'] === 'expired' => 'expired',
+				$pro['has_paid']                    => 'addons',
+				default                             => 'none',
+			};
+		}
 
 		// Bootstrap tab JS isn't auto-loaded in Joomla admin — without this,
 		// clicking a tab just changes the URL hash and the panel never

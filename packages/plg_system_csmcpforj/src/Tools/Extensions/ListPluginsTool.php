@@ -45,7 +45,7 @@ final class ListPluginsTool extends AbstractTool
 	protected function run(array $arguments, User $actor): ToolResult
 	{
 		$query = $this->db->getQuery(true)
-			->select($this->db->quoteName(['extension_id', 'element', 'folder', 'name', 'enabled', 'ordering', 'protected']))
+			->select($this->db->quoteName(['extension_id', 'element', 'folder', 'name', 'enabled', 'ordering', 'protected', 'locked']))
 			->from($this->db->quoteName('#__extensions'))
 			->where($this->db->quoteName('type') . ' = ' . $this->db->quote('plugin'))
 			->order($this->db->quoteName('folder') . ', ' . $this->db->quoteName('ordering') . ', ' . $this->db->quoteName('element'));

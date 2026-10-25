@@ -537,6 +537,20 @@ final class OAuthServer
 			return;
 		}
 
+		// The token step checks the account again, so refuse here with the same rule instead of
+		// letting the user approve and then fail one step later.
+		if (self::loadActiveUser((int) $user->id, $why) === null) {
+			self::log('warning', 'oauth.authorize', 'Allow / Deny page not shown: ' . $why . '.');
+			self::renderPage(
+				'Your account cannot connect apps yet',
+				'<p>You are signed in as <strong>' . self::e($user->name) . '</strong> (' . self::e($user->username) . '), but this account cannot connect apps right now: ' . self::e($why) . '.</p>'
+				. '<p>Once that is sorted out, start the connection again from your app.</p>',
+				403
+			);
+
+			return;
+		}
+
 		// 4. Consent.
 		if (!$isPost) {
 			self::log('info', 'oauth.authorize', 'Showed the Allow / Deny page to ' . $user->username . '.');
@@ -829,11 +843,11 @@ final class OAuthServer
 			return;
 		}
 
-		$user = self::loadActiveUser((int) $row->user_id);
+		$user = self::loadActiveUser((int) $row->user_id, $why);
 		self::$logCtx['user_id'] = (int) $row->user_id;
 
 		if ($user === null) {
-			self::tokenError('invalid_grant', 'The user who authorized this app can no longer sign in.');
+			self::tokenError('invalid_grant', 'The user who authorized this app can no longer sign in: ' . $why . '.', 400, 'the user who authorized this app can no longer sign in: ' . $why);
 
 			return;
 		}
@@ -885,12 +899,13 @@ final class OAuthServer
 			return;
 		}
 
-		$user = self::loadActiveUser((int) $row->user_id);
+		$user = self::loadActiveUser((int) $row->user_id, $why);
 		self::$logCtx['user_id'] = (int) $row->user_id;
 
 		if ($user === null || !hash_equals((string) $row->pw_fingerprint, self::passwordFingerprint($user))) {
+			$why = $user === null ? $why : $user->username . ' changed their password since signing in';
 			self::revokeWhere(['family' => (string) $row->family]);
-			self::tokenError('invalid_grant', 'The user who authorized this app can no longer sign in, or changed their password.');
+			self::tokenError('invalid_grant', 'The user who authorized this app can no longer sign in, or changed their password. Sign in again.', 400, 'refresh refused, ' . $why);
 
 			return;
 		}
@@ -1069,10 +1084,10 @@ final class OAuthServer
 			return $reject('The token was issued for ' . $row->resource . ', not for ' . self::resourceUrl() . ' (site URL changed?).');
 		}
 
-		$user = self::loadActiveUser((int) $row->user_id);
+		$user = self::loadActiveUser((int) $row->user_id, $why);
 
 		if ($user === null) {
-			return $reject('User #' . (int) $row->user_id . ' is blocked, deleted, unactivated, or must reset their password.');
+			return $reject('Access token refused: ' . $why . '.');
 		}
 
 		if (!hash_equals((string) $row->pw_fingerprint, self::passwordFingerprint($user))) {
@@ -1286,16 +1301,41 @@ final class OAuthServer
 		return $db->setQuery($q)->loadObject() ?: null;
 	}
 
-	/** The user, if they exist and may sign in at all. */
-	private static function loadActiveUser(int $userId): ?User
+	/**
+	 * The user, if they exist and may sign in at all; otherwise null, with $reason saying why.
+	 *
+	 * Mirrors Joomla's own login, which refuses only blocked users. The activation column is not
+	 * checked: an unactivated account is always blocked as well, and Joomla also keeps a pending
+	 * password-reset token in that column, so a user who requested a reset and then signed in
+	 * normally still has a value there.
+	 */
+	private static function loadActiveUser(int $userId, ?string &$reason = null): ?User
 	{
+		$reason = '';
+
 		if ($userId <= 0) {
+			$reason = 'no user is linked to this grant';
+
 			return null;
 		}
 
 		$user = Factory::getContainer()->get(\Joomla\CMS\User\UserFactoryInterface::class)->loadUserById($userId);
 
-		if (!$user || (int) $user->id !== $userId || $user->block || trim((string) $user->activation) !== '' || $user->requireReset) {
+		if (!$user || (int) $user->id !== $userId) {
+			$reason = 'user #' . $userId . ' no longer exists';
+
+			return null;
+		}
+
+		if ($user->block) {
+			$reason = $user->username . ' is blocked (or not activated yet)';
+
+			return null;
+		}
+
+		if ($user->requireReset) {
+			$reason = $user->username . ' must reset their password first (Require Password Reset is set on the account)';
+
 			return null;
 		}
 

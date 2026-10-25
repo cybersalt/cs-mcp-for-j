@@ -264,7 +264,17 @@ final class DashboardController extends BaseController
 		} elseif ($state === 'active') {
 			$this->setMessage(Text::_('COM_CSMCPFORJ_PRO_REFRESH_ACTIVE'));
 		} else {
-			$this->setMessage(Text::sprintf('COM_CSMCPFORJ_PRO_REFRESH_DONE', $state), 'info');
+			// Same wording as the card's badge, not the raw state: 'lapsed' also
+			// covers single add-on buyers, who never had a membership to lapse (#38).
+			$pro   = ProActivationHelper::readPro();
+			$badge = match ($state) {
+				'lapsed'       => $pro['access_reason'] === 'expired' ? 'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_EXPIRED'
+					: ($pro['has_paid'] ? 'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_ADDONS' : 'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_NO_ALLACCESS'),
+				'not_a_member' => 'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_NONE',
+				'blacklisted'  => 'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_BLOCKED',
+				default        => 'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_DENIED',
+			};
+			$this->setMessage(Text::sprintf('COM_CSMCPFORJ_PRO_REFRESH_DONE', Text::_($badge)), 'info');
 		}
 
 		$this->setRedirect($redirect);

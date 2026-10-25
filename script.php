@@ -81,7 +81,88 @@ class Pkg_csmcpforjInstallerScript implements InstallerScriptInterface
 			return false;
 		}
 
+		// An update overwrites files the previous version left behind. If PHP
+		// can't write one of them, Joomla fails halfway with only "Copy file
+		// failed", naming no file, and leaves the site part-updated (Bjørn,
+		// 2.9.3 → 2.9.4, 2026-10-21). Check first and name the files instead.
+		$unwritable = $this->unwritablePaths();
+
+		if ($unwritable !== []) {
+			$shown = array_slice($unwritable, 0, 5);
+			Factory::getApplication()->enqueueMessage(
+				'MCP for J was not updated, and nothing was changed: the web server cannot write to '
+				. count($unwritable) . ' of its existing files or folders, for example:<br><code>'
+				. implode('</code><br><code>', array_map(fn (string $p): string => htmlspecialchars($p, self::ESCAPE_FLAGS, 'UTF-8'), $shown))
+				. '</code><br>Ask your host to reset their owner and permissions (files 644, folders 755, owned by '
+				. 'the account user), then run the update again.',
+				'error'
+			);
+
+			return false;
+		}
+
 		return true;
+	}
+
+	/**
+	 * Existing MCP for J files and folders PHP can't write to, relative to the
+	 * site root. Empty on a fresh install.
+	 *
+	 * @return string[]
+	 */
+	private function unwritablePaths(): array
+	{
+		$roots = [
+			JPATH_ADMINISTRATOR . '/components/com_csmcpforj',
+			JPATH_SITE . '/components/com_csmcpforj',
+			JPATH_API . '/components/com_csmcpforj',
+			JPATH_SITE . '/media/com_csmcpforj',
+			JPATH_PLUGINS . '/system/csmcpforj',
+			JPATH_PLUGINS . '/webservices/csmcpforj',
+			JPATH_PLUGINS . '/api-authentication/csmcpforj',
+		];
+		$found = [];
+
+		try {
+			foreach ($roots as $root) {
+				if (!is_dir($root)) {
+					continue;
+				}
+
+				if (!is_writable($root)) {
+					$found[] = $root;
+				}
+
+				$items = new \RecursiveIteratorIterator(
+					new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
+					\RecursiveIteratorIterator::SELF_FIRST
+				);
+
+				foreach ($items as $item) {
+					if (!is_writable($item->getPathname())) {
+						$found[] = $item->getPathname();
+					}
+				}
+			}
+
+			foreach ([JPATH_ADMINISTRATOR . '/language', JPATH_SITE . '/language'] as $languages) {
+				foreach (glob($languages . '/*/*csmcpforj*.ini') ?: [] as $file) {
+					if (!is_writable($file) || !is_writable(\dirname($file))) {
+						$found[] = $file;
+					}
+				}
+			}
+		} catch (\Throwable $e) {
+			// The check is a courtesy; never block an update because it failed.
+			return [];
+		}
+
+		$prefix = rtrim(str_replace('\\', '/', JPATH_ROOT), '/') . '/';
+
+		return array_values(array_unique(array_map(
+			static fn (string $p): string => str_replace($prefix, '', str_replace('\\', '/', $p)),
+			$found
+		)));
 	}
 
 	public function postflight(string $type, InstallerAdapter $adapter): bool

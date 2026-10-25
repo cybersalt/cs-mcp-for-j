@@ -141,6 +141,11 @@ final class ProActivationHelper
 			// JSON-encoded in the param; decoded to an array here. Empty until a
 			// verifyaccess round-trip populates it.
 			'entitled_elements' => (array) (json_decode((string) ($data['pro_entitled_elements'] ?? '[]'), true) ?: []),
+			// 'expired' / 'never_entitled' / '' (see verifyAccess()), and whether
+			// the account owns a paid add-on. Empty until the next verify after
+			// updating to 2.10.0.
+			'access_reason'   => (string) ($data['pro_access_reason'] ?? ''),
+			'has_paid'        => (string) ($data['pro_has_paid'] ?? '') === '1',
 		];
 	}
 
@@ -646,6 +651,7 @@ final class ProActivationHelper
 		self::saveParam('pro_message', (string) $verifyResult['message']);
 		self::saveParam('pro_package_title', (string) $verifyResult['package_title']);
 		self::saveParam('pro_entitled_elements', json_encode($verifyResult['entitled_elements'] ?? []));
+		self::saveAccessReason($verifyResult);
 		// Timestamp the verification so refreshIfStale() can throttle subsequent
 		// re-checks. Without this, a freshly-activated install would re-verify
 		// on the very next dashboard load.
@@ -753,7 +759,21 @@ final class ProActivationHelper
 			'signup_url'        => (string) ($payload['signup_url'] ?? ''),
 			'package_title'     => (string) ($payload['package_title'] ?? ''),
 			'entitled_elements' => (array) ($payload['entitled_elements'] ?? []),
+			// Why a 'lapsed' account has no All-Access: 'expired' (held it, it ran
+			// out) or 'never_entitled' (never bought it). Plus whether it owns any
+			// paid add-on at all. Both sent by cs-release-manager since 1.11.x; the
+			// dashboard needs them so a single add-on buyer isn't told their
+			// membership expired (#38).
+			'access_reason'     => (string) ($payload['access_reason'] ?? ''),
+			'has_paid'          => !empty($payload['has_paid_entitlement']),
 		];
+	}
+
+	/** Persists the two #38 fields from a verifyAccess() result. */
+	private static function saveAccessReason(array $result): void
+	{
+		self::saveParam('pro_access_reason', (string) ($result['access_reason'] ?? ''));
+		self::saveParam('pro_has_paid', !empty($result['has_paid']) ? '1' : '0');
 	}
 
 	/**
@@ -876,6 +896,7 @@ final class ProActivationHelper
 		self::saveParam('pro_package_title', (string) $result['package_title']);
 		self::saveParam('pro_status', (string) $result['state']);
 		self::saveParam('pro_entitled_elements', json_encode($result['entitled_elements'] ?? []));
+		self::saveAccessReason($result);
 		self::saveParam('pro_last_verified', (string) time());
 
 		// The dlid only exists once we are linked, so stamp it onto the add-on
@@ -919,7 +940,12 @@ final class ProActivationHelper
 
 		// Throttle window — only recheck if enough time has passed. Throttle=0
 		// means "recheck every time" (testing mode).
-		if ($throttleSeconds > 0 && $lastVerified > 0 && ($now - $lastVerified) < $throttleSeconds) {
+		// Exception: a 'lapsed' state saved before 2.10.0 has no access_reason,
+		// and without it the dashboard can't tell an expired member from a
+		// single add-on buyer (#38). Ask once now instead of waiting a day.
+		$needsReason = $pro['status'] === 'lapsed' && $pro['access_reason'] === '';
+
+		if (!$needsReason && $throttleSeconds > 0 && $lastVerified > 0 && ($now - $lastVerified) < $throttleSeconds) {
 			return;
 		}
 
@@ -934,6 +960,7 @@ final class ProActivationHelper
 		self::saveParam('pro_package_title', (string) $result['package_title']);
 		self::saveParam('pro_status', (string) $result['state']);
 		self::saveParam('pro_entitled_elements', json_encode($result['entitled_elements'] ?? []));
+		self::saveAccessReason($result);
 		self::saveParam('pro_last_verified', (string) $now);
 		self::syncUpdateSiteDlid();
 	}
@@ -967,6 +994,8 @@ final class ProActivationHelper
 		self::saveParam('pro_message', '');
 		self::saveParam('pro_package_title', '');
 		self::saveParam('pro_entitled_elements', '');
+		self::saveParam('pro_access_reason', '');
+		self::saveParam('pro_has_paid', '');
 		self::saveParam('pro_last_verified', '');
 		// Clear the unknown-element fingerprint too. Leaving it would make the
 		// catalog's second self-heal think it had already asked about those

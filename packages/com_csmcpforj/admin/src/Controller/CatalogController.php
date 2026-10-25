@@ -214,15 +214,42 @@ final class CatalogController extends BaseController
 
 		// Pro add-ons need the dlid (Download ID) appended so cs-release-manager's
 		// AccessCheckHelper::verifyUpdateAccess gate lets the download through.
-		// If Pro membership isn't activated locally, bail with a clear message
-		// pointing the user at the dashboard's Pro Activation card.
+		// That gate checks the requested add-on's own package, so a site may
+		// install a Pro add-on when it is linked AND the account owns this add-on,
+		// either through All-Access or bought on its own. Up to 2.9.4 this asked
+		// for All-Access (isActivated()) and refused every single add-on buyer,
+		// although the Catalog showed them an Install button (the view already
+		// used the per-add-on list).
 		if ($isPro) {
-			if (!ProActivationHelper::isActivated()) {
+			if (!ProActivationHelper::isLinked()) {
 				$this->setMessage(
 					Text::sprintf('COM_CSMCPFORJ_CATALOG_INSTALL_NEEDS_PRO', $safeAddonName),
 					'warning'
 				);
 				$this->setRedirect(Route::_('index.php?option=com_csmcpforj&view=dashboard', false));
+				return;
+			}
+
+			$element  = (string) ($entry['addon_extension']['element'] ?? '');
+			$entitled = static fn (): bool => ProActivationHelper::isActivated()
+				|| ($element !== '' && \in_array($element, ProActivationHelper::getEntitledElements(), true));
+
+			// The cached list may predate the purchase: ask cybersalt.com once
+			// before refusing, the same re-verify the Catalog view does.
+			if (!$entitled()) {
+				ProActivationHelper::forceRefresh();
+			}
+
+			if (!$entitled()) {
+				$this->setMessage(
+					Text::sprintf(
+						'COM_CSMCPFORJ_CATALOG_INSTALL_NOT_ENTITLED',
+						$safeAddonName,
+						htmlspecialchars(ProActivationHelper::readPro()['email'], ENT_QUOTES, 'UTF-8')
+					),
+					'warning'
+				);
+				$this->setRedirect($redirectUrl);
 				return;
 			}
 			$dlid = ProActivationHelper::getDlid();

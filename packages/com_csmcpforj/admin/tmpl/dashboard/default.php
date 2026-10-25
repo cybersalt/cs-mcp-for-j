@@ -560,10 +560,19 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 					// every REGISTERED state EXCEPT active (active has the
 					// Deactivate button as its primary action). The small link
 					// is the escape hatch for "I want to try a different email".
+					//
+					// 'lapsed' only means "no All-Access". proLapsedKind says why,
+					// so a single add-on buyer isn't told their membership expired
+					// and asked to renew something they never had (#38).
 					$hasEmail   = $this->proEmail !== '';
+					$allAccessUrl = $this->proSignupUrl !== '' ? $this->proSignupUrl : $this->proRenewalUrl;
 					$badgeInfo  = match ($this->proStatus) {
 						'active'       => ['bg-success',           'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_ACTIVE',  'COM_CSMCPFORJ_DASHBOARD_PRO_ACTIVE_BODY'],
-						'lapsed'       => ['bg-warning text-dark', 'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_EXPIRED', 'COM_CSMCPFORJ_DASHBOARD_PRO_EXPIRED_BODY'],
+						'lapsed'       => match ($this->proLapsedKind) {
+							'expired' => ['bg-warning text-dark', 'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_EXPIRED', 'COM_CSMCPFORJ_DASHBOARD_PRO_EXPIRED_BODY'],
+							'addons'  => ['bg-info text-dark',    'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_ADDONS',  'COM_CSMCPFORJ_DASHBOARD_PRO_ADDONS_BODY'],
+							default   => ['bg-secondary',         'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_NO_ALLACCESS', 'COM_CSMCPFORJ_DASHBOARD_PRO_NO_ALLACCESS_BODY'],
+						},
 						'not_a_member' => ['bg-secondary',         'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_NONE',    'COM_CSMCPFORJ_DASHBOARD_PRO_NONE_BODY'],
 						'blacklisted'  => ['bg-danger',            'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_BLOCKED', 'COM_CSMCPFORJ_DASHBOARD_PRO_BLACKLISTED_BODY'],
 						'denied'       => ['bg-warning text-dark', 'COM_CSMCPFORJ_DASHBOARD_PRO_BADGE_DENIED',  'COM_CSMCPFORJ_DASHBOARD_PRO_DENIED_BODY'],
@@ -632,6 +641,13 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 											<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_DEACTIVATE'); ?>
 										</button>
 									</form>
+								<?php elseif ($this->proStatus === 'lapsed' && $this->proLapsedKind !== 'expired' && $allAccessUrl !== '') : ?>
+									<a href="<?php echo htmlspecialchars($allAccessUrl, ENT_QUOTES, 'UTF-8'); ?>"
+										target="_blank" rel="noopener"
+										class="btn btn-primary fw-bold w-100">
+										<span class="icon-cart" aria-hidden="true"></span>
+										<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_PRO_ALLACCESS_BTN'); ?>
+									</a>
 								<?php elseif ($this->proStatus === 'lapsed' && $this->proRenewalUrl !== '') : ?>
 									<a href="<?php echo htmlspecialchars($this->proRenewalUrl, ENT_QUOTES, 'UTF-8'); ?>"
 										target="_blank" rel="noopener"
