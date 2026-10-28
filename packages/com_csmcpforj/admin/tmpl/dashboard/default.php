@@ -174,6 +174,8 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 	}
 </style>
 <div class="container-fluid">
+	<?php // Already escaped: IntegrityCheck::renderAlert() builds the HTML. ?>
+	<?php echo $this->integrityAlert; ?>
 	<div class="row">
 		<div class="col-12 col-lg-8">
 

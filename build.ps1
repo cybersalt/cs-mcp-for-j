@@ -28,6 +28,17 @@ if (-not (Test-Path $sevenZip)) {
     throw "7-Zip not found at $sevenZip. Install 7-Zip or edit build.ps1."
 }
 
+# Joomla-Brain's integrity list writer (shipped-file check on the Dashboard).
+# Uses the submodule when present, else the sibling checkout.
+$integrityTool = @(
+    (Join-Path $root '.joomla-brain\tools\integrity\New-IntegrityList.ps1'),
+    (Join-Path (Split-Path $root -Parent) 'Joomla-Brain\tools\integrity\New-IntegrityList.ps1')
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+if (-not $integrityTool) {
+    throw 'Joomla-Brain tools/integrity/New-IntegrityList.ps1 not found (.joomla-brain submodule or ..\Joomla-Brain).'
+}
+
 # Pull version from the package manifest
 [xml]$manifest = Get-Content $pkgXml
 $version = $manifest.extension.version
@@ -104,6 +115,11 @@ foreach ($srcName in $subpackages.Keys) {
     if (-not (Test-Path $srcPath)) {
         throw "Subpackage source missing: $srcPath"
     }
+
+    # integrity.json: size + SHA-256 of every shipped file, so the Dashboard
+    # can spot a half-installed update (Bjørn 2026-10-28: Imunify360 killed
+    # one copy mid-update and left LogsModel.php at 0 bytes).
+    & $integrityTool -ExtensionDir $srcPath
 
     Write-Host "  zipping $srcName" -ForegroundColor Gray
     Push-Location $srcPath

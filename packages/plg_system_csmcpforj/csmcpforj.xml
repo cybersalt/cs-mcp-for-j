@@ -15,6 +15,7 @@
 	<files>
 		<folder plugin="csmcpforj">services</folder>
 		<folder>src</folder>
+		<filename>integrity.json</filename>
 	</files>
 
 	<languages>

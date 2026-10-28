@@ -18,6 +18,9 @@ vendor/
 composer.lock
 .phpunit.result.cache
 
+# Written by build.ps1 (Joomla-Brain tools/integrity)
+integrity.json
+
 # Debug dumps and scratch (never release material)
 mcplist.txt
 cat.json

@@ -34,6 +34,10 @@
 <li><strong>New <code>get_component_params</code></strong> (read; needs the right to open that component's Options screen, because Options can hold API keys and other secrets): any component's Options (the settings behind the Options button, such as Articles, Contacts or Users), with every declared option's label, default and choices, and which ones have never been saved. This makes Joomla 6.2's new "Subcategories Image" (<code>show_subcat_image</code>) option visible.</li>
 <li><strong>New <code>set_component_params</code></strong> (write, Super User only): changes component Options by merging. Joomla's settings cache is cleared so the change shows at once. Permissions, Global Configuration and MCP for J's own options are refused.</li>
 </ul>
+<h3>🚀 Added — installation check</h3>
+<ul>
+<li><strong>The Dashboard warns when an update didn't finish.</strong> Joomla doesn't roll back a failed update, so a site can be left with some files missing or empty and nothing to say so. Every package now carries a list of its files with their sizes and checksums. The Dashboard checks all four parts of MCP for J against that list. If anything is missing or 0 bytes, a red alert names the files and says to install the same package again. Changed files get a yellow alert. Reported by Bjørn Ove Bremnes: Imunify360 Proactive Defense blocked one file copy during an update and left <code>LogsModel.php</code> empty. The alert mentions Imunify so site owners know where to look.</li>
+</ul>
 <h3>🐛 Fixed</h3>
 <ul>
 <li><strong><code>update_article</code> with <code>featured</code> wiped an already-featured article's Start / Finish Featured dates.</strong> They are kept unless you pass <code>featured_up</code> / <code>featured_down</code>.</li>

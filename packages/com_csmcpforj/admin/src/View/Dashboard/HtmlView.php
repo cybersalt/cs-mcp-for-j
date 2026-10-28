@@ -11,6 +11,7 @@ namespace Cybersalt\Component\Csmcpforj\Administrator\View\Dashboard;
 
 \defined('_JEXEC') or die;
 
+use Cybersalt\Component\Csmcpforj\Administrator\Integrity\IntegrityCheck;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
@@ -75,6 +76,21 @@ final class HtmlView extends BaseHtmlView
 	public string $oauthMetadataUrl = '';
 	public int $oauthProblems24h = 0;
 	public string $oauthProblemsUrl = '';
+
+	/**
+	 * Shipped-file check (Joomla-Brain tools/integrity): an alert when an
+	 * update left files missing, empty or changed, else ''. Bjørn 2026-10-28:
+	 * Imunify360 killed one copy mid-update and left LogsModel.php at 0 bytes.
+	 */
+	public string $integrityAlert = '';
+
+	/** integrity.json of each extension in the package, relative to the site root. */
+	private const INTEGRITY_LISTS = [
+		'administrator/components/com_csmcpforj/integrity.json',
+		'plugins/system/csmcpforj/integrity.json',
+		'plugins/webservices/csmcpforj/integrity.json',
+		'plugins/api-authentication/csmcpforj/integrity.json',
+	];
 
 	/** @var array<string, array<int, array{name:string, description:string, permission:string}>> */
 	public array $toolsByDomain = [];
@@ -142,6 +158,12 @@ final class HtmlView extends BaseHtmlView
 		$this->hoverRevealDelay = max(0, min(60,  (int) $params->get('hover_reveal_delay_seconds', 3)));
 		$this->hoverRevealHide  = max(0, min(300, (int) $params->get('hover_reveal_hide_seconds',  8)));
 		$this->host        = parse_url($this->endpointUrl, PHP_URL_HOST) ?: 'site';
+
+		try {
+			$this->integrityAlert = IntegrityCheck::renderAlert(IntegrityCheck::run(self::INTEGRITY_LISTS), Text::_('COM_CSMCPFORJ'));
+		} catch (\Throwable $e) {
+			$this->integrityAlert = '';
+		}
 
 		$this->buildToolGroups();
 		$this->mcpConfigJson   = $this->buildMcpConfigJson();
