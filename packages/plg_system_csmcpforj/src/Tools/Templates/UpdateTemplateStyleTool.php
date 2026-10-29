@@ -153,6 +153,15 @@ final class UpdateTemplateStyleTool extends AbstractTool
 
 		$assigned = null;
 		if (array_key_exists('assigned_menu_item_ids', $arguments)) {
+			// Joomla only shows and saves the Menus Assignment tab for someone
+			// with Edit on Menus (StyleModel::save(), style/edit.php).
+			if (!$actor->authorise('core.edit', 'com_menus')) {
+				return ToolResult::error(
+					'Permission denied: assigning a template style to menu items needs the "Edit" permission on Menus '
+					. 'in Joomla, the same as the Menus Assignment tab in the Joomla admin. Your account does not have it.'
+				);
+			}
+
 			$assigned = $this->validateAssignment($arguments['assigned_menu_item_ids'], $clientId);
 		}
 

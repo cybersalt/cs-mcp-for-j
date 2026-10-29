@@ -34,6 +34,7 @@ use Joomla\CMS\User\User;
 final class UpdateFieldGroupTool extends AbstractTool
 {
 	use FieldsArgumentsTrait;
+	use \Cybersalt\Plugin\System\Csmcpforj\Tools\Permissions\AuthorChangeTrait;
 
 	private const UPDATABLE = ['title', 'access', 'language', 'description', 'note', 'ordering'];
 
@@ -112,6 +113,7 @@ final class UpdateFieldGroupTool extends AbstractTool
 		// when empty and never touches created_by on an existing row.
 		if (array_key_exists('created_by', $arguments)) {
 			$data['created_by'] = $this->fieldCreatorId($arguments['created_by'], 'created_by');
+			$this->requireCanSetAuthor($actor, (int) $data['created_by'], 'created_by', false);
 		}
 		if (array_key_exists('created', $arguments)) {
 			$data['created'] = $this->fieldCreatedDate($arguments['created'], 'created');

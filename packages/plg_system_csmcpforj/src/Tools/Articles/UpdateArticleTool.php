@@ -83,6 +83,8 @@ final class UpdateArticleTool extends AbstractTool
 {
 	use ArticleAuthorTrait;
 	use ArticleFieldsTrait;
+	use ItemAssociationsTrait;
+	use \Cybersalt\Plugin\System\Csmcpforj\Tools\Permissions\AuthorChangeTrait;
 
 	private const UPDATABLE_SCALARS = [
 		'title', 'alias', 'catid', 'state', 'language', 'access',
@@ -129,6 +131,7 @@ final class UpdateArticleTool extends AbstractTool
 				'metadesc'    => ['type' => 'string'],
 				'metakey'     => ['type' => 'string'],
 				'tags'        => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Tag ids. Replaces the tags on the article; [] removes them all. Omit to keep the current tags.'],
+				'associations' => self::itemAssociationsSchema('article'),
 				'hits'        => ['type' => 'integer', 'minimum' => 0, 'description' => 'Sets the hit count. Omit to keep the current count. Written directly; does not change the modified date.'],
 				'created_by'  => ['type' => 'string', 'description' => 'The article\'s author: a user id, username or email address. Must match exactly one existing user. Omit to keep the current author.'],
 				'created_by_alias' => ['type' => 'string', 'description' => 'Author alias shown instead of the author\'s name. An empty string clears it. Omit to keep the current alias.'],
@@ -183,6 +186,7 @@ final class UpdateArticleTool extends AbstractTool
 		$author = null;
 		if (array_key_exists('created_by', $arguments)) {
 			$author             = $this->resolveArticleAuthor($arguments['created_by']);
+			$this->requireCanSetAuthor($actor, (int) $author['id'], 'created_by', false);
 			$data['created_by'] = $author['id'];
 		}
 		if (array_key_exists('created_by_alias', $arguments)) {
@@ -253,6 +257,16 @@ final class UpdateArticleTool extends AbstractTool
 		// Always send tags: Joomla's Taggable behaviour deletes them when the
 		// key is missing. See AbstractTool::resolveTags().
 		$data['tags'] = $this->resolveTags($arguments, 'com_content.article', $id);
+
+		if (array_key_exists('associations', $arguments)) {
+			$data['associations'] = $this->resolveItemAssociations(
+				$actor,
+				$arguments['associations'],
+				'article',
+				(string) ($data['language'] ?? $existing->language),
+				$id
+			);
+		}
 
 		$result = $this->withArticleVersionNote($versionNote, fn (): array => $this->saveAdminModel($model, $data));
 

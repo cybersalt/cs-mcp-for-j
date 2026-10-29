@@ -29,6 +29,8 @@ final class CreateArticleTool extends AbstractTool
 {
 	use ArticleAuthorTrait;
 	use ArticleFieldsTrait;
+	use ItemAssociationsTrait;
+	use \Cybersalt\Plugin\System\Csmcpforj\Tools\Permissions\AuthorChangeTrait;
 
 	public function getName(): string { return 'create_article'; }
 
@@ -66,6 +68,7 @@ final class CreateArticleTool extends AbstractTool
 				'image_fulltext_alt' => ['type' => 'string', 'description' => 'Shortcut for images.image_fulltext_alt. If both are given, images wins.'],
 				'featured'           => ['type' => 'integer', 'enum' => [0, 1]],
 				'tags'               => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Tag ids to assign. Use list_tags to find them.'],
+				'associations'       => self::itemAssociationsSchema('article'),
 				'created_by'         => ['type' => 'string', 'description' => 'The article\'s author: a user id, username or email address. Must match exactly one existing user. Defaults to you.'],
 				'created_by_alias'   => ['type' => 'string', 'description' => 'Author alias shown instead of the author\'s name.'],
 			] + $this->articleFieldsSchema(false),
@@ -85,6 +88,7 @@ final class CreateArticleTool extends AbstractTool
 		$author = array_key_exists('created_by', $arguments)
 			? $this->resolveArticleAuthor($arguments['created_by'])
 			: ['id' => (int) $actor->id, 'name' => (string) $actor->name, 'username' => (string) $actor->username];
+		$this->requireCanSetAuthor($actor, (int) $author['id'], 'created_by', true);
 
 		$alias = (string) ($arguments['alias'] ?? '');
 		if ($alias === '') {
@@ -187,6 +191,10 @@ final class CreateArticleTool extends AbstractTool
 		}
 		if (array_key_exists('created_by_alias', $arguments)) {
 			$data['created_by_alias'] = $this->articleAuthorAlias($arguments['created_by_alias']);
+		}
+
+		if (array_key_exists('associations', $arguments)) {
+			$data['associations'] = $this->resolveItemAssociations($actor, $arguments['associations'], 'article', (string) $data['language'], 0);
 		}
 
 		$model  = $this->getModel('com_content', 'Article');

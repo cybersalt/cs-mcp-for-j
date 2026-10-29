@@ -31,6 +31,78 @@ trait ModuleFieldsTrait
 	}
 
 	/**
+	 * Named args for the Advanced tab every module has (2.10.0, field review
+	 * Q12, Tim 2026-10-28). They were only reachable through the raw params
+	 * object, where an AI has to guess Joomla's key names and values. Allowed
+	 * values come from Joomla 6.2's ModuletagField and HeadertagField.
+	 *
+	 * @return array<string, array<string, mixed>>
+	 */
+	protected static function moduleAdvancedSchema(): array
+	{
+		return [
+			'layout'          => ['type' => 'string', 'description' => 'Advanced > Layout: "_:default", or a template override such as "cassiopeia:mylayout".'],
+			'moduleclass_sfx' => ['type' => 'string', 'description' => 'Advanced > Module Class: CSS classes added to the module.'],
+			'module_tag'      => ['type' => 'string', 'enum' => self::$moduleTags, 'description' => 'Advanced > Module Tag: the HTML element wrapped around the module (default div).'],
+			'header_tag'      => ['type' => 'string', 'enum' => self::$moduleHeaderTags, 'description' => 'Advanced > Header Tag: the element used for the module title (default h3).'],
+			'header_class'    => ['type' => 'string', 'description' => 'Advanced > Header Class: CSS classes on the module title.'],
+			'bootstrap_size'  => ['type' => 'integer', 'minimum' => 0, 'maximum' => 12, 'description' => 'Advanced > Bootstrap Size: column width 1-12, or 0 for none.'],
+			'style'           => ['type' => 'string', 'description' => 'Advanced > Module Style (chrome): e.g. "Cassiopeia-card", "Cassiopeia-noCard", "System-none", "System-html5", or "0" to inherit from the position.'],
+		];
+	}
+
+	/** @var string[] */
+	private static array $moduleTags = ['address', 'article', 'aside', 'details', 'div', 'footer', 'header', 'main', 'nav', 'search', 'section', 'summary'];
+
+	/** @var string[] */
+	private static array $moduleHeaderTags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div'];
+
+	/**
+	 * Fold the named Advanced-tab args onto $params. Named args win over the
+	 * same key in params.
+	 *
+	 * @param array<string, mixed> $params
+	 *
+	 * @return array<string, mixed>
+	 */
+	protected function applyModuleAdvanced(array $params, array $arguments): array
+	{
+		foreach (array_keys(self::moduleAdvancedSchema()) as $key) {
+			if (!array_key_exists($key, $arguments)) {
+				continue;
+			}
+
+			$v = $arguments[$key];
+
+			if ($key === 'bootstrap_size') {
+				if (!is_numeric($v) || (int) $v < 0 || (int) $v > 12) {
+					throw new \InvalidArgumentException('bootstrap_size must be a whole number from 0 to 12; got ' . json_encode($v) . '.');
+				}
+				$params[$key] = (string) (int) $v;
+				continue;
+			}
+
+			if (!is_scalar($v)) {
+				throw new \InvalidArgumentException($key . ' must be a string; got ' . json_encode($v) . '.');
+			}
+
+			$v = trim((string) $v);
+
+			if ($key === 'module_tag' && !in_array($v, self::$moduleTags, true)) {
+				throw new \InvalidArgumentException('module_tag must be one of ' . implode(', ', self::$moduleTags) . '; got ' . json_encode($v) . '.');
+			}
+
+			if ($key === 'header_tag' && !in_array($v, self::$moduleHeaderTags, true)) {
+				throw new \InvalidArgumentException('header_tag must be one of ' . implode(', ', self::$moduleHeaderTags) . '; got ' . json_encode($v) . '.');
+			}
+
+			$params[$key] = $v;
+		}
+
+		return $params;
+	}
+
+	/**
 	 * Validate and normalise a publish_up / publish_down argument.
 	 *
 	 * null = not supplied; '' = clear (Table\Module::check() turns it into

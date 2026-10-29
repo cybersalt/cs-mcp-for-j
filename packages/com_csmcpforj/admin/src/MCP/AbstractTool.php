@@ -273,16 +273,19 @@ abstract class AbstractTool implements ToolInterface
 	}
 
 	/**
-	 * Refuse the operation if the actor cannot edit the target user under
-	 * Joomla's privilege-escalation rule: you cannot edit a user whose highest
-	 * group level is greater than or equal to your own.
+	 * Refuse the operation if the actor may not act on the target user, using
+	 * Joomla's own rule (com_users UserModel / User::save): only a Super User
+	 * may act on a Super User. Anyone else may act on any other account, as
+	 * far as their com_users rights allow (checked by the calling tool).
 	 *
-	 * This mirrors what Joomla's UserModel does internally for update_user.
 	 * The direct-#__user_profiles tools (token tools) bypass UserModel, so
 	 * they must enforce this themselves. Without this check, a Manager-level
 	 * MCP user could mint a token for a Super User and pivot to full access.
 	 *
-	 * Super Users (group with core.admin on root.1) can always edit anyone.
+	 * Before 2.10.0 this compared #__usergroups.level, a column Joomla 4+ does
+	 * not have, so the query threw and every non-Super-User was refused.
+	 * Group depth does not track privilege anyway (Publisher sits deeper than
+	 * Super Users).
 	 */
 	protected function requireCanEditTargetUser(User $actor, int $targetUserId): void
 	{
@@ -294,36 +297,12 @@ abstract class AbstractTool implements ToolInterface
 			return;
 		}
 
-		$actorMaxLevel  = $this->maxGroupLevel(Access::getGroupsByUser((int) $actor->id, false) ?: []);
-		$targetMaxLevel = $this->maxGroupLevel(Access::getGroupsByUser($targetUserId, false) ?: []);
-
-		if ($targetMaxLevel >= $actorMaxLevel) {
+		if (Access::check($targetUserId, 'core.admin') === true) {
 			throw new \RuntimeException(
-				'Permission denied: cannot operate on user ' . $targetUserId
-				. ' (target has equal-or-higher privileges than you). Only Super Users can.'
+				'Permission denied: user ' . $targetUserId . ' is a Super User. '
+				. 'Only a Super User can change a Super User\'s account, the same as in the Joomla admin.'
 			);
 		}
-	}
-
-	/**
-	 * Returns the maximum nesting level across the supplied group ids. Higher
-	 * level = deeper in the hierarchy = more privileges in Joomla's model.
-	 *
-	 * @param array<int, int> $groupIds
-	 */
-	private function maxGroupLevel(array $groupIds): int
-	{
-		if (empty($groupIds)) {
-			return 0;
-		}
-
-		$db = Factory::getContainer()->get(DatabaseInterface::class);
-		$q  = $db->getQuery(true)
-			->select('MAX(' . $db->quoteName('level') . ')')
-			->from($db->quoteName('#__usergroups'))
-			->whereIn($db->quoteName('id'), array_map('intval', $groupIds));
-
-		return (int) $db->setQuery($q)->loadResult();
 	}
 
 	/**

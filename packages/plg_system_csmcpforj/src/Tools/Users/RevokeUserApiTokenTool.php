@@ -18,6 +18,8 @@ use Joomla\CMS\User\User;
 
 final class RevokeUserApiTokenTool extends AbstractTool
 {
+	use UsersAclTrait;
+
 	public function getName(): string { return 'revoke_user_api_token'; }
 
 	public function getDescription(): string
@@ -47,7 +49,7 @@ final class RevokeUserApiTokenTool extends AbstractTool
 		if (!$this->userExists($userId)) {
 			return ToolResult::error('User ' . $userId . ' not found.');
 		}
-		$this->requireCanEditTargetUser($actor, $userId);
+		$this->requireCanActOnUser($actor, $userId, 'core.edit', 'revoking the API token of another user');
 
 		$helper = new JoomlatokenHelper($this->db);
 		$status = $helper->revoke($userId);

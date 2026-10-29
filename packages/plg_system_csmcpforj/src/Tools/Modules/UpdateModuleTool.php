@@ -71,7 +71,7 @@ final class UpdateModuleTool extends AbstractTool
 				'assigned'     => ['type' => 'integer', 'enum' => [-1, 0, 1, 2], 'description' => 'Menu Assignment: -1 all pages, 0 no pages, 1 only on assignment[], 2 on all except assignment[]. Omit to keep the current assignment.'],
 				'assignment'   => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Menu item ids, used when assigned is 1 or 2.'],
 				'associations' => ['type' => 'object', 'description' => 'Multilingual sites, site modules: language tag => id of the module that translates this one. Needs a specific language (not "*").'],
-			],
+			] + self::moduleAdvancedSchema(),
 			'additionalProperties' => false,
 		];
 	}
@@ -105,6 +105,13 @@ final class UpdateModuleTool extends AbstractTool
 			// getItem() hands back params as an array already; mergeJsonPatch
 			// copes with every other shape too. A null value deletes the key.
 			$data['params'] = $this->mergeJsonPatch($existing->params ?? [], $arguments['params']);
+		}
+
+		// Named Advanced-tab args (layout, module_tag, header_tag...) win over
+		// the same keys in params.
+		$advanced = array_intersect_key($arguments, self::moduleAdvancedSchema());
+		if ($advanced !== []) {
+			$data['params'] = $this->applyModuleAdvanced($data['params'] ?? $this->mergeJsonPatch($existing->params ?? [], []), $advanced);
 		}
 
 		// When the caller does not touch the assignment at all, the existing one

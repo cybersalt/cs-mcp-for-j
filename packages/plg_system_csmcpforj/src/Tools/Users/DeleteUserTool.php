@@ -17,6 +17,8 @@ use Joomla\CMS\User\User;
 
 final class DeleteUserTool extends AbstractTool
 {
+	use UsersAclTrait;
+
 	public function getName(): string { return 'delete_user'; }
 
 	public function getDescription(): string
@@ -52,6 +54,13 @@ final class DeleteUserTool extends AbstractTool
 		}
 		if (in_array((int) $actor->id, $ids, true)) {
 			return ToolResult::error('Refusing to delete the calling user (id ' . (int) $actor->id . ').');
+		}
+
+		// Joomla's rules: Delete on Users, and only a Super User may delete a
+		// Super User. Checked for every id before anything is deleted.
+		$this->requireUsersRight($actor, 'core.delete', 'deleting a user');
+		foreach ($ids as $targetId) {
+			$this->requireCanEditTargetUser($actor, $targetId);
 		}
 
 		$model = $this->getModel('com_users', 'User');

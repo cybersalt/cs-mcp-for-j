@@ -98,6 +98,9 @@ final class CreateMenuItemTool extends AbstractTool
 
 		// Params: the initial object, then the named args on top.
 		$touched = [];
+		if (isset($arguments['params']) && is_array($arguments['params'])) {
+			$this->refuseRetiredMenuParams($arguments['params']);
+		}
 		$params  = isset($arguments['params']) && is_array($arguments['params'])
 			? $this->mergeJsonPatch([], $arguments['params'])
 			: [];

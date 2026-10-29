@@ -17,6 +17,9 @@ use Joomla\CMS\User\User;
 
 final class GetUserTool extends AbstractTool
 {
+	use UsersAclTrait;
+	use UserProfileTrait;
+
 	public function getName(): string { return 'get_user'; }
 
 	public function getDescription(): string
@@ -25,7 +28,9 @@ final class GetUserTool extends AbstractTool
 			. '(name, username, email, block, sendEmail, requireReset, registerDate, lastvisitDate, lastResetTime, '
 			. 'resetCount, authProvider), activated (false while an activation link is outstanding), group '
 			. 'memberships, params (Basic and Accessibility Settings, decoded) and mfa (the Multi-factor '
-			. 'Authentication methods set up: method, title, default, dates — never their secrets). '
+			. 'Authentication methods set up: method, title, default, dates — never their secrets), and profile '
+			. '(the User - Profile plugin\'s fields, when that plugin is enabled). Your own account is always readable; '
+			. 'anyone else\'s needs Access Administration Interface on Users, as in the Joomla admin. '
 			. 'Password hash, otpKey, otep, MFA options and activation tokens are NEVER returned. '
 			. 'Set include_profile=true to also return #__user_profiles rows (joomlatoken state, '
 			. 'profile plugin fields, vendor plugin fields, etc.); the raw joomlatoken.token secret '
@@ -65,6 +70,14 @@ final class GetUserTool extends AbstractTool
 		}
 
 		$user = $this->db->setQuery($query)->loadAssoc();
+
+		// Anyone may read their own account. Anyone else's needs what Joomla's
+		// Users screen needs (Access Administration Interface on Users). Checked
+		// before "not found" so the tool cannot be used to probe for accounts.
+		if (!$user || (int) $user['id'] !== (int) $actor->id) {
+			$this->requireUsersRight($actor, 'core.manage', 'looking up another user');
+		}
+
 		if (!$user) {
 			return ToolResult::error('User not found.');
 		}
@@ -96,6 +109,12 @@ final class GetUserTool extends AbstractTool
 
 		if (!empty($arguments['include_profile'])) {
 			$user['profile'] = $this->loadProfile((int) $user['id']);
+		}
+
+		// The User - Profile plugin's fields, when that plugin is enabled.
+		$profile = $this->storedUserProfile((int) $user['id']);
+		if ($profile !== null) {
+			$user['profile'] = (object) $profile;
 		}
 
 		return ToolResult::json($user);

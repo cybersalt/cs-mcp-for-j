@@ -38,6 +38,8 @@ use Joomla\CMS\User\User;
  */
 final class UpdateUserGroupTool extends AbstractTool
 {
+	use UsersAclTrait;
+
 	public function getName(): string { return 'update_user_group'; }
 
 	public function getDescription(): string
@@ -68,6 +70,7 @@ final class UpdateUserGroupTool extends AbstractTool
 	protected function run(array $arguments, User $actor): ToolResult
 	{
 		$id = $this->requirePositiveInt($arguments, 'id');
+		$this->requireUsersRight($actor, 'core.edit', 'editing a user group');
 
 		$existing = $this->loadGroup($id);
 		if ($existing === null) {

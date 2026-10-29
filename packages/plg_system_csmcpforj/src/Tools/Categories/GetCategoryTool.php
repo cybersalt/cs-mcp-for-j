@@ -18,6 +18,7 @@ use Joomla\CMS\User\User;
 final class GetCategoryTool extends AbstractTool
 {
 	use CategoryTagFieldsTrait;
+	use \Cybersalt\Plugin\System\Csmcpforj\Tools\Articles\ItemAssociationsTrait;
 
 	public function getName(): string { return 'get_category'; }
 
@@ -60,6 +61,9 @@ final class GetCategoryTool extends AbstractTool
 		// Tags live in #__contentitem_tag_map under '<extension>.category'
 		// (the alias update_category saves them with), not on the row.
 		$row['tags'] = $this->itemTags((string) $row['extension'] . '.category', $id);
+
+		// Language associations (the Associations tab): tag => category id.
+		$row['associations'] = (object) $this->storedItemAssociations('category', $id);
 
 		// params and metadata are JSON text in the table; return them as
 		// objects, the shape update_category takes.

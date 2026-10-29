@@ -40,6 +40,8 @@ use Joomla\CMS\User\User;
 final class UpdateCategoryTool extends AbstractTool
 {
 	use CategoryTagFieldsTrait;
+	use \Cybersalt\Plugin\System\Csmcpforj\Tools\Articles\ItemAssociationsTrait;
+	use \Cybersalt\Plugin\System\Csmcpforj\Tools\Permissions\AuthorChangeTrait;
 
 	/** Plain columns copied through when present. */
 	private const UPDATABLE = ['title', 'alias', 'description', 'metadesc', 'metakey', 'published', 'language', 'access'];
@@ -74,6 +76,7 @@ final class UpdateCategoryTool extends AbstractTool
 				'access'          => ['type' => 'integer', 'description' => 'Viewing access level id (see list_access_levels).'],
 				'language'        => ['type' => 'string', 'description' => 'Language code such as "en-GB", or "*" for all.'],
 				'tags'            => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Tag ids. Replaces the tags on the category; [] removes them all. Omit to keep the current tags.'],
+				'associations'    => self::itemAssociationsSchema('category'),
 				'metadesc'        => ['type' => 'string', 'description' => 'Meta description tag for SEO (plain text, no HTML).'],
 				'metakey'         => ['type' => 'string', 'description' => 'Comma-separated meta keywords.'],
 				'metadata'        => $this->ctMetadataSchema(true),
@@ -116,6 +119,7 @@ final class UpdateCategoryTool extends AbstractTool
 		}
 		if (array_key_exists('created_user_id', $arguments)) {
 			$data['created_user_id'] = $this->ctUserId($arguments['created_user_id'], 'created_user_id');
+			$this->requireCanSetAuthor($actor, (int) $data['created_user_id'], 'created_user_id', false);
 		}
 		if (array_key_exists('created_time', $arguments)) {
 			$data['created_time'] = $this->ctDate($arguments['created_time'], 'created_time');
@@ -142,6 +146,17 @@ final class UpdateCategoryTool extends AbstractTool
 		// type alias follows the category's extension (com_content.category,
 		// com_contact.category, ...).
 		$data['tags'] = $this->resolveTags($arguments, $existing->extension . '.category', $id);
+
+		if (array_key_exists('associations', $arguments)) {
+			$data['associations'] = $this->resolveItemAssociations(
+				$actor,
+				$arguments['associations'],
+				'category',
+				(string) ($data['language'] ?? $existing->language),
+				$id,
+				(string) $existing->extension
+			);
+		}
 
 		if (!$this->ctWithVersionNote($versionNote, fn (): bool => (bool) $model->save($data))) {
 			return ToolResult::error('com_categories rejected the update: ' . $model->getError());

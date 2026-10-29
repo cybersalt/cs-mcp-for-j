@@ -17,6 +17,8 @@ use Joomla\CMS\User\User;
 
 final class ListUsersTool extends AbstractTool
 {
+	use UsersAclTrait;
+
 	public function getName(): string { return 'list_users'; }
 
 	public function getDescription(): string
@@ -46,6 +48,8 @@ final class ListUsersTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->requireUsersRight($actor, 'core.manage', 'listing users');
+
 		$applyFilters = function ($query) use ($arguments): void {
 			if (!empty($arguments['search'])) {
 				$like = '%' . $this->db->escape((string) $arguments['search'], true) . '%';

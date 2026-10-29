@@ -18,6 +18,8 @@ use Joomla\CMS\User\User;
 
 final class ResetUserApiTokenTool extends AbstractTool
 {
+	use UsersAclTrait;
+
 	public function getName(): string { return 'reset_user_api_token'; }
 
 	public function getDescription(): string
@@ -48,7 +50,7 @@ final class ResetUserApiTokenTool extends AbstractTool
 		if (!$this->userExists($userId)) {
 			return ToolResult::error('User ' . $userId . ' not found.');
 		}
-		$this->requireCanEditTargetUser($actor, $userId);
+		$this->requireCanActOnUser($actor, $userId, 'core.edit', 'resetting the API token of another user');
 
 		$helper = new JoomlatokenHelper($this->db);
 		$result = $helper->reset($userId);

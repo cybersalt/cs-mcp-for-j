@@ -33,6 +33,31 @@
 ### 🚀 Added — installation check
 - **The Dashboard warns when an update didn't finish.** Joomla doesn't roll back a failed update, so a site can be left with some files missing or empty and nothing to say so. Every package now carries a list of its files with their sizes and checksums. The Dashboard checks all four parts of MCP for J against that list. If anything is missing or 0 bytes, a red alert names the files and says to install the same package again. Changed files get a yellow alert. Reported by Bjørn Ove Bremnes: Imunify360 Proactive Defense blocked one file copy during an update and left `LogsModel.php` empty. The alert mentions Imunify so site owners know where to look.
 
+### 🚀 Added — language links, item permissions, module display options and profile fields
+- **Articles and categories can have language associations** (`associations`: `{"fr-FR": 123}`), like menu items and modules already could. Only when the site has Item Associations switched on. Each linked item must be in the language given, and you must be allowed to edit it. `get_article` and `get_category` return them.
+- **New `set_item_permission`:** the Permissions tab of one article, category, module, custom field or field group. Call it without a permission to see the current rules and which permissions that item has. It needs "Configure ACL & Options" on the item's component, the same as the tab in the Joomla admin.
+- **`create_module` / `update_module` have named options for the Advanced tab:** `layout`, `moduleclass_sfx`, `module_tag`, `header_tag`, `header_class`, `bootstrap_size` and `style`, with the allowed values listed. `params` still works for everything else.
+- **User accounts include the User - Profile plugin's fields** (address, phone, website, date of birth and so on) when that plugin is switched on: `get_user` returns them and `create_user` / `update_user` take `profile`.
+
+### 🔒 Security — MCP for J follows Joomla's permissions
+In these areas MCP for J now checks the same Joomla permissions as the admin screens before it acts, instead of relying on its own write permission alone.
+- **User accounts:** creating, editing and deleting users and user groups needs the matching right on Users (Create, Edit, Delete). Blocking or unblocking someone needs Edit State. Only a Super User can change a Super User's account, and you can't change your own groups unless you're a Super User. Listing users, or reading someone else's account, needs access to the Users screen. Your own account is always readable.
+- **Another user's API token:** turning it on, resetting or revoking it needs Edit on Users.
+- **Fixed: the check on acting for another user always failed for anyone except Super Users.** It read a database column Joomla 4 and later don't have. It now uses Joomla's own rule: only a Super User may act on a Super User.
+- **Changing the author** ("Created by") of an article, category, custom field or field group needs access to the Users screen, as in Joomla. Joomla ignores the change otherwise; MCP for J now says why.
+- **Assigning a template style to menu items** needs Edit on Menus, as in Joomla.
+- **`set_custom_field_value` respects a field's "Edit Custom Field Value" permission.**
+- **`get_plugin_params` needs Edit on Plugins** (or a Super User). Plugin settings often hold secrets such as API keys and mail passwords, and any account with MCP for J's basic permission could read them.
+- **`set_plugin_params` refuses MCP for J's own plugins**, as `set_component_params` already refused MCP for J's options, because changing them could loosen the limits on what the AI can do. Trying to change Global Configuration explains that it is only for Super Users, and only once allowed in MCP for J's Safety Vault, which is coming in a later version.
+
+### 📝 Changed
+- **`set_component_params` saves the way Joomla's Options screen does**, so other extensions are told about the save (`onExtensionBeforeSave` / `onExtensionAfterSave`) and can stop it, as in the admin.
+- **Clearing a custom field value** (`value: ""`) now removes the stored value, as Joomla does, so the field falls back to its default. It used to store an empty value.
+- **Removing a choice from a drop-down, checkbox or radio field** with `update_custom_field` now also removes that choice from the items that had it picked, as Joomla's admin does.
+- **New article categories start on the site's default workflow** ("Use default"), as in the admin. Before, they followed the parent category's workflow.
+- **The menu tools no longer set `meta_keywords` or `secure`.** Neither is on Joomla 6's menu item screen. `secure` could quietly force a menu link to plain http. Removing a stored value still works.
+- **Some get tools return options as objects instead of JSON text** (`get_category`, `get_tag` and `get_user` params), module menu assignments as numbers, and template style `home` / `parent` correctly. Scripts that read the old format need a small change. AI apps don't.
+
 ### 🐛 Fixed
 - **`update_article` with `featured` wiped an already-featured article's Start / Finish Featured dates.** They are kept unless you pass `featured_up` / `featured_down`.
 - **`update_menu_item` could not edit the site's home page item at all**, not even its title ("cannot unset default").

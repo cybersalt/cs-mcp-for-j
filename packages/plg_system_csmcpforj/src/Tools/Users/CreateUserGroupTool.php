@@ -17,6 +17,8 @@ use Joomla\CMS\User\User;
 
 final class CreateUserGroupTool extends AbstractTool
 {
+	use UsersAclTrait;
+
 	public function getName(): string { return 'create_user_group'; }
 
 	public function getDescription(): string
@@ -45,6 +47,8 @@ final class CreateUserGroupTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->requireUsersRight($actor, 'core.create', 'creating a user group');
+
 		$title    = $this->requireString($arguments, 'title');
 		$parentId = array_key_exists('parent_id', $arguments) ? (int) $arguments['parent_id'] : 1;
 

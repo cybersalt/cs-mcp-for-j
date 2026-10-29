@@ -271,6 +271,7 @@ final class UpdateMenuItemTool extends AbstractTool
 				if ($arguments['params_set'] !== [] && array_is_list($arguments['params_set'])) {
 					return ToolResult::error('params_set must be an object of key/value pairs, not a list.');
 				}
+				$this->refuseRetiredMenuParams($arguments['params_set']);
 				$merged = $this->mergeJsonPatch($merged, $arguments['params_set']);
 				foreach ($arguments['params_set'] as $k => $_) {
 					$paramsTouchedKeys[(string) $k] = true;

@@ -19,6 +19,8 @@ use Joomla\CMS\User\User;
 final class CreateCategoryTool extends AbstractTool
 {
 	use CategoryTagFieldsTrait;
+	use \Cybersalt\Plugin\System\Csmcpforj\Tools\Articles\ItemAssociationsTrait;
+	use \Cybersalt\Plugin\System\Csmcpforj\Tools\Permissions\AuthorChangeTrait;
 
 	public function getName(): string { return 'create_category'; }
 
@@ -47,6 +49,7 @@ final class CreateCategoryTool extends AbstractTool
 				'access'          => ['type' => 'integer', 'description' => 'Viewing access level id (see list_access_levels). Default 1 (Public).'],
 				'language'        => ['type' => 'string', 'description' => 'Language code such as "en-GB", or "*" for all (default).'],
 				'tags'            => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Tag ids to put on the category.'],
+				'associations'    => self::itemAssociationsSchema('category'),
 				'metadesc'        => ['type' => 'string', 'description' => 'Meta description tag for SEO (plain text, no HTML).'],
 				'metakey'         => ['type' => 'string', 'description' => 'Comma-separated meta keywords.'],
 				'metadata'        => $this->ctMetadataSchema(false),
@@ -74,6 +77,16 @@ final class CreateCategoryTool extends AbstractTool
 		$parentId = isset($arguments['parent_id']) ? (int) $arguments['parent_id'] : 1;
 		$this->ctCheckParent('#__categories', $parentId, 0, $extension);
 
+		$catParams = array_key_exists('params', $arguments) ? $this->ctJsonArg($arguments['params'], 'cat_params', 'params') : [];
+
+		// A new article category starts on "Use default" (the site's default
+		// workflow), as Joomla's admin form does (com_content forms/category.xml).
+		// Left unset, Joomla treats it like "Inherit" and the category follows
+		// its parent's workflow instead. Field review Q9, Tim 2026-10-28.
+		if ($extension === 'com_content' && !array_key_exists('workflow_id', $catParams)) {
+			$catParams['workflow_id'] = 'use_default';
+		}
+
 		$data = [
 			'id'          => 0,
 			'parent_id'   => $parentId,
@@ -86,12 +99,13 @@ final class CreateCategoryTool extends AbstractTool
 			'published'   => isset($arguments['published']) ? (int) $arguments['published'] : 1,
 			'language'    => (string) ($arguments['language'] ?? '*'),
 			'access'      => isset($arguments['access']) ? (int) $arguments['access'] : 1,
-			'params'      => $this->ctMergeJson('{}', array_key_exists('params', $arguments) ? $this->ctJsonArg($arguments['params'], 'cat_params', 'params') : []),
+			'params'      => $this->ctMergeJson('{}', $catParams),
 			'metadata'    => $this->ctMergeJson('{}', array_key_exists('metadata', $arguments) ? $this->ctJsonArg($arguments['metadata'], 'metadata', 'metadata') : []),
 			'created_user_id' => array_key_exists('created_user_id', $arguments)
 				? $this->ctUserId($arguments['created_user_id'], 'created_user_id')
 				: (int) $actor->id,
 		];
+		$this->requireCanSetAuthor($actor, (int) $data['created_user_id'], 'created_user_id', true);
 
 		if (array_key_exists('note', $arguments)) {
 			$data['note'] = $this->ctShortText($arguments['note'], 'note');
@@ -110,6 +124,10 @@ final class CreateCategoryTool extends AbstractTool
 		}
 
 		$model = $this->getModel('com_categories', 'Category');
+		if (array_key_exists('associations', $arguments)) {
+			$data['associations'] = $this->resolveItemAssociations($actor, $arguments['associations'], 'category', (string) $data['language'], 0, $extension);
+		}
+
 		$model->setState($model->getName() . '.extension', $extension);
 
 		$result = $this->ctWithVersionNote($versionNote, fn (): array => $this->saveAdminModel($model, $data));

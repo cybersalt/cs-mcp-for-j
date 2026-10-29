@@ -18,6 +18,8 @@ use Joomla\CMS\User\User;
 
 final class EnableUserApiTokenTool extends AbstractTool
 {
+	use UsersAclTrait;
+
 	public function getName(): string { return 'enable_user_api_token'; }
 
 	public function getDescription(): string
@@ -54,7 +56,7 @@ final class EnableUserApiTokenTool extends AbstractTool
 		if (!$this->userExists($userId)) {
 			return ToolResult::error('User ' . $userId . ' not found.');
 		}
-		$this->requireCanEditTargetUser($actor, $userId);
+		$this->requireCanActOnUser($actor, $userId, 'core.edit', 'turning on the API token of another user');
 
 		$helper = new JoomlatokenHelper($this->db);
 		$status = $helper->setEnabled($userId, $enabled);

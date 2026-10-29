@@ -20,6 +20,8 @@ use Joomla\CMS\User\UserHelper;
 final class CreateUserTool extends AbstractTool
 {
 	use UserArgumentsTrait;
+	use UsersAclTrait;
+	use UserProfileTrait;
 
 	public function getName(): string { return 'create_user'; }
 
@@ -49,6 +51,7 @@ final class CreateUserTool extends AbstractTool
 				'sendEmail'    => ['type' => 'integer', 'enum' => [0, 1], 'description' => 'Receive System Emails.'],
 				'requireReset' => ['type' => 'integer', 'enum' => [0, 1], 'description' => 'Require Password Reset at first login.'],
 				'params'       => ['type' => 'object', 'additionalProperties' => true, 'description' => self::userParamsDescription('omitted keys stay at Use Default.')],
+				'profile'      => ['type' => 'object', 'additionalProperties' => true, 'description' => self::userProfileDescription()],
 				'enable_api_token' => ['type' => 'boolean', 'description' => 'If true, mint a Joomla API token for the new user and return a display_token in the response.'],
 			],
 			'additionalProperties' => false,
@@ -59,6 +62,8 @@ final class CreateUserTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		$this->requireUsersRight($actor, 'core.create', 'creating a user');
+
 		$name     = $this->requireString($arguments, 'name');
 		$username = $this->requireString($arguments, 'username');
 		$email    = $this->requireString($arguments, 'email');
@@ -116,6 +121,10 @@ final class CreateUserTool extends AbstractTool
 			'params'       => $params,
 		];
 
+		if (array_key_exists('profile', $arguments)) {
+			$data['profile'] = $this->userProfilePatch($arguments['profile']);
+		}
+
 		// The new id is found by username after the save (below). If that
 		// username already belonged to someone, the save fails with
 		// USERNAME_INUSE but the lookup would still find the OLD account and
@@ -162,6 +171,10 @@ final class CreateUserTool extends AbstractTool
 
 		if ($params !== []) {
 			$response['params'] = (object) $params;
+		}
+
+		if (array_key_exists('profile', $arguments)) {
+			$response['profile'] = (object) ($this->storedUserProfile($id) ?? []);
 		}
 
 		if (!empty($arguments['enable_api_token'])) {

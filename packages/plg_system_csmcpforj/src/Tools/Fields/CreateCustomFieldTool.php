@@ -26,6 +26,7 @@ use Joomla\CMS\User\User;
 final class CreateCustomFieldTool extends AbstractTool
 {
 	use FieldsArgumentsTrait;
+	use \Cybersalt\Plugin\System\Csmcpforj\Tools\Permissions\AuthorChangeTrait;
 
 	public function getName(): string { return 'create_custom_field'; }
 
@@ -113,6 +114,7 @@ final class CreateCustomFieldTool extends AbstractTool
 		}
 		if (isset($arguments['created_user_id'])) {
 			$data['created_user_id'] = $this->fieldCreatorId($arguments['created_user_id'], 'created_user_id');
+			$this->requireCanSetAuthor($actor, (int) $data['created_user_id'], 'created_user_id', true);
 		}
 		if (isset($arguments['created_time'])) {
 			$data['created_time'] = $this->fieldCreatedDate($arguments['created_time'], 'created_time');

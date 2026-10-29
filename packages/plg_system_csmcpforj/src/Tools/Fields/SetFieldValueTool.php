@@ -42,8 +42,9 @@ final class SetFieldValueTool extends AbstractTool
 		return 'Set a custom field value on an item (article/user/contact/...). Required: '
 			. 'field_id, item_id, and either value (a string, for single-value fields) or values '
 			. '(an array of strings, for checkboxes, multiple-select lists and other multi-value '
-			. 'fields; replaces every stored value; [] removes the value so the field falls back to '
-			. 'its default). Subform values are one JSON string in value. Use list_custom_fields to '
+			. 'fields; replaces every stored value). An empty value ("" or []) removes the stored value '
+			. 'so the field falls back to its default, as when it is cleared in the Joomla admin. '
+			. 'Respects the field\'s "Edit Custom Field Value" permission. Subform values are one JSON string in value. Use list_custom_fields to '
 			. 'find a field id and its context — the item_id is the id of the row in that context '
 			. '(e.g. #__content.id for com_content.article).';
 	}
@@ -86,6 +87,18 @@ final class SetFieldValueTool extends AbstractTool
 			return ToolResult::error('Custom field ' . $fieldId . ' not found.');
 		}
 
+		// Joomla's per-field "Edit Custom Field Value" permission, as
+		// FieldsHelper::canEditFieldValue() checks it on the edit screen. Until
+		// 2.10.0 this tool skipped it, so a field locked to some groups could
+		// still be filled in through MCP.
+		$component = explode('.', (string) $field['context'])[0];
+		if (!$actor->authorise('core.edit.value', $component . '.field.' . $fieldId)) {
+			return ToolResult::error(
+				'Permission denied: custom field ' . $fieldId . ' is locked by its "Edit Custom Field Value" permission, '
+				. 'and your account is not allowed to change its value. This is the same rule as in the Joomla admin.'
+			);
+		}
+
 		if ($hasValues) {
 			if (!is_array($arguments['values']) || !array_is_list($arguments['values'])) {
 				throw new McpException(-32602, 'values must be an array of strings.');
@@ -102,6 +115,15 @@ final class SetFieldValueTool extends AbstractTool
 				throw new McpException(-32602, 'value must be a string; for several values use values.');
 			}
 			$values = [(string) ($arguments['value'] ?? '')];
+
+			// An empty value removes the stored row, as Joomla does when a
+			// field is cleared on the edit screen (plg_system_fields turns ""
+			// into null, and FieldModel::setFieldValue() then deletes). The
+			// field falls back to its default value. Field review Q7, Tim
+			// 2026-10-28. Until 2.10.0 an empty string was stored instead.
+			if ($values[0] === '') {
+				$values = [];
+			}
 		}
 
 		$where = [
@@ -118,7 +140,7 @@ final class SetFieldValueTool extends AbstractTool
 
 		$this->db->transactionStart();
 		try {
-			if (!$hasValues && $existingRows === 1) {
+			if (!$hasValues && $existingRows === 1 && $values !== []) {
 				// Single value over a single stored row: update in place.
 				$this->db->setQuery(
 					$this->db->getQuery(true)

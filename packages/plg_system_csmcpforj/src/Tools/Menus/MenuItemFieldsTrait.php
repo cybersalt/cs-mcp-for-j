@@ -48,7 +48,6 @@ trait MenuItemFieldsTrait
 			'page_class_sfx'     => 'pageclass_sfx',
 			// Metadata tab
 			'meta_description'   => 'menu-meta_description',
-			'meta_keywords'      => 'menu-meta_keywords',
 			'robots'             => 'robots',
 			// Link Type tab
 			'menu_anchor_title'  => 'menu-anchor_title',
@@ -62,8 +61,6 @@ trait MenuItemFieldsTrait
 			// Alias items (type=alias)
 			'alias_target'       => 'aliasoptions',
 			'alias_redirect'     => 'alias_redirect',
-			// Read by mod_menu when it builds the link; not on the 6.2 form.
-			'secure'             => 'secure',
 		];
 	}
 
@@ -107,7 +104,6 @@ trait MenuItemFieldsTrait
 			'page_heading'       => ['type' => 'string', 'description' => 'params.page_heading (Page Display > Page Heading): H1 override.'],
 			'page_class_sfx'     => ['type' => 'string', 'description' => 'params.pageclass_sfx (Page Display > Page Class): CSS class added to the page.'],
 			'meta_description'   => ['type' => 'string', 'description' => 'params.menu-meta_description (Metadata > Meta Description).'],
-			'meta_keywords'      => ['type' => 'string', 'description' => 'params.menu-meta_keywords. Not on the Joomla 4+ edit screen and ignored by most core views; kept for older sites and third-party components.'],
 			'robots'             => ['type' => 'string', 'enum' => self::menuRobotsValues(), 'description' => 'params.robots (Metadata > Robots). To go back to "Use Global" use params_unset: ["robots"].'],
 			'menu_anchor_title'  => ['type' => 'string', 'description' => 'params.menu-anchor_title (Link Type > Link Title Attribute): <a title="...">.'],
 			'menu_anchor_css'    => ['type' => 'string', 'description' => 'params.menu-anchor_css (Link Type > Link Class): CSS class on the <a>.'],
@@ -119,7 +115,6 @@ trait MenuItemFieldsTrait
 			'menu_show'          => ['type' => 'integer', 'enum' => [0, 1], 'description' => 'params.menu_show (Link Type > Display in Menu): 0 hides the item from menu modules while the page still works.'],
 			'alias_target'       => ['type' => 'integer', 'description' => 'params.aliasoptions (type=alias only): id of the menu item this alias points to.'],
 			'alias_redirect'     => ['type' => 'integer', 'enum' => [0, 1], 'description' => 'params.alias_redirect (type=alias only): 1 sends a redirect to the target instead of rendering it under this URL.'],
-			'secure'             => ['type' => 'integer', 'enum' => [0, 1, 2], 'description' => 'params.secure, read by mod_menu: 0 off, 1 force HTTPS, 2 force HTTP.'],
 		];
 	}
 
@@ -141,7 +136,7 @@ trait MenuItemFieldsTrait
 
 			$value = $arguments[$publicArg];
 
-			if (in_array($publicArg, ['show_page_heading', 'menu_text', 'menu_show', 'alias_redirect', 'secure', 'alias_target'], true)) {
+			if (in_array($publicArg, ['show_page_heading', 'menu_text', 'menu_show', 'alias_redirect', 'alias_target'], true)) {
 				$value = (int) $value;
 			}
 
@@ -154,6 +149,31 @@ trait MenuItemFieldsTrait
 		}
 
 		return $params;
+	}
+
+	/**
+	 * Params the Joomla 6 menu item screen no longer shows, which MCP for J
+	 * will not set (2.10.0, field review Q11, Tim 2026-10-28):
+	 *   - secure: mod_menu still obeys it (MenuHelper builds the link with
+	 *     it), so a wrong value could quietly force links to plain http with
+	 *     nothing visible in the admin.
+	 *   - menu-meta_keywords: only com_contact's form view reads it, and
+	 *     search engines ignore meta keywords.
+	 * Removing them (null / params_unset) is still allowed. Stored values are
+	 * otherwise left alone.
+	 *
+	 * @param array<string,mixed> $params The caller's params / params_set.
+	 */
+	protected function refuseRetiredMenuParams(array $params): void
+	{
+		foreach (['secure', 'menu-meta_keywords'] as $key) {
+			if (array_key_exists($key, $params) && $params[$key] !== null) {
+				throw new \InvalidArgumentException(
+					'params.' . $key . ' is not on the Joomla 6 menu item screen, so MCP for J does not set it. '
+					. 'Use null (or params_unset) to remove a stored value.'
+				);
+			}
+		}
 	}
 
 	/** "noindex,follow" / "NOINDEX ,  FOLLOW" => "noindex, follow" (Joomla's option value). */

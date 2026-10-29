@@ -15,6 +15,8 @@ use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\Cache\CacheControllerFactoryInterface;
 use Joomla\CMS\Factory;
+use Joomla\CMS\Plugin\PluginHelper;
+use Joomla\CMS\Table\Extension;
 use Joomla\CMS\User\User;
 
 /**
@@ -26,13 +28,13 @@ use Joomla\CMS\User\User;
  * kept. There is no "replace" mode on purpose: wiping a component's Options
  * by accident (e.g. com_users registration settings) is easy and quiet.
  *
- * Same write path as set_plugin_params: a direct UPDATE of the one
- * #__extensions row. Joomla's own Options screen goes through com_config's
- * ComponentModel, but that model depends on the admin request (form state,
- * component path, controller-side validation), which the API app does not
- * provide. What the model adds after the store is clearing the _system cache
- * group, where ComponentHelper caches every component's params; we do the same
- * for both the site and administrator caches.
+ * Joomla's own Options screen goes through com_config's ComponentModel,
+ * which depends on the admin request (form state, component path) that the
+ * API app does not provide. Since 2.10.0 this tool repeats what that model's
+ * save() does instead: Extension table load / check / store, wrapped in
+ * onExtensionBeforeSave and onExtensionAfterSave, then clearing the _system
+ * cache group (where ComponentHelper caches every component's params) on both
+ * the site and administrator caches.
  *
  * Differences from set_plugin_params, deliberately:
  * - `protected` / `locked` are not refused. Nearly every core component is
@@ -52,7 +54,7 @@ final class SetComponentParamsTool extends AbstractTool
 
 	/** Components whose params this tool will not write. */
 	private const REFUSED_COMPONENTS = [
-		'com_config'    => 'Global Configuration is stored in configuration.php, not in component options, and com_config\'s own row holds only the Text Filters (a security setting). Change those in System > Global Configuration.',
+		'com_config'    => 'Because of the high security risk, changing Global Configuration through MCP for J is only for Super Users, and only when the site owner has allowed it in MCP for J\'s Safety Vault. That switch is not available yet, so change these settings in System > Global Configuration in the Joomla admin.',
 		'com_csmcpforj' => 'MCP for J does not change its own settings over MCP (read-only mode, OAuth sign-in and the Pro activation values live there). Change them in Components > MCP for J > Options.',
 	];
 
@@ -155,13 +157,40 @@ final class SetComponentParamsTool extends AbstractTool
 			}
 		}
 
-		$update = $this->db->getQuery(true)
-			->update($this->db->quoteName('#__extensions'))
-			->set($this->db->quoteName('params') . ' = ' . $this->db->quote(
-				json_encode($merged ?: new \stdClass(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)
-			))
-			->where($this->db->quoteName('extension_id') . ' = ' . (int) $row['extension_id']);
-		$this->db->setQuery($update)->execute();
+		/*
+		 * Saved the way com_config's ComponentModel::save() saves the Options
+		 * screen: through the Extension table, with onExtensionBeforeSave /
+		 * onExtensionAfterSave (context "com_config.component") around the
+		 * store, so other extensions see the save exactly as from the admin
+		 * (field review Q5, Tim 2026-10-28). A plugin can veto the save by
+		 * returning false, as it can in the admin.
+		 */
+		$table = new Extension($this->db);
+
+		if (!$table->load((int) $row['extension_id'])) {
+			return ToolResult::error('Could not load ' . $component . '\'s extension row: ' . $table->getError());
+		}
+
+		$table->params = json_encode($merged ?: new \stdClass(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+
+		if (!$table->check()) {
+			return ToolResult::error('Joomla refused the options for ' . $component . ': ' . $table->getError());
+		}
+
+		PluginHelper::importPlugin('extension');
+		$app     = $this->app();
+		$context = 'com_config.component';
+		$vetoes  = $app->triggerEvent('onExtensionBeforeSave', [$context, $table, false]);
+
+		if (\in_array(false, $vetoes, true)) {
+			return ToolResult::error('A plugin on this site stopped the save of ' . $component . '\'s options (onExtensionBeforeSave). ' . $table->getError());
+		}
+
+		if (!$table->store()) {
+			return ToolResult::error('Could not save ' . $component . '\'s options: ' . $table->getError());
+		}
+
+		$app->triggerEvent('onExtensionAfterSave', [$context, $table, false]);
 
 		$result = [
 			'ok'            => true,

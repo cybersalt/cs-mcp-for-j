@@ -312,8 +312,8 @@ trait UserArgumentsTrait
 			$this->requireCanEditTargetUser($actor, $targetId);
 		} catch (\Throwable $e) {
 			throw new \RuntimeException(
-				'Permission denied: changing the ' . implode(' or ', $fields) . ' of another user (' . $targetId
-				. ') through MCP needs a Super User, or an account that outranks that user. (' . $e->getMessage() . ')'
+				'Permission denied: you cannot change the ' . implode(' or ', $fields) . ' of user ' . $targetId
+				. '. (' . $e->getMessage() . ')'
 			);
 		}
 	}

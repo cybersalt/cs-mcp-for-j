@@ -87,6 +87,19 @@ final class SetPluginParamsTool extends AbstractTool
 		if (!$row) {
 			return ToolResult::error('Plugin not found: folder=' . $folder . ', element=' . $element);
 		}
+
+		// MCP for J's own plugins hold the settings that limit what the AI can
+		// do (read-only mode, logging, OAuth). set_component_params already
+		// refuses com_csmcpforj; without this the same settings could be
+		// changed here. A Safety Vault switch to allow it is planned (#44).
+		if (in_array($folder, ['system', 'webservices', 'api-authentication'], true) && $element === 'csmcpforj') {
+			return ToolResult::error(
+				'Refusing to change MCP for J\'s own plugin settings through MCP. The AI connects through MCP for J, '
+				. 'so changing these could loosen the limits on what it can do. Change them in the Joomla admin '
+				. '(System > Plugins).'
+			);
+		}
+
 		// `protected` is a hard refusal — those plugins are flagged by Joomla as
 		// dangerous to modify (e.g. plg_system_logout). `locked` is softer:
 		// plg_system_schemaorg and friends ship locked but are obviously

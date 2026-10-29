@@ -17,6 +17,8 @@ use Joomla\CMS\User\User;
 
 final class GetArticleTool extends AbstractTool
 {
+	use ItemAssociationsTrait;
+
 	public function getName(): string { return 'get_article'; }
 
 	public function getDescription(): string
@@ -107,6 +109,9 @@ final class GetArticleTool extends AbstractTool
 		// Tags live in #__contentitem_tag_map, not on the row. Returned so a
 		// change made with update_article's `tags` argument can be checked.
 		$row['tags'] = $this->itemTags('com_content.article', $id);
+
+		// Language associations (the Associations tab): tag => article id.
+		$row['associations'] = (object) $this->storedItemAssociations('article', $id);
 
 		return ToolResult::json($row);
 	}

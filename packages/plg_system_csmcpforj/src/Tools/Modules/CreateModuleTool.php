@@ -57,7 +57,7 @@ final class CreateModuleTool extends AbstractTool
 				'assigned'     => ['type' => 'integer', 'enum' => [-1, 0, 1, 2], 'description' => '-1=on all, 0=on none, 1=only on assignment[], 2=on all except assignment[].'],
 				'assignment'   => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Menu item ids when assigned in (1, 2).'],
 				'associations' => ['type' => 'object', 'description' => 'Multilingual sites, site modules: language tag => id of the module that translates this one. Needs a specific language (not "*").'],
-			],
+			] + self::moduleAdvancedSchema(),
 			'additionalProperties' => false,
 		];
 	}
@@ -75,7 +75,7 @@ final class CreateModuleTool extends AbstractTool
 			'module'    => $this->requireString($arguments, 'module'),
 			'access'    => isset($arguments['access']) ? (int) $arguments['access'] : 1,
 			'showtitle' => isset($arguments['showtitle']) ? (int) $arguments['showtitle'] : 1,
-			'params'    => json_encode((object) $this->mergeJsonPatch([], (array) ($arguments['params'] ?? []))),
+			'params'    => json_encode((object) $this->applyModuleAdvanced($this->mergeJsonPatch([], (array) ($arguments['params'] ?? [])), $arguments)),
 			'client_id' => isset($arguments['client_id']) ? (int) $arguments['client_id'] : 0,
 			'language'  => (string) ($arguments['language'] ?? '*'),
 			'published' => isset($arguments['published']) ? (int) $arguments['published'] : 1,

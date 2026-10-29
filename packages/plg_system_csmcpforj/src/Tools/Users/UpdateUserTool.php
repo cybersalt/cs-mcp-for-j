@@ -43,6 +43,8 @@ use Joomla\CMS\User\User;
 final class UpdateUserTool extends AbstractTool
 {
 	use UserArgumentsTrait;
+	use UsersAclTrait;
+	use UserProfileTrait;
 
 	private const UPDATABLE = ['name', 'username', 'email', 'block', 'sendEmail', 'requireReset'];
 
@@ -54,8 +56,9 @@ final class UpdateUserTool extends AbstractTool
 			. 'and Accessibility Settings tabs. Required: id. Only fields you supply are changed. '
 			. 'groups[] replaces the entire set of group memberships. params is merged key by key. '
 			. 'password (min 12 chars, and the site\'s Password Options) sets a new password and signs the user out '
-			. 'everywhere; block=1 also signs them out. Changing another user\'s password or email needs a Super User '
-			. '(or an account that outranks the target). You cannot block yourself or set requireReset on yourself.';
+			. 'everywhere; block=1 also signs them out. Uses Joomla\'s own Users permissions: editing another user needs Edit '
+			. 'on Users, blocking or unblocking them needs Edit State, and only a Super User can change a Super User. '
+			. 'You cannot block yourself, set requireReset on yourself, or change your own groups unless you are a Super User.';
 	}
 
 	public function getInputSchema(): array
@@ -74,6 +77,7 @@ final class UpdateUserTool extends AbstractTool
 				'sendEmail'    => ['type' => 'integer', 'enum' => [0, 1], 'description' => 'Receive System Emails.'],
 				'requireReset' => ['type' => 'integer', 'enum' => [0, 1], 'description' => 'Require Password Reset at next login.'],
 				'params'       => ['type' => 'object', 'additionalProperties' => true, 'description' => self::userParamsDescription('null or "" resets that key to Use Default.')],
+				'profile'      => ['type' => 'object', 'additionalProperties' => true, 'description' => self::userProfileDescription()],
 			],
 			'additionalProperties' => false,
 		];
@@ -102,7 +106,23 @@ final class UpdateUserTool extends AbstractTool
 
 		$changed = array_values(array_diff(array_keys($arguments), ['id']));
 		if ($changed === []) {
-			return ToolResult::error('No updatable fields supplied. Pass any of name, username, email, password, groups, block, sendEmail, requireReset, params.');
+			return ToolResult::error('No updatable fields supplied. Pass any of name, username, email, password, groups, block, sendEmail, requireReset, params, profile.');
+		}
+
+		// Joomla's Users screen rules (UsersAclTrait): Edit on Users for
+		// another account, and only a Super User may change a Super User.
+		$this->requireCanActOnUser($actor, $id, 'core.edit', 'editing another user');
+
+		// Blocking or unblocking someone else is the list's Block/Unblock
+		// action in Joomla, which needs Edit State.
+		if (array_key_exists('block', $data) && (int) $actor->id !== $id && $data['block'] !== (int) $existing->block) {
+			$this->requireUsersRight($actor, 'core.edit.state', 'blocking or unblocking a user');
+		}
+
+		// UserModel::save() quietly drops a group change on your own account
+		// unless you are a Super User. Say so instead of reporting success.
+		if (array_key_exists('groups', $arguments) && (int) $actor->id === $id && !$actor->authorise('core.admin')) {
+			return ToolResult::error('Joomla does not let you change your own user groups unless you are a Super User.');
 		}
 
 		// Credentials of someone else's account: see requireCanChangeCredentials().
@@ -133,6 +153,10 @@ final class UpdateUserTool extends AbstractTool
 			// Stored params + the patch. User::bind() merges this into the
 			// params it loaded too, so untouched keys survive either way.
 			$data['params'] = $this->mergeJsonPatch($existing->params ?? null, $this->userParamsPatch($arguments['params']));
+		}
+
+		if (array_key_exists('profile', $arguments)) {
+			$data['profile'] = $this->userProfilePatch($arguments['profile']);
 		}
 
 		if (array_key_exists('groups', $arguments)) {
@@ -180,6 +204,10 @@ final class UpdateUserTool extends AbstractTool
 
 		if (array_key_exists('params', $arguments)) {
 			$response['params'] = (object) $this->storedUserParams($id);
+		}
+
+		if (array_key_exists('profile', $arguments)) {
+			$response['profile'] = (object) ($this->storedUserProfile($id) ?? []);
 		}
 
 		return ToolResult::json($response);

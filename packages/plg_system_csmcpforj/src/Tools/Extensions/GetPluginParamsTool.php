@@ -35,7 +35,9 @@ final class GetPluginParamsTool extends AbstractTool
 			. 'folder (group, e.g. "system", "content", "authentication") and element '
 			. '(e.g. "schemaorg", "csmcpforj"). Returns the full params JSON as an object. '
 			. 'Use list_plugins to discover folder/element pairs. Pair with set_plugin_params '
-			. 'to modify settings (e.g. site-wide Organization schema lives in plg_system_schemaorg).';
+			. 'to modify settings (e.g. site-wide Organization schema lives in plg_system_schemaorg). '
+			. 'Plugin settings often hold secrets (API keys, SMTP passwords, payment keys), so this needs the same '
+			. 'Joomla permission as opening a plugin in the admin: Edit on Plugins (or Super User).';
 	}
 
 	public function getInputSchema(): array
@@ -55,6 +57,22 @@ final class GetPluginParamsTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
+		/*
+		 * 2.10.0 (field review Q5, Tim 2026-10-28). The MCP "use" grant alone
+		 * used to be enough, so any account with it could read every plugin's
+		 * settings, secrets included: reCAPTCHA keys, SMTP passwords, payment
+		 * gateway keys. Now it needs what Joomla needs to open a plugin's
+		 * settings (com_plugins: Access Administration Interface + Edit).
+		 */
+		if (!$actor->authorise('core.admin')
+			&& !($actor->authorise('core.manage', 'com_plugins') && $actor->authorise('core.edit', 'com_plugins'))) {
+			return ToolResult::error(
+				'Permission denied: reading plugin settings needs the "Edit" permission on Plugins in Joomla '
+				. '(or a Super User), the same as opening a plugin in the Joomla admin. Plugin settings often hold '
+				. 'secrets such as API keys and passwords.'
+			);
+		}
+
 		$folder  = $this->requireString($arguments, 'folder');
 		$element = $this->requireString($arguments, 'element');
 

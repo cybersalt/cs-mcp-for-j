@@ -18,6 +18,8 @@ use Joomla\CMS\User\User;
 
 final class DeleteUserGroupTool extends AbstractTool
 {
+	use UsersAclTrait;
+
 	public function getName(): string { return 'delete_user_group'; }
 
 	public function getDescription(): string
@@ -49,6 +51,7 @@ final class DeleteUserGroupTool extends AbstractTool
 			return ToolResult::error('confirm:true is required to delete a user group.');
 		}
 		$id = $this->requirePositiveInt($arguments, 'id');
+		$this->requireUsersRight($actor, 'core.delete', 'deleting a user group');
 
 		$existing = $this->loadGroup($id);
 		if ($existing === null) {

@@ -73,6 +73,7 @@ use Joomla\CMS\User\User;
 final class UpdateCustomFieldTool extends AbstractTool
 {
 	use FieldsArgumentsTrait;
+	use \Cybersalt\Plugin\System\Csmcpforj\Tools\Permissions\AuthorChangeTrait;
 
 	private const UPDATABLE_SCALARS = [
 		'title', 'name', 'label', 'description', 'required', 'group_id',
@@ -181,6 +182,7 @@ final class UpdateCustomFieldTool extends AbstractTool
 		// an existing row).
 		if (array_key_exists('created_user_id', $arguments)) {
 			$data['created_user_id'] = $this->fieldCreatorId($arguments['created_user_id'], 'created_user_id');
+			$this->requireCanSetAuthor($actor, (int) $data['created_user_id'], 'created_user_id', false);
 		}
 		if (array_key_exists('created_time', $arguments)) {
 			$data['created_time'] = $this->fieldCreatedDate($arguments['created_time'], 'created_time');
@@ -199,11 +201,19 @@ final class UpdateCustomFieldTool extends AbstractTool
 		 * list `options` array is replaced as a whole, which is what a caller
 		 * editing that list means.
 		 */
+		/*
+		 * Passed as arrays, the way the admin form posts them, not as JSON
+		 * text (2.10.0, field review Q8, Tim 2026-10-28). FieldModel::save()
+		 * only runs its clean-up when $data['fieldparams']['options'] can be
+		 * read as an array: for list, checkboxes and radio fields, removing a
+		 * choice then also deletes that choice from every item that had it
+		 * picked, as in the Joomla admin. FieldTable::bind() encodes arrays.
+		 */
 		if (array_key_exists('fieldparams', $arguments)) {
-			$data['fieldparams'] = json_encode((object) $this->mergeJsonPatch($existing->fieldparams ?? null, $this->fieldObjectArg($arguments['fieldparams'], 'fieldparams')));
+			$data['fieldparams'] = $this->mergeJsonPatch($existing->fieldparams ?? null, $this->fieldObjectArg($arguments['fieldparams'], 'fieldparams'));
 		}
 		if (array_key_exists('params', $arguments)) {
-			$data['params'] = json_encode((object) $this->mergeJsonPatch($existing->params ?? null, $this->fieldObjectArg($arguments['params'], 'params')));
+			$data['params'] = $this->mergeJsonPatch($existing->params ?? null, $this->fieldObjectArg($arguments['params'], 'params'));
 		}
 		if (array_key_exists('assigned_cat_ids', $arguments)) {
 			// Pass through as an array — com_fields' FieldModel persists the

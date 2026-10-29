@@ -26,6 +26,7 @@ use Joomla\CMS\User\User;
 final class CreateFieldGroupTool extends AbstractTool
 {
 	use FieldsArgumentsTrait;
+	use \Cybersalt\Plugin\System\Csmcpforj\Tools\Permissions\AuthorChangeTrait;
 
 	public function getName(): string { return 'create_field_group'; }
 
@@ -87,6 +88,7 @@ final class CreateFieldGroupTool extends AbstractTool
 		}
 		if (isset($arguments['created_by'])) {
 			$data['created_by'] = $this->fieldCreatorId($arguments['created_by'], 'created_by');
+			$this->requireCanSetAuthor($actor, (int) $data['created_by'], 'created_by', true);
 		}
 		if (isset($arguments['created'])) {
 			$data['created'] = $this->fieldCreatedDate($arguments['created'], 'created');

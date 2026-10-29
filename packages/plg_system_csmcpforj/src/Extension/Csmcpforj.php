@@ -96,6 +96,7 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 		'Permissions' => [
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Permissions\ListComponentPermissionsTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Permissions\SetComponentPermissionTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Permissions\SetItemPermissionTool::class,
 		],
 		'Modules' => [
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Modules\ListModulesTool::class,
