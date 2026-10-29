@@ -1,6 +1,6 @@
 # Changelog
 
-## 🚀 Version 2.10.0 (unreleased, in test)
+## 🚀 Version 2.10.0 (October 28, 2026)
 
 **Everything on Joomla 6.2's edit screens, through MCP.** A review of every create, update and get tool against Joomla 6.2.0's own forms and tables, after Susan found `update_article` had no author field. Where a field is an options blob (images, links, Options tab, metadata, params), you pass only the keys you want to change; they are merged onto what's stored, and `null` removes a key. Leaving an argument out still changes nothing. Dates are UTC, in the same format the get tools return.
 

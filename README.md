@@ -57,16 +57,18 @@ If the host strips `Authorization`, use `env_http_headers = { "X-Joomla-Token" =
 
 ## Permissions
 
-The Joomla user who owns the token (or who signed in) is the actor on every tool call. MCP for J never grants anything that user couldn't do in the Joomla admin.
+The Joomla user who owns the token (or who signed in) is the actor on every tool call. The goal is that MCP for J never grants anything that user couldn't do in the Joomla admin. Since 2.10.0 the user, user group, API token, plugin settings, component Options, permissions and custom field value tools check the same Joomla permissions as the admin screens. The article, category, menu, module, field, tag and template tools still only check MCP for J's own permissions below; that is being fixed in 2.11.0 ([#45](https://github.com/cybersalt/cs-mcp-for-j/issues/45)). Until then, only grant **Write through MCP endpoint** to groups you'd trust with those areas.
 
 - **Web Services Login** (`core.login.api`) gates all of Joomla's API, MCP included. Only Super Users have it by default. Grant it to other groups in **System → Global Configuration → Permissions**.
 - **Use MCP endpoint** (`csmcpforj.use`) allows read tools; **Write through MCP endpoint** (`csmcpforj.write`) allows tools that change things. Set them in **Components → MCP for J → Options → Permissions**. `core.manage` or `core.admin` on the component also pass, so with Joomla's defaults Super Users and Administrators have both. Managers and other groups need them granted.
 - **Six tools are limited to Super Users** whatever the permissions say, because they can change who has power over the site: `install_extension`, `set_component_permission`, `apply_joomla_update`, `set_extension_enabled`, `set_plugin_params`, `set_component_params`.
-- Tools that manage other users' API tokens refuse to act on a user whose group is equal to or above the caller's.
+- The user tools follow Joomla's Users permissions: creating, editing and deleting users or groups needs the matching right on Users (plus access to the Users screen), blocking needs Edit State, and only a Super User can change a Super User's account. Reading another user's account, or another user's API token, needs the same rights.
+- `get_plugin_params` needs Edit on Plugins, because plugin settings often hold secrets. `set_item_permission` needs "Configure ACL & Options" on the item's component.
+- MCP for J never changes its own settings or Global Configuration through MCP. Do those in the Joomla admin.
 
 **Read-only mode** (Options → MCP server) makes the endpoint announce and accept read-only tools only. A client can also add `?read_only=1` to the endpoint URL to narrow a session further, but can't unlock writes on a site set to read-only. `?categories=articles,users` limits a session to some tool groups.
 
-## Built-in tools (95)
+## Built-in tools (96)
 
 `read` = Use MCP endpoint, `write` = Write through MCP endpoint, `write (Super User)` = also needs a Super User. Every tool publishes its JSON schema and MCP annotations through `tools/list`.
 
@@ -160,12 +162,13 @@ The Joomla user who owns the token (or who signed in) is the actor on every tool
 | `update_user` | write | Update an existing user. |
 | `update_user_group` | write | Update an existing user group. |
 
-### Permissions (2)
+### Permissions (3)
 
 | Tool | Access | What it does |
 |---|---|---|
 | `list_component_permissions` | read | Return the ACL state for a component or the root asset. |
 | `set_component_permission` | write (Super User) | Set one ACL cell on a component or the root asset. |
+| `set_item_permission` | write (Configure ACL & Options) | The Permissions tab of one article, category, module, custom field or field group: see it, or set one cell. |
 
 ### Extensions and plugins (8)
 
