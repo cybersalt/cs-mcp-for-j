@@ -149,6 +149,32 @@ final class DashboardController extends BaseController
 	}
 
 	/**
+	 * "Check connection" on the Dashboard (#2): asks this site's public
+	 * addresses what an AI app asks, from the web server, and returns JSON for
+	 * the Dashboard script. Read-only.
+	 */
+	public function connectionCheck(): void
+	{
+		$this->checkToken();
+
+		$app = Factory::getApplication();
+
+		if (!$app->getIdentity()->authorise('core.manage', 'com_csmcpforj')) {
+			throw new \Joomla\CMS\Access\Exception\NotAllowed(Text::_('JERROR_ALERTNOAUTHOR'), 403);
+		}
+
+		$checks = \Cybersalt\Component\Csmcpforj\Administrator\Helper\FirewallHelper::check(
+			\Cybersalt\Component\Csmcpforj\Administrator\OAuth\OAuthServer::isEnabled()
+		);
+
+		$app->setHeader('Content-Type', 'application/json; charset=utf-8', true);
+		$app->setHeader('Cache-Control', 'no-store', true);
+		$app->sendHeaders();
+		echo json_encode(['checks' => $checks], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+		$app->close();
+	}
+
+	/**
 	 * Bypass Joomla's #__updates table cache and immediately re-poll the
 	 * cs-release-manager update XML endpoint for every cs-mcp-for-j-related
 	 * extension (core package + every csmcpforj* add-on plugin installed).

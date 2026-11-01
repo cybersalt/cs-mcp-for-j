@@ -82,7 +82,7 @@ final class HtmlView extends BaseHtmlView
 		$this->tokenProfileUrl = $this->buildTokenProfileUrl();
 		$this->oauthEnabled    = \Cybersalt\Component\Csmcpforj\Administrator\OAuth\OAuthServer::isEnabled();
 		$this->canConfigure    = Factory::getApplication()->getIdentity()->authorise('core.admin', 'com_csmcpforj');
-		$this->optionsUrl      = Route::_('index.php?option=com_config&view=component&component=com_csmcpforj');
+		$this->optionsUrl      = \Cybersalt\Component\Csmcpforj\Administrator\Helper\OptionsLink::url('oauth', 'index.php?option=com_csmcpforj&view=setupguide');
 
 		// Bootstrap tab JS isn't auto-loaded in Joomla admin — without this,
 		// clicking a client tab (Claude / Cursor / ChatGPT) just changes the

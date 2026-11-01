@@ -21,7 +21,7 @@ use Joomla\CMS\Router\Route;
 // without it, Joomla drops the user on the user list, not their own
 // profile.
 $tokenUrl = htmlspecialchars($this->tokenProfileUrl, ENT_QUOTES, 'UTF-8');
-$permsUrl = Route::_('index.php?option=com_config&view=component&component=com_csmcpforj');
+$permsUrl = $this->escape($this->permissionsUrl);
 $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 ?>
 <?php echo FieldStyleHelper::css(); ?>
@@ -227,6 +227,14 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 					<h3 class="card-title"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CONNECT_HEADING'); ?></h3>
 					<p class="card-text mb-3"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CONNECT_INTRO'); ?></p>
 
+					<?php if (!$this->oauthEnabled && $this->oauthRefused24h > 0) : ?>
+						<div class="csmcpforj-notice mb-3">
+							<strong><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_REFUSED_TITLE'); ?></strong>
+							<?php echo Text::sprintf('COM_CSMCPFORJ_DASHBOARD_OAUTH_REFUSED_BODY', $this->oauthRefused24h); ?>
+							<a class="btn btn-sm btn-primary text-white ms-1" href="<?php echo $this->escape($this->optionsUrl); ?>"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_ENABLE'); ?></a>
+						</div>
+					<?php endif; ?>
+
 					<?php // ---- Way 1: log in (OAuth) ---- ?>
 					<details class="csmcpforj-way mb-2" id="csmcpforj-oauth">
 						<summary><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_WAY1_SUMMARY'); ?></summary>
@@ -234,6 +242,7 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 							<?php if (!$this->oauthEnabled) : ?>
 								<p class="card-text"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_OFF'); ?></p>
 								<a class="btn btn-sm btn-primary text-white" href="<?php echo $this->escape($this->optionsUrl); ?>"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_ENABLE'); ?></a>
+								<p class="card-text small mt-3 mb-0"><a href="<?php echo $this->escape($this->claudeChecklistUrl); ?>"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CLAUDE_CHECKLIST_LINK'); ?></a></p>
 							<?php else : ?>
 								<p class="card-text mb-2"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_ON'); ?></p>
 								<ol class="csmcpforj-steps">
@@ -262,9 +271,10 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 									<li><div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP2'); ?></div></li>
 									<li><div class="csmcpforj-step-body"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_STEP3'); ?></div></li>
 								</ol>
-								<p class="card-text small mb-3" id="csmcpforj-oauth-selftest" data-url="<?php echo $this->escape($this->oauthMetadataUrl); ?>">
+								<p class="card-text small mb-1" data-csmcpforj-oauth-selftest>
 									<span class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_RUNNING'); ?></span>
 								</p>
+								<p class="card-text small mb-3"><a href="<?php echo $this->escape($this->claudeChecklistUrl); ?>"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CLAUDE_CHECKLIST_LINK'); ?></a></p>
 								<?php if ($this->oauthProblems24h > 0) : ?>
 									<p class="card-text small mb-3 text-warning-emphasis">
 										<?php echo Text::sprintf('COM_CSMCPFORJ_DASHBOARD_OAUTH_PROBLEMS', $this->oauthProblems24h, $this->escape($this->oauthProblemsUrl)); ?>
@@ -381,18 +391,32 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 				});
 
 				// "Ready / Not ready": can AI apps find the login details at
-				// /.well-known/? Same-origin, read-only.
-				var el = document.getElementById('csmcpforj-oauth-selftest');
-				if (!el || !window.fetch) { return; }
-				var ok  = <?php echo json_encode(Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_OK')); ?>;
-				var bad = <?php echo json_encode(Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_FAIL')); ?>;
-				fetch(el.getAttribute('data-url'), {credentials: 'omit', cache: 'no-store'})
-					.then(function (r) { return r.ok ? r.json() : Promise.reject(); })
-					.then(function (j) {
-						if (!j || !j.authorization_endpoint) { throw new Error(); }
-						el.innerHTML = '<span class="text-success">&#10003; ' + ok + '</span>';
+				// /.well-known/? Same-origin, read-only. Switched off, the site
+				// answers oauth_disabled there (#52), which still proves the
+				// address reaches Joomla, so switching on is all it takes.
+				var spots = document.querySelectorAll('[data-csmcpforj-oauth-selftest]');
+				if (!spots.length || !window.fetch) { return; }
+				var oauthOn = <?php echo $this->oauthEnabled ? 'true' : 'false'; ?>;
+				var msg = <?php echo json_encode([
+					'ok'      => Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_OK'),
+					'bad'     => Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_FAIL'),
+					'offOk'   => Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_OFF_OK'),
+					'offBad'  => Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_SELFTEST_OFF_FAIL'),
+				], JSON_HEX_TAG | JSON_HEX_AMP); ?>;
+				var show = function (html) { spots.forEach(function (el) { el.innerHTML = html; }); };
+				fetch(<?php echo json_encode($this->oauthMetadataUrl, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG); ?>, {credentials: 'omit', cache: 'no-store'})
+					.then(function (r) { return r.json().then(function (j) { return {status: r.status, json: j}; }); })
+					.then(function (res) {
+						var j = res.json || {};
+						if (oauthOn && res.status === 200 && j.authorization_endpoint) {
+							show('<span class="text-success">&#10003; ' + msg.ok + '</span>');
+						} else if (!oauthOn && res.status === 404 && j.error === 'oauth_disabled') {
+							show('<span class="text-body-secondary">' + msg.offOk + '</span>');
+						} else {
+							throw new Error();
+						}
 					})
-					.catch(function () { el.innerHTML = '<span class="text-danger">&#10007; ' + bad + '</span>'; });
+					.catch(function () { show('<span class="text-danger">&#10007; ' + (oauthOn ? msg.bad : msg.offBad) + '</span>'); });
 			});
 			</script>
 
@@ -502,8 +526,10 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_LOGIN_ON'); ?>
 							<?php else : ?>
 								<span class="badge bg-secondary"><?php echo Text::_('JOFF'); ?></span>
+								<?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_LOGIN_OFF'); ?>
 								<a href="<?php echo $this->escape($this->optionsUrl); ?>"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_ENABLE'); ?></a>
 							<?php endif; ?>
+							<span class="d-block mt-1" data-csmcpforj-oauth-selftest></span>
 						</dd>
 						<dt><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN'); ?></dt>
 						<dd class="mb-0">
@@ -511,8 +537,33 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 							<a href="<?php echo $tokenUrl; ?>" target="_blank" rel="noopener"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_FIELD_TOKEN_LINK'); ?></a>
 						</dd>
 					</dl>
+
+					<?php // Check connection (#2): the questions an AI app asks, asked from the web server. ?>
+					<hr class="my-3">
+					<p class="card-text small mb-2"><?php echo Text::_('COM_CSMCPFORJ_CHECK_HINT'); ?></p>
+					<button type="button" class="btn btn-sm btn-primary text-white w-100" id="csmcpforj-check-btn">
+						<span class="icon-loop" aria-hidden="true"></span>
+						<?php echo Text::_('COM_CSMCPFORJ_CHECK_BTN'); ?>
+					</button>
+					<ul class="list-unstyled small mt-2 mb-0" id="csmcpforj-check-results" aria-live="polite"></ul>
 				</div>
 			</div>
+
+			<?php if ($this->firewalls !== []) : ?>
+				<?php // Joomla firewalls that are known to block MCP and OAuth requests (#2). ?>
+				<div class="card mb-3">
+					<div class="card-body">
+						<h4 class="card-title"><?php echo Text::_('COM_CSMCPFORJ_FIREWALL_HEADING'); ?></h4>
+						<?php foreach ($this->firewalls as $firewall) : ?>
+							<div class="csmcpforj-notice mb-2 small">
+								<strong><?php echo Text::_('COM_CSMCPFORJ_FIREWALL_' . strtoupper($firewall) . '_TITLE'); ?></strong>
+								<?php echo Text::_('COM_CSMCPFORJ_FIREWALL_' . strtoupper($firewall) . '_BODY'); ?>
+							</div>
+						<?php endforeach; ?>
+						<p class="card-text small mb-0"><?php echo Text::_('COM_CSMCPFORJ_FIREWALL_HOST_NOTE'); ?></p>
+					</div>
+				</div>
+			<?php endif; ?>
 
 			<?php
 			$proSubmitUrl   = \Joomla\CMS\Router\Route::_('index.php?option=com_csmcpforj&task=dashboard.activatePro');
@@ -737,14 +788,19 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 			<div class="card mb-3">
 				<div class="card-body">
 					<h4 class="card-title"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TROUBLESHOOT_HEADING'); ?></h4>
-					<dl class="mb-0">
+					<dl class="mb-2">
+						<dt><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TROUBLESHOOT_CLAUDE_TITLE'); ?></dt>
+						<dd><small><a href="<?php echo $this->escape($this->claudeChecklistUrl); ?>"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_CLAUDE_CHECKLIST_LINK'); ?></a></small></dd>
 						<dt><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TROUBLESHOOT_401_TITLE'); ?></dt>
 						<dd><small><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TROUBLESHOOT_401_BODY'); ?></small></dd>
 						<dt><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TROUBLESHOOT_404_TITLE'); ?></dt>
 						<dd><small><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TROUBLESHOOT_404_BODY'); ?></small></dd>
 						<dt><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TROUBLESHOOT_FORBIDDEN_TITLE'); ?></dt>
-						<dd class="mb-0"><small><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TROUBLESHOOT_FORBIDDEN_BODY'); ?></small></dd>
+						<dd><small><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TROUBLESHOOT_FORBIDDEN_BODY'); ?></small></dd>
+						<dt><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TROUBLESHOOT_FIREWALL_TITLE'); ?></dt>
+						<dd class="mb-0"><small><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TROUBLESHOOT_FIREWALL_BODY'); ?></small></dd>
 					</dl>
+					<small><a href="<?php echo $this->escape(strtok($this->claudeChecklistUrl, '#') . '#section-troubleshoot'); ?>"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_TROUBLESHOOT_ALL_LINK'); ?></a></small>
 				</div>
 			</div>
 		</div>
@@ -1060,5 +1116,41 @@ document.addEventListener('DOMContentLoaded', function() {
 			observer.observe(promptEl, { childList: true, subtree: true });
 		}
 	})();
+});
+</script>
+<script>
+// Check connection (#2). The server asks its own public addresses what an AI
+// app asks and reports which answers did not come from MCP for J.
+document.addEventListener('DOMContentLoaded', function () {
+	var btn = document.getElementById('csmcpforj-check-btn');
+	var out = document.getElementById('csmcpforj-check-results');
+	if (!btn || !out || !window.fetch) { return; }
+
+	var running = <?php echo json_encode(Text::_('COM_CSMCPFORJ_CHECK_RUNNING')); ?>;
+	var failed  = <?php echo json_encode(Text::_('COM_CSMCPFORJ_CHECK_FAILED')); ?>;
+	var esc = function (s) {
+		return String(s).replace(/[&<>"']/g, function (c) {
+			return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+		});
+	};
+
+	btn.addEventListener('click', function () {
+		btn.disabled = true;
+		out.innerHTML = '<li class="text-body-secondary">' + esc(running) + '</li>';
+
+		var body = new FormData();
+		body.append(<?php echo json_encode(\Joomla\CMS\Session\Session::getFormToken()); ?>, '1');
+
+		fetch(<?php echo json_encode($this->connectionCheckUrl, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG); ?>, {method: 'POST', body: body, credentials: 'same-origin'})
+			.then(function (r) { return r.json(); })
+			.then(function (j) {
+				out.innerHTML = (j.checks || []).map(function (c) {
+					return '<li class="mb-2"><span class="' + (c.ok ? 'text-success' : 'text-danger') + '">' + (c.ok ? '&#10003; ' : '&#10007; ')
+						+ '<strong>' + esc(c.label) + '</strong></span><br><span class="text-body-secondary">' + esc(c.detail) + '</span></li>';
+				}).join('');
+			})
+			.catch(function () { out.innerHTML = '<li class="text-danger">' + esc(failed) + '</li>'; })
+			.then(function () { btn.disabled = false; });
+	});
 });
 </script>

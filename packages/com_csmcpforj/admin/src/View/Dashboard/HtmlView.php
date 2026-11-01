@@ -11,6 +11,8 @@ namespace Cybersalt\Component\Csmcpforj\Administrator\View\Dashboard;
 
 \defined('_JEXEC') or die;
 
+use Cybersalt\Component\Csmcpforj\Administrator\Helper\FirewallHelper;
+use Cybersalt\Component\Csmcpforj\Administrator\Helper\OptionsLink;
 use Cybersalt\Component\Csmcpforj\Administrator\Integrity\IntegrityCheck;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
@@ -73,9 +75,18 @@ final class HtmlView extends BaseHtmlView
 	public bool $oauthEnabled = false;
 	public array $oauthAuthorisations = [];
 	public string $optionsUrl = '';
+	public string $permissionsUrl = '';
 	public string $oauthMetadataUrl = '';
 	public int $oauthProblems24h = 0;
 	public string $oauthProblemsUrl = '';
+
+	/** While OAuth is off: sign-in attempts it refused in the last 24 hours (#52). */
+	public int $oauthRefused24h = 0;
+
+	/** Joomla firewalls switched on (#2), e.g. ['rsfirewall'], and the "Check connection" task. */
+	public array $firewalls = [];
+	public string $connectionCheckUrl = '';
+	public string $claudeChecklistUrl = '';
 
 	/**
 	 * Shipped-file check (Joomla-Brain tools/integrity): an alert when an
@@ -172,9 +183,17 @@ final class HtmlView extends BaseHtmlView
 
 		$oauth                  = \Cybersalt\Component\Csmcpforj\Administrator\OAuth\OAuthServer::class;
 		$this->oauthEnabled     = $oauth::isEnabled();
-		$this->optionsUrl       = \Joomla\CMS\Router\Route::_('index.php?option=com_config&view=component&component=com_csmcpforj');
+		$this->optionsUrl       = OptionsLink::url('oauth');
+		$this->permissionsUrl   = OptionsLink::url('permissions');
+		$this->firewalls        = FirewallHelper::detect();
+		$this->connectionCheckUrl = Route::_('index.php?option=com_csmcpforj&task=dashboard.connectionCheck', false);
+		$this->claudeChecklistUrl = Route::_('index.php?option=com_csmcpforj&view=setupguide', false) . '#trouble-claudeai';
 		// ?selftest=1 keeps the Dashboard's own check out of the activity log.
-		$this->oauthMetadataUrl = $this->siteUrl . '/.well-known/oauth-authorization-server?selftest=1';
+		// Switched off, only the protected-resource document is answered (with
+		// oauth_disabled), which still proves the address reaches Joomla.
+		$this->oauthMetadataUrl = $this->siteUrl . ($this->oauthEnabled
+			? '/.well-known/oauth-authorization-server?selftest=1'
+			: '/.well-known/oauth-protected-resource?selftest=1');
 
 		try {
 			$this->oauthAuthorisations = $oauth::listAuthorisations();
@@ -202,6 +221,21 @@ final class HtmlView extends BaseHtmlView
 			}
 
 			$this->oauthProblemsUrl = \Joomla\CMS\Router\Route::_('index.php?option=com_csmcpforj&view=logs&filter[status]=problems&filter[since]=24h', false);
+		} else {
+			// An agency user lost hours to claude.ai's "cannot register" while
+			// OAuth was off (#52). If an app has tried, say so on the Dashboard.
+			try {
+				$db = \Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class);
+				$this->oauthRefused24h = (int) $db->setQuery(
+					$db->getQuery(true)
+						->select('COUNT(*)')
+						->from($db->quoteName(\Cybersalt\Component\Csmcpforj\Administrator\Log\ActivityLog::TABLE))
+						->where($db->quoteName('event') . ' = ' . $db->quote('oauth.disabled'))
+						->where($db->quoteName('created') . ' >= ' . $db->quote(gmdate('Y-m-d H:i:s', time() - 86400)))
+				)->loadResult();
+			} catch (\Throwable $e) {
+				$this->oauthRefused24h = 0;
+			}
 		}
 
 		// Pro Membership state — driven by ProActivationHelper, persisted in

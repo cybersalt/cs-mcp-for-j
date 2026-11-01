@@ -1,5 +1,23 @@
 # Changelog
 
+## 🧪 Unreleased (in test)
+
+**Connecting claude.ai, made findable.** From an agency user who spent hours connecting claude.ai to two Joomla 6.2 sites.
+
+### 🚀 Added
+- **claude.ai's "Use Claude's published identity" now works** ([#53](https://github.com/cybersalt/cs-mcp-for-j/issues/53)). OAuth sign-in supports Client ID Metadata Documents: an app whose client ID is an https URL is read from that URL, checked and remembered, with no registration step. The site advertises it only when PHP's curl extension is available. The fetch refuses private and reserved addresses, doesn't follow redirects, and is size-, time- and rate-limited. The consent screen names the host the identity was published on, and warns when the approval goes to a program on the same computer.
+- **Desktop apps can sign in on any local port.** A loopback redirect address (`http://localhost/…`, `http://127.0.0.1/…`) now matches whatever port the app listens on that session, as Claude Code's published identity needs.
+- **Check connection** on the Dashboard ([#2](https://github.com/cybersalt/cs-mcp-for-j/issues/2)): the web server asks its own public address what an AI app asks (the MCP endpoint, the sign-in details, the sign-in endpoints) and says which answers didn't come from MCP for J, including redirects and firewall pages.
+- **Firewall warning** ([#2](https://github.com/cybersalt/cs-mcp-for-j/issues/2)): when RSFirewall, Admin Tools or Securitycheck is switched on, the Dashboard says so and gives the exceptions. For RSFirewall: `csmcpforj_oauth`, and `api\/index\.php\/v1\/mcp` as a regular expression.
+- **claude.ai checklist** in the Setup Guide's Troubleshooting ([#54](https://github.com/cybersalt/cs-mcp-for-j/issues/54)), linked from the Dashboard: exact address with no redirect, OAuth switched on, which client option to pick, no request headers, firewalls (claude.ai connects from `160.79.104.0/21`), blocked accounts or a pending password reset, and the Logs.
+- **Troubleshooting grouped by app.** The Setup Guide's Troubleshooting now has three groups with jump buttons: apps that connect by logging in (claude.ai, ChatGPT), Claude Desktop with a config file, and error messages that can turn up in any app. The Dashboard's Troubleshooting card puts claude.ai first and links to the full list.
+
+### 🔧 Fixed
+- **"Open Options to switch it on" opened Global Configuration** instead of MCP for J's Options ([#51](https://github.com/cybersalt/cs-mcp-for-j/issues/51)). The link was HTML-encoded twice, so Joomla only saw `option=com_config`. The Dashboard, Setup Guide and Browse MCP Add-Ons links now open MCP for J's Options on the right tab (OAuth sign-in, Permissions or Catalog) and return to the page they came from.
+- **With OAuth sign-in switched off, the sign-in addresses answered with the site's HTML 404 page**, and claude.ai only said it "cannot register" ([#52](https://github.com/cybersalt/cs-mcp-for-j/issues/52)). `/.well-known/oauth-protected-resource` and the `csmcpforj_oauth` endpoints now answer `{"error":"oauth_disabled"}` with a description, and the sign-in page says in words that signing in is switched off. Each refused attempt is logged (`oauth.disabled`), and the Dashboard shows a notice when an app has tried in the last 24 hours. The generic `oauth-authorization-server` and `openid-configuration` documents are still left to Joomla while OAuth is off, in case another extension answers them.
+- **The Dashboard shows the sign-in status in both states.** Switched off, it now also checks whether apps could reach the sign-in address once it's switched on (URL rewriting).
+- **The browser tab showed `&mdash;`** in the Setup Guide, Support and Logs page titles.
+
 ## 🚀 Version 2.10.0 (October 28, 2026)
 
 **Everything on Joomla 6.2's edit screens, through MCP.** A review of every create, update and get tool against Joomla 6.2.0's own forms and tables, after Susan found `update_article` had no author field. Where a field is an options blob (images, links, Options tab, metadata, params), you pass only the keys you want to change; they are merged onto what's stored, and `null` removes a key. Leaving an argument out still changes nothing. Dates are UTC, in the same format the get tools return.

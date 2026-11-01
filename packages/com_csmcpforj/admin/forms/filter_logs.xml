@@ -28,7 +28,9 @@
 		<field name="event" type="list" label="COM_CSMCPFORJ_LOGS_FILTER_EVENT" onchange="this.form.submit();">
 			<option value="">COM_CSMCPFORJ_LOGS_FILTER_EVENT_ANY</option>
 			<option value="oauth.discovery">oauth.discovery</option>
+			<option value="oauth.disabled">oauth.disabled</option>
 			<option value="oauth.register">oauth.register</option>
+			<option value="oauth.cimd">oauth.cimd</option>
 			<option value="oauth.authorize">oauth.authorize</option>
 			<option value="oauth.token">oauth.token</option>
 			<option value="oauth.revoke">oauth.revoke</option>

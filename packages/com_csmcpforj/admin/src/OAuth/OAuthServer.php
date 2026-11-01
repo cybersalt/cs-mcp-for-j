@@ -39,6 +39,9 @@ use Joomla\Utilities\IpHelper;
  *   - Dynamic Client Registration (RFC 7591). Public clients by default;
  *     clients that ask for client_secret_post / client_secret_basic get a
  *     secret.
+ *   - Client ID Metadata Documents (MCP spec 2025-11-25, #53): a client_id
+ *     that is an https URL is fetched, checked and cached as a public client.
+ *     This is claude.ai's "Use Claude's published identity" option.
  *   - Authorization code with PKCE, S256 only. The authorize step uses the
  *     site's own Joomla login (so its MFA applies) and then a consent screen
  *     naming the app and the Joomla user it will act as.
@@ -66,6 +69,17 @@ final class OAuthServer
 	private const CODE_TTL_SECONDS       = 600;
 	private const REGISTRATIONS_PER_HOUR = 20;
 	private const MAX_REDIRECT_URIS      = 10;
+
+	/**
+	 * Client ID Metadata Documents (#53). The URL is stored hashed under this
+	 * prefix, because client_id columns are varchar(64) and URLs are longer.
+	 */
+	private const CIMD_PREFIX        = 'mcpj_cimd_';
+	private const CIMD_FAILED_PREFIX = 'mcpj_cimdx_';
+	private const CIMD_TTL_SECONDS = 86400;
+	private const CIMD_MAX_BYTES   = 10240;
+
+	private const LOOPBACK_HOSTS = ['localhost', '127.0.0.1', '[::1]', '::1'];
 
 	private const T_CLIENTS = '#__csmcpforj_oauth_clients';
 	private const T_CODES   = '#__csmcpforj_oauth_codes';
@@ -181,6 +195,9 @@ final class OAuthServer
 			'revocation_endpoint_auth_methods_supported' => ['none', 'client_secret_post', 'client_secret_basic'],
 			'scopes_supported'                      => [self::SCOPE],
 			'authorization_response_iss_parameter_supported' => true,
+			// claude.ai only offers its published identity when this is true
+			// AND 'none' is an accepted token endpoint auth method.
+			'client_id_metadata_document_supported' => self::cimdAvailable(),
 		];
 	}
 
@@ -226,7 +243,10 @@ final class OAuthServer
 		try {
 			switch ($route) {
 				case 'resource-metadata':
-					self::log('info', 'oauth.discovery', 'Sent the protected-resource metadata (step 1 of an app connecting).');
+					if (!isset($_GET['selftest'])) {
+						self::log('info', 'oauth.discovery', 'Sent the protected-resource metadata (step 1 of an app connecting).');
+					}
+
 					self::sendJson(self::protectedResourceMetadata(), 200, true);
 					break;
 				case 'metadata':
@@ -256,6 +276,42 @@ final class OAuthServer
 				'error'             => 'server_error',
 				'error_description' => 'The authorization server hit an error. A site administrator can see the details under Components > MCP for J > Logs.',
 			], 500, true);
+		}
+
+		$app->close();
+	}
+
+	/**
+	 * Answer an OAuth endpoint while OAuth sign-in is switched off (#52).
+	 *
+	 * These requests used to fall through to Joomla, so the well-known
+	 * documents came back as the site's HTML 404 page and claude.ai only said it
+	 * "cannot register". Now the app gets a JSON error naming the cause, the
+	 * sign-in page says it in words, and the Logs and Dashboard record that an
+	 * app tried.
+	 */
+	public static function handleDisabled(string $route, CMSApplication $app): void
+	{
+		$description = 'OAuth sign-in is switched off on this site. A Super User can switch it on in the Joomla admin: Components > MCP for J > Options > OAuth sign-in.';
+
+		// ?selftest=1 is the Dashboard's own check.
+		if (!isset($_GET['selftest'])) {
+			$ua = mb_substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 200);
+
+			self::log('warning', 'oauth.disabled', 'An app tried to connect by signing in (' . $route . '), but OAuth sign-in is switched off in Options, so it was refused.', [
+				'details' => ['endpoint' => $route, 'user_agent' => $ua],
+			]);
+		}
+
+		if ($route === 'authorize') {
+			self::renderPage(
+				'Signing in is switched off',
+				'<p>This website does not let apps connect by signing in, so the app that sent you here cannot connect this way.</p>'
+				. '<p>A Super User can switch it on in the Joomla admin under <strong>Components &rarr; MCP for J &rarr; Options &rarr; OAuth sign-in</strong>. Then start connecting again from the app.</p>',
+				404
+			);
+		} else {
+			self::sendJson(['error' => 'oauth_disabled', 'error_description' => $description], 404, true);
 		}
 
 		$app->close();
@@ -295,17 +351,7 @@ final class OAuthServer
 		$db = self::db();
 		$ip = self::ip();
 
-		$recent = (int) $db->setQuery(
-			$db->getQuery(true)
-				->select('COUNT(*)')
-				->from($db->quoteName(self::T_CLIENTS))
-				->where($db->quoteName('created_ip') . ' = :ip')
-				->where($db->quoteName('created') . ' > :since')
-				->bind(':ip', $ip)
-				->bind(':since', self::sqlDate(-3600))
-		)->loadResult();
-
-		if ($recent >= self::REGISTRATIONS_PER_HOUR) {
+		if (self::recentClientCount() >= self::REGISTRATIONS_PER_HOUR) {
 			self::refuse('oauth.register', 'invalid_request', 'Too many registrations from this address. Try again later.', 429);
 
 			return;
@@ -420,7 +466,7 @@ final class OAuthServer
 		}
 
 		if ($scheme === 'http') {
-			return in_array(strtolower((string) ($parts['host'] ?? '')), ['localhost', '127.0.0.1', '[::1]', '::1'], true);
+			return self::isLoopbackHost((string) ($parts['host'] ?? ''));
 		}
 
 		if ($scheme === '' || !preg_match('/^[a-z][a-z0-9+.\-]*$/', $scheme)) {
@@ -428,6 +474,345 @@ final class OAuthServer
 		}
 
 		return !in_array($scheme, ['javascript', 'data', 'file', 'vbscript', 'blob', 'about', 'ftp', 'ws', 'wss'], true);
+	}
+
+	private static function isLoopbackHost(string $host): bool
+	{
+		return in_array(strtolower($host), self::LOOPBACK_HOSTS, true);
+	}
+
+	/**
+	 * Exact match, except that a loopback http address may use any port
+	 * (RFC 8252 §7.3). Desktop apps such as Claude Code listen on a new port
+	 * each session and publish "http://localhost/callback" without one.
+	 */
+	private static function redirectUriAllowed(string $requested, array $registered): bool
+	{
+		if (in_array($requested, $registered, true)) {
+			return true;
+		}
+
+		$req = parse_url($requested);
+
+		if (!is_array($req) || strtolower((string) ($req['scheme'] ?? '')) !== 'http' || !self::isLoopbackHost((string) ($req['host'] ?? ''))) {
+			return false;
+		}
+
+		foreach ($registered as $uri) {
+			$reg = parse_url((string) $uri);
+
+			if (is_array($reg)
+				&& strtolower((string) ($reg['scheme'] ?? '')) === 'http'
+				&& strtolower((string) ($reg['host'] ?? '')) === strtolower((string) $req['host'])
+				&& (string) ($reg['path'] ?? '') === (string) ($req['path'] ?? '')
+				&& (string) ($reg['query'] ?? '') === (string) ($req['query'] ?? '')) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	// ------------------------------------------------------------------
+	// Client ID Metadata Documents (#53)
+	// ------------------------------------------------------------------
+
+	/** CIMD needs PHP's curl to pin the address it checked (see fetchCimdDocument). */
+	private static function cimdAvailable(): bool
+	{
+		return function_exists('curl_init');
+	}
+
+	public static function isCimdClientId(string $clientId): bool
+	{
+		return str_starts_with($clientId, 'https://');
+	}
+
+	private static function cimdKey(string $url): string
+	{
+		return self::CIMD_PREFIX . substr(hash('sha256', $url), 0, 40);
+	}
+
+	/**
+	 * The client for a published-identity URL, from the cache or freshly
+	 * fetched. $mayFetch is true only on the authorize step (the user is
+	 * there); the token and revoke steps use what authorize stored, so a
+	 * slow or missing document never breaks a renewal.
+	 */
+	private static function findCimdClient(string $url, bool $mayFetch, string $wantRedirect = '', ?string &$why = null): ?object
+	{
+		$why = '';
+
+		if (!self::validCimdUrl($url, $why)) {
+			return null;
+		}
+
+		$key = self::cimdKey($url);
+		$row = self::findClient($key);
+
+		if ($row !== null) {
+			$age       = time() - (int) strtotime((string) $row->created . ' UTC');
+			$redirects = json_decode((string) $row->redirect_uris, true) ?: [];
+			$covers    = $wantRedirect === '' || self::redirectUriAllowed($wantRedirect, $redirects);
+
+			// Fresh and covering the request; or a token/revoke step, which
+			// never fetches. A document that no longer lists the redirect is
+			// re-read, but not more than every five minutes.
+			if (!$mayFetch || ($age < self::CIMD_TTL_SECONDS && ($covers || $age < 300))) {
+				return $row;
+			}
+		} elseif (!$mayFetch) {
+			$why = 'its published identity was never read here (the sign-in step stores it)';
+
+			return null;
+		} elseif (self::recentClientCount() >= self::REGISTRATIONS_PER_HOUR) {
+			$why = 'too many new apps from this address in the last hour; try again later';
+
+			return null;
+		}
+
+		if (!self::cimdAvailable()) {
+			$why = 'this web server cannot fetch it (PHP\'s curl extension is missing)';
+
+			return null;
+		}
+
+		$doc = self::fetchCimdDocument($url, $why);
+		$db  = self::db();
+
+		if ($doc === null) {
+			// A failed fetch still counts toward this address's hourly limit,
+			// or anyone could make the site fetch URLs without end. The marker
+			// is revoked (never usable) and purged after a day.
+			$marker = (object) [
+				'client_id'          => self::CIMD_FAILED_PREFIX . bin2hex(random_bytes(8)),
+				'client_secret_hash' => '',
+				'auth_method'        => 'none',
+				'client_name'        => 'Unusable published identity',
+				'redirect_uris'      => '[]',
+				'created'            => self::sqlDate(),
+				'created_ip'         => self::ip(),
+				'revoked'            => 1,
+			];
+			$db->insertObject(self::T_CLIENTS, $marker);
+
+			// Keep using a stored copy that still covers this request.
+			return ($row !== null && isset($covers) && $covers) ? $row : null;
+		}
+
+		$fields = [
+			'client_name'   => $doc['name'],
+			'redirect_uris' => json_encode($doc['redirect_uris'], JSON_UNESCAPED_SLASHES),
+			'created'       => self::sqlDate(),
+			'created_ip'    => self::ip(),
+		];
+
+		if ($row === null) {
+			$insert = (object) array_merge($fields, [
+				'client_id'          => $key,
+				'client_secret_hash' => '',
+				'auth_method'        => 'none',
+				'revoked'            => 0,
+			]);
+			$db->insertObject(self::T_CLIENTS, $insert);
+		} else {
+			$update = (object) array_merge($fields, ['id' => (int) $row->id]);
+			$db->updateObject(self::T_CLIENTS, $update, 'id');
+		}
+
+		self::log('success', 'oauth.cimd', 'Read the published identity of "' . $doc['name'] . '".', [
+			'subject'   => $doc['name'],
+			'client_id' => $key,
+			'details'   => ['document' => $url, 'redirect_uris' => $doc['redirect_uris']],
+		]);
+
+		return self::findClient($key);
+	}
+
+	/** @return array<int, string> CURLOPT_CAPATH or CURLOPT_CAINFO, or nothing if Joomla's CaBundle is missing. */
+	private static function caOption(): array
+	{
+		if (!class_exists(\Composer\CaBundle\CaBundle::class)) {
+			return [];
+		}
+
+		$ca = \Composer\CaBundle\CaBundle::getSystemCaRootBundlePath();
+
+		return is_dir($ca) ? [CURLOPT_CAPATH => $ca] : [CURLOPT_CAINFO => $ca];
+	}
+
+	/** Registrations and published identities first seen from this address in the last hour. */
+	private static function recentClientCount(): int
+	{
+		$db    = self::db();
+		$ip    = self::ip();
+		$since = self::sqlDate(-3600);
+
+		return (int) $db->setQuery(
+			$db->getQuery(true)
+				->select('COUNT(*)')
+				->from($db->quoteName(self::T_CLIENTS))
+				->where($db->quoteName('created_ip') . ' = :ip')
+				->where($db->quoteName('created') . ' > :since')
+				->bind(':ip', $ip)
+				->bind(':since', $since)
+		)->loadResult();
+	}
+
+	/** The URL rules of the CIMD draft (§3), plus port 443 only, to narrow what we fetch. */
+	private static function validCimdUrl(string $url, ?string &$why = null): bool
+	{
+		$parts = strlen($url) <= 2000 ? parse_url($url) : false;
+		$path  = is_array($parts) ? (string) ($parts['path'] ?? '') : '';
+
+		$why = match (true) {
+			!is_array($parts) || strtolower((string) ($parts['scheme'] ?? '')) !== 'https' || empty($parts['host']) => 'the client_id is not a valid https URL',
+			isset($parts['user']) || isset($parts['pass'])                                                     => 'the client_id URL contains a username or password',
+			str_contains($url, '#')                                                                            => 'the client_id URL contains a fragment',
+			isset($parts['port']) && (int) $parts['port'] !== 443                                              => 'the client_id URL uses a port other than 443',
+			$path === '' || $path === '/'                                                                      => 'the client_id URL has no path',
+			(bool) array_intersect(explode('/', $path), ['.', '..'])                                           => 'the client_id URL contains . or .. segments',
+			default                                                                                            => '',
+		};
+
+		return $why === '';
+	}
+
+	/**
+	 * Fetch and check a published identity. The URL comes from an anonymous
+	 * request, so this guards against server-side request forgery: every
+	 * address the host resolves to must be public, curl is pinned to the
+	 * address that was checked (no DNS rebinding in between), redirects are
+	 * not followed, and size and time are capped.
+	 *
+	 * @return array{name: string, redirect_uris: string[]}|null
+	 */
+	private static function fetchCimdDocument(string $url, ?string &$why = null): ?array
+	{
+		$host = strtolower((string) parse_url($url, PHP_URL_HOST));
+		$bare = trim($host, '[]');
+
+		if (filter_var($bare, FILTER_VALIDATE_IP)) {
+			$ips = [$bare];
+		} else {
+			$ips = @gethostbynamel($host) ?: [];
+
+			foreach (@dns_get_record($host, DNS_AAAA) ?: [] as $record) {
+				if (!empty($record['ipv6'])) {
+					$ips[] = (string) $record['ipv6'];
+				}
+			}
+		}
+
+		if ($ips === []) {
+			$why = 'its host name ' . $host . ' does not resolve';
+
+			return null;
+		}
+
+		foreach ($ips as $ip) {
+			if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+				$why = 'its host name resolves to a private or reserved address, which this site will not fetch';
+
+				return null;
+			}
+		}
+
+		$pin  = str_contains($ips[0], ':') ? '[' . $ips[0] . ']' : $ips[0];
+		$body = '';
+		$ch   = curl_init($url);
+
+		curl_setopt_array($ch, [
+			CURLOPT_RESOLVE        => [$bare . ':443:' . $pin],
+			CURLOPT_PROTOCOLS      => CURLPROTO_HTTPS,
+			CURLOPT_FOLLOWLOCATION => false,
+			CURLOPT_PROXY          => '',
+			CURLOPT_CONNECTTIMEOUT => 3,
+			CURLOPT_TIMEOUT        => 5,
+			CURLOPT_SSL_VERIFYPEER => true,
+			CURLOPT_SSL_VERIFYHOST => 2,
+			CURLOPT_HTTPHEADER     => ['Accept: application/json'],
+			CURLOPT_USERAGENT      => 'MCP for J OAuth (Joomla)',
+			CURLOPT_WRITEFUNCTION  => static function ($ch, string $chunk) use (&$body): int {
+				$body .= $chunk;
+
+				// Returning a different length aborts the transfer.
+				return strlen($body) > self::CIMD_MAX_BYTES ? 0 : strlen($chunk);
+			},
+		]);
+
+		// Same CA choice as Joomla's own curl transport: the system bundle, or
+		// Joomla's bundled one where PHP has none configured. (Set on its own:
+		// spreading int-keyed options into the array above renumbers them.)
+		curl_setopt_array($ch, self::caOption());
+
+		$ok     = curl_exec($ch);
+		$status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+		$error  = curl_error($ch);
+		curl_close($ch);
+
+		if (strlen($body) > self::CIMD_MAX_BYTES) {
+			$why = 'the document is larger than ' . self::CIMD_MAX_BYTES . ' bytes';
+
+			return null;
+		}
+
+		if ($ok === false || $status !== 200) {
+			$why = $ok === false ? 'fetching it failed (' . mb_substr($error, 0, 150) . ')' : 'fetching it returned HTTP ' . $status;
+
+			return null;
+		}
+
+		$doc = json_decode($body, true);
+
+		if (!is_array($doc)) {
+			$why = 'the document is not JSON';
+
+			return null;
+		}
+
+		if (($doc['client_id'] ?? null) !== $url) {
+			$why = 'the document\'s client_id does not match its URL';
+
+			return null;
+		}
+
+		$uris = $doc['redirect_uris'] ?? null;
+
+		if (!is_array($uris) || $uris === [] || count($uris) > self::MAX_REDIRECT_URIS) {
+			$why = 'the document must list 1 to ' . self::MAX_REDIRECT_URIS . ' redirect_uris';
+
+			return null;
+		}
+
+		foreach ($uris as $uri) {
+			if (!is_string($uri) || !self::isAcceptableRedirectUri($uri)) {
+				$why = 'the document lists a redirect URI this site does not accept';
+
+				return null;
+			}
+		}
+
+		$method = (string) ($doc['token_endpoint_auth_method'] ?? 'none');
+
+		if ($method !== 'none') {
+			$why = 'the app authenticates with ' . mb_substr($method, 0, 40) . ', and this site only accepts published identities of public apps (none)';
+
+			return null;
+		}
+
+		if (isset($doc['grant_types']) && (!is_array($doc['grant_types']) || !in_array('authorization_code', $doc['grant_types'], true))) {
+			$why = 'the document\'s grant_types do not include authorization_code';
+
+			return null;
+		}
+
+		// The name is self-asserted, so the host it was published on is
+		// always shown with it (consent screen, Dashboard, Logs).
+		$name = trim(strip_tags((string) ($doc['client_name'] ?? '')));
+		$name = ($name === '' ? $host : mb_substr($name, 0, 120)) . ' (' . $host . ')';
+
+		return ['name' => $name, 'redirect_uris' => array_values($uris)];
 	}
 
 	// ------------------------------------------------------------------
@@ -452,7 +837,24 @@ final class OAuthServer
 
 		// 1. Client and redirect URI first. Until both check out we must NOT
 		//    redirect anywhere, or this endpoint becomes an open redirector.
-		$client = self::findClient($req['client_id']);
+		if (self::isCimdClientId($req['client_id'])) {
+			// Published identity (#53): fetched here, before anything else.
+			$client = self::findCimdClient($req['client_id'], true, $req['redirect_uri'], $why);
+
+			if ($client === null) {
+				self::log('warning', 'oauth.cimd', 'Sign-in page refused: could not use the published identity at ' . mb_substr($req['client_id'], 0, 300) . ': ' . $why . '.');
+				self::renderPage(
+					'This app\'s identity could not be checked',
+					'<p>The app that sent you here identified itself with a published identity document, but this site could not use it: ' . self::e($why) . '.</p>'
+					. '<p>In the app, remove the connector and add it again, choosing <strong>Register automatically</strong> instead of the published identity. The site&rsquo;s administrator can see the details under Components &rarr; MCP for J &rarr; Logs.</p>',
+					400
+				);
+
+				return;
+			}
+		} else {
+			$client = self::findClient($req['client_id']);
+		}
 
 		if ($client === null) {
 			self::log('warning', 'oauth.authorize', 'Sign-in page refused: the app is not registered here, or was revoked.', [
@@ -471,7 +873,7 @@ final class OAuthServer
 			$req['redirect_uri'] = (string) $registered[0];
 		}
 
-		if (!in_array($req['redirect_uri'], $registered, true)) {
+		if (!self::redirectUriAllowed($req['redirect_uri'], $registered)) {
 			self::log('warning', 'oauth.authorize', 'Sign-in page refused: the app asked to return to an address it did not register.', [
 				'details' => ['requested' => mb_substr($req['redirect_uri'], 0, 500), 'registered' => $registered],
 			]);
@@ -627,10 +1029,33 @@ final class OAuthServer
 
 		$hidden .= '<input type="hidden" name="' . Session::getFormToken() . '" value="1">';
 
+		// MCP spec (CIMD security): name where a published identity comes from,
+		// and warn when approvals only go to a local address, which any program
+		// on the computer could be listening on.
+		$extra = '';
+
+		if (self::isCimdClientId($req['client_id'])) {
+			$extra .= '<li>The app identified itself with the identity published at <strong>' . self::e((string) parse_url($req['client_id'], PHP_URL_HOST)) . '</strong>.</li>';
+		}
+
+		$registered = json_decode((string) $client->redirect_uris, true) ?: [];
+		$localOnly  = $registered !== [];
+
+		foreach ($registered as $uri) {
+			if (strtolower((string) parse_url((string) $uri, PHP_URL_SCHEME)) !== 'http') {
+				$localOnly = false;
+			}
+		}
+
+		if ($localOnly) {
+			$extra .= '<li><strong>The approval goes to a program on this computer</strong> (' . self::e($host) . '). Only allow it if you just started connecting from an app on this computer.</li>';
+		}
+
 		$body = '<p class="lead"><strong>' . self::e((string) $client->client_name) . '</strong> wants to connect to <strong>' . self::e($site) . '</strong> through MCP for J.</p>'
 			. '<ul>'
 			. '<li>It will act as <strong>' . self::e($user->name) . '</strong> (' . self::e($user->username) . '), with exactly the permissions this account has on the site, including making changes if the account can.</li>'
 			. '<li>After you allow it, you will be sent back to <strong>' . self::e($host) . '</strong>.</li>'
+			. $extra
 			. '<li>You can disconnect it at any time under Components &rarr; MCP for J.</li>'
 			. '</ul>'
 			. '<p class="muted">Only allow apps you added yourself. If you did not just add a connector, choose Deny.</p>'
@@ -742,12 +1167,17 @@ final class OAuthServer
 			}
 		}
 
-		$client = self::findClient($clientId);
+		$cimdWhy = '';
+		$client  = self::isCimdClientId($clientId)
+			? self::findCimdClient($clientId, false, '', $cimdWhy)
+			: self::findClient($clientId);
 
 		if ($client === null) {
-			self::$clientFailure = $clientId === ''
-				? 'No client_id was sent (neither in the form body nor in HTTP Basic auth).'
-				: 'client_id ' . mb_substr($clientId, 0, 64) . ' is not registered here, or was revoked.';
+			self::$clientFailure = match (true) {
+				$clientId === '' => 'No client_id was sent (neither in the form body nor in HTTP Basic auth).',
+				$cimdWhy !== ''  => 'Published identity ' . mb_substr($clientId, 0, 300) . ' cannot be used: ' . $cimdWhy . '.',
+				default          => 'client_id ' . mb_substr($clientId, 0, 64) . ' is not registered here, or was revoked.',
+			};
 
 			return null;
 		}
@@ -1201,6 +1631,13 @@ final class OAuthServer
 			$db->getQuery(true)
 				->delete($db->quoteName(self::T_TOKENS))
 				->where($db->quoteName('expires') . ' < ' . $db->quote(self::sqlDate(-7 * 86400)))
+		)->execute();
+
+		$db->setQuery(
+			$db->getQuery(true)
+				->delete($db->quoteName(self::T_CLIENTS))
+				->where($db->quoteName('client_id') . ' LIKE ' . $db->quote(self::CIMD_FAILED_PREFIX . '%'))
+				->where($db->quoteName('created') . ' < ' . $db->quote(self::sqlDate(-86400)))
 		)->execute();
 	}
 

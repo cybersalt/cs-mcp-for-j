@@ -305,8 +305,17 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 				isset($_GET[OAuthServer::QUERY_KEY]) ? (string) $_GET[OAuthServer::QUERY_KEY] : null
 			);
 
-			if ($oauthRoute !== null && OAuthServer::isEnabled()) {
-				OAuthServer::handle($oauthRoute, $app);
+			if ($oauthRoute !== null) {
+				// Switched off: a JSON error naming the cause, not the site's
+				// HTML 404 page (#52). The generic /.well-known/ authorization-
+				// server and openid-configuration documents are left to Joomla,
+				// in case another extension on the site answers them; the
+				// ?csmcpforj_oauth= form is always ours.
+				if (OAuthServer::isEnabled()) {
+					OAuthServer::handle($oauthRoute, $app);
+				} elseif ($oauthRoute !== 'metadata' || isset($_GET[OAuthServer::QUERY_KEY])) {
+					OAuthServer::handleDisabled($oauthRoute, $app);
+				}
 			}
 
 			return;

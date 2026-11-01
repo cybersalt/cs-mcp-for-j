@@ -139,6 +139,15 @@ HTML;
 .csmcpforj-setup-section h3 {
 	margin-top: 0;
 }
+/* Troubleshooting group headings: big enough to scan for the app you use. */
+.csmcpforj-trouble-group {
+	font-size: 1.25rem;
+	font-weight: 600;
+	margin: 1.5rem 0 .5rem;
+	padding-bottom: .25rem;
+	border-bottom: 1px solid var(--bs-border-color);
+	scroll-margin-top: 1rem;
+}
 .csmcpforj-setup-section pre {
 	background: var(--bs-body-bg);
 	color: var(--bs-emphasis-color);
@@ -552,36 +561,32 @@ details.csmcpforj-setup-advanced[open] summary::before {
 			<div class="card mb-3 csmcpforj-setup-section" id="section-troubleshoot">
 				<div class="card-body">
 					<h3 class="card-title"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLESHOOT_HEADING'); ?></h3>
-					<p class="mb-3"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLESHOOT_BODY'); ?></p>
+					<p class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLESHOOT_BODY'); ?></p>
+					<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+						<span><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_JUMP'); ?></span>
+						<a class="btn btn-sm btn-outline-info" href="#trouble-group-login"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_GROUP_LOGIN'); ?></a>
+						<a class="btn btn-sm btn-outline-info" href="#trouble-group-desktop"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_GROUP_DESKTOP'); ?></a>
+						<a class="btn btn-sm btn-outline-info" href="#trouble-group-errors"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_GROUP_ERRORS'); ?></a>
+					</div>
 
-					<details class="csmcpforj-setup-troubleshoot">
-						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_401_SUMMARY'); ?></summary>
-						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_401_BODY'); ?></div>
-					</details>
+					<?php // Grouped by the kind of app, so people find their problem under the app they're connecting. ?>
+					<h4 class="csmcpforj-trouble-group" id="trouble-group-login"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_GROUP_LOGIN'); ?></h4>
 
-					<details class="csmcpforj-setup-troubleshoot">
-						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_406_SUMMARY'); ?></summary>
-						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_406_BODY'); ?></div>
-					</details>
-
-					<details class="csmcpforj-setup-troubleshoot">
-						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_EMPTY_TOOLS_SUMMARY'); ?></summary>
-						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_EMPTY_TOOLS_BODY'); ?></div>
-					</details>
-
-					<details class="csmcpforj-setup-troubleshoot">
-						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_404_SUMMARY'); ?></summary>
-						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_404_BODY'); ?></div>
-					</details>
-
-					<details class="csmcpforj-setup-troubleshoot">
-						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_WAF_SUMMARY'); ?></summary>
-						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_WAF_BODY'); ?></div>
-					</details>
-
-					<details class="csmcpforj-setup-troubleshoot">
-						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_EDIT_CONFIG_SUMMARY'); ?></summary>
-						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_EDIT_CONFIG_BODY'); ?></div>
+					<?php // #54: the checklist an agency user needed, after hours of setup on two sites. Linked from the Dashboard. ?>
+					<details class="csmcpforj-setup-troubleshoot" id="trouble-claudeai">
+						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_CLAUDEAI_SUMMARY'); ?></summary>
+						<div class="mt-2">
+							<p class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_CLAUDEAI_INTRO'); ?></p>
+							<ol class="mb-0">
+								<li class="mb-2"><?php echo Text::sprintf('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_CLAUDEAI_URL', $endpoint); ?></li>
+								<li class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_CLAUDEAI_OAUTH_' . ($this->oauthEnabled ? 'ON' : 'OFF')); ?></li>
+								<li class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_CLAUDEAI_CLIENT'); ?></li>
+								<li class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_CLAUDEAI_HEADERS'); ?></li>
+								<li class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_CLAUDEAI_FIREWALL'); ?></li>
+								<li class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_CLAUDEAI_ACCOUNT'); ?></li>
+								<li><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_CLAUDEAI_LOGS'); ?></li>
+							</ol>
+						</div>
 					</details>
 
 					<details class="csmcpforj-setup-troubleshoot">
@@ -604,6 +609,13 @@ details.csmcpforj-setup-advanced[open] summary::before {
 						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_OAUTH_HEADLESS_BODY'); ?></div>
 					</details>
 
+					<h4 class="csmcpforj-trouble-group" id="trouble-group-desktop"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_GROUP_DESKTOP'); ?></h4>
+
+					<details class="csmcpforj-setup-troubleshoot">
+						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_EDIT_CONFIG_SUMMARY'); ?></summary>
+						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_EDIT_CONFIG_BODY'); ?></div>
+					</details>
+
 					<details class="csmcpforj-setup-troubleshoot">
 						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_SKIPPED_INVALID_SUMMARY'); ?></summary>
 						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_SKIPPED_INVALID_BODY'); ?></div>
@@ -612,6 +624,33 @@ details.csmcpforj-setup-advanced[open] summary::before {
 					<details class="csmcpforj-setup-troubleshoot">
 						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_TRAY_RESTART_SUMMARY'); ?></summary>
 						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_TRAY_RESTART_BODY'); ?></div>
+					</details>
+
+					<h4 class="csmcpforj-trouble-group" id="trouble-group-errors"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_GROUP_ERRORS'); ?></h4>
+
+					<details class="csmcpforj-setup-troubleshoot">
+						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_401_SUMMARY'); ?></summary>
+						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_401_BODY'); ?></div>
+					</details>
+
+					<details class="csmcpforj-setup-troubleshoot">
+						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_WAF_SUMMARY'); ?></summary>
+						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_WAF_BODY'); ?></div>
+					</details>
+
+					<details class="csmcpforj-setup-troubleshoot">
+						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_404_SUMMARY'); ?></summary>
+						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_404_BODY'); ?></div>
+					</details>
+
+					<details class="csmcpforj-setup-troubleshoot">
+						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_406_SUMMARY'); ?></summary>
+						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_406_BODY'); ?></div>
+					</details>
+
+					<details class="csmcpforj-setup-troubleshoot">
+						<summary><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_EMPTY_TOOLS_SUMMARY'); ?></summary>
+						<div class="mt-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_EMPTY_TOOLS_BODY'); ?></div>
 					</details>
 				</div>
 			</div>
@@ -676,6 +715,20 @@ details.csmcpforj-setup-advanced[open] summary::before {
 </div>
 
 <script>
+// A link to #trouble-claudeai (or any other entry with an id) opens that
+// entry, so the Dashboard can point straight at the claude.ai checklist (#54).
+(function () {
+	var openFromHash = function () {
+		var target = window.location.hash ? document.getElementById(window.location.hash.slice(1)) : null;
+		if (target && target.tagName === 'DETAILS') {
+			target.open = true;
+			target.scrollIntoView();
+		}
+	};
+	window.addEventListener('hashchange', openFromHash);
+	openFromHash();
+})();
+
 (function () {
 	'use strict';
 	var STORAGE_KEY = 'csmcpforj-token';

@@ -17,7 +17,7 @@ use Joomla\CMS\Session\Session;
 /** @var \Cybersalt\Component\Csmcpforj\Administrator\View\Catalog\HtmlView $this */
 
 $endpoint   = htmlspecialchars($this->sourceUrl, ENT_QUOTES, 'UTF-8');
-$optionsUrl = Route::_('index.php?option=com_config&view=component&component=com_csmcpforj');
+$optionsUrl = htmlspecialchars(\Cybersalt\Component\Csmcpforj\Administrator\Helper\OptionsLink::url('catalog', 'index.php?option=com_csmcpforj&view=catalog'), ENT_QUOTES, 'UTF-8');
 $refreshUrl = Route::_('index.php?option=com_csmcpforj&task=catalog.refresh&' . Session::getFormToken() . '=1');
 
 $sourceLabels = [
