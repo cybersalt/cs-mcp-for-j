@@ -26,6 +26,9 @@ use Joomla\Database\ParameterType;
  * — Malware detected" (energizethemes.com, 2026-05-25), and on 2026-10-31 an
  * agency user's RSFirewall blocked the claude.ai sign-in until two exceptions
  * were added, while the host's WAF (o2switch TigerProtect) answered 503.
+ * On 2026-11-02 the same user found Route 66 (an SEO extension) answering
+ * ?csmcpforj_oauth=... with the home page, and Cloudflare's Browser Integrity
+ * Check / Security Level blocking the server-to-server calls.
  *
  * detect() names the Joomla-side firewalls that are switched on, so the
  * Dashboard can show the exceptions for each. check() asks the site's own
@@ -37,11 +40,13 @@ final class FirewallHelper
 	/**
 	 * Product key => system plugin elements that do the blocking. The
 	 * component alone blocks nothing, so only an enabled plugin counts.
+	 * Route 66 isn't a firewall, but it takes over the sign-in URLs the same way.
 	 */
 	private const FIREWALLS = [
 		'rsfirewall'    => ['rsfirewall'],
 		'admintools'    => ['admintools'],
 		'securitycheck' => ['securitycheck', 'securitycheckpro'],
+		'route66'       => ['route66'],
 	];
 
 	/** @return string[] product keys of the firewalls switched on, e.g. ['rsfirewall'] */
@@ -173,7 +178,14 @@ final class FirewallHelper
 		// Show what answered instead: a firewall page names itself in the
 		// first words more often than not.
 		$snippet = trim(preg_replace('/\s+/', ' ', strip_tags(preg_replace('#<(script|style)\b.*?</\1>#is', '', $text)) ?? ''));
+		$detail  = Text::sprintf('COM_CSMCPFORJ_CHECK_UNEXPECTED', $code, mb_substr($snippet, 0, 160));
 
-		return ['label' => $label, 'ok' => false, 'detail' => Text::sprintf('COM_CSMCPFORJ_CHECK_UNEXPECTED', $code, mb_substr($snippet, 0, 160))];
+		// Every answer through Cloudflare carries CF-RAY, Joomla's own included,
+		// so this only says Cloudflare is in front, not that it blocked.
+		if ($response->getHeaderLine('CF-RAY') !== '' || stripos($response->getHeaderLine('Server'), 'cloudflare') !== false) {
+			$detail .= ' ' . Text::_('COM_CSMCPFORJ_CHECK_CLOUDFLARE');
+		}
+
+		return ['label' => $label, 'ok' => false, 'detail' => $detail];
 	}
 }

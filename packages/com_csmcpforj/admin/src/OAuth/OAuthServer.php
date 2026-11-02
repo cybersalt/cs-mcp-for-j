@@ -454,7 +454,7 @@ final class OAuthServer
 	 */
 	private static function isAcceptableRedirectUri(string $uri): bool
 	{
-		if (strlen($uri) > 2000 || str_contains($uri, '#')) {
+		if (strlen($uri) > 2000 || str_contains($uri, '#') || !self::isUnambiguousUri($uri)) {
 			return false;
 		}
 
@@ -476,6 +476,23 @@ final class OAuthServer
 		return !in_array($scheme, ['javascript', 'data', 'file', 'vbscript', 'blob', 'about', 'ftp', 'ws', 'wss'], true);
 	}
 
+	/**
+	 * Refuses addresses that PHP and browsers can read differently. With a
+	 * backslash, "http://evil.com\@localhost/cb" is localhost to some PHP
+	 * versions and evil.com to a browser, which would send the code there.
+	 * User info has no place in a redirect address either.
+	 */
+	private static function isUnambiguousUri(string $uri): bool
+	{
+		if (preg_match('/[[:cntrl:][:space:]]/', $uri) || str_contains($uri, '\\')) {
+			return false;
+		}
+
+		$parts = parse_url($uri);
+
+		return is_array($parts) && !isset($parts['user']) && !isset($parts['pass']);
+	}
+
 	private static function isLoopbackHost(string $host): bool
 	{
 		return in_array(strtolower($host), self::LOOPBACK_HOSTS, true);
@@ -488,6 +505,11 @@ final class OAuthServer
 	 */
 	private static function redirectUriAllowed(string $requested, array $registered): bool
 	{
+		// Also covers addresses registered before this check existed.
+		if (!self::isUnambiguousUri($requested)) {
+			return false;
+		}
+
 		if (in_array($requested, $registered, true)) {
 			return true;
 		}
@@ -526,6 +548,34 @@ final class OAuthServer
 	public static function isCimdClientId(string $clientId): bool
 	{
 		return str_starts_with($clientId, 'https://');
+	}
+
+	/**
+	 * The stored key of a published identity. Apps must send the URL, so the
+	 * cached copy is always checked for age and redirect addresses.
+	 */
+	private static function isInternalClientId(string $clientId): bool
+	{
+		return str_starts_with($clientId, self::CIMD_PREFIX) || str_starts_with($clientId, self::CIMD_FAILED_PREFIX);
+	}
+
+	/**
+	 * IPv6 prefixes that carry an IPv4 address, which FILTER_FLAG_GLOBAL_RANGE
+	 * lets through: NAT64 (64:ff9b::/96, 64:ff9b:1::/48), 6to4 (2002::/16) and
+	 * the deprecated site-local fec0::/10.
+	 */
+	private static function isTranslatedAddress(string $ip): bool
+	{
+		$bin = @inet_pton($ip);
+
+		if ($bin === false || strlen($bin) !== 16) {
+			return false;
+		}
+
+		$hex = bin2hex($bin);
+
+		return str_starts_with($hex, '0064ff9b') || str_starts_with($hex, '2002')
+			|| (hexdec(substr($hex, 0, 3)) & 0xffc) === 0xfec;
 	}
 
 	private static function cimdKey(string $url): string
@@ -711,7 +761,7 @@ final class OAuthServer
 		}
 
 		foreach ($ips as $ip) {
-			if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+			if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_GLOBAL_RANGE) === false || self::isTranslatedAddress($ip)) {
 				$why = 'its host name resolves to a private or reserved address, which this site will not fetch';
 
 				return null;
@@ -853,7 +903,7 @@ final class OAuthServer
 				return;
 			}
 		} else {
-			$client = self::findClient($req['client_id']);
+			$client = self::isInternalClientId($req['client_id']) ? null : self::findClient($req['client_id']);
 		}
 
 		if ($client === null) {
@@ -1170,7 +1220,7 @@ final class OAuthServer
 		$cimdWhy = '';
 		$client  = self::isCimdClientId($clientId)
 			? self::findCimdClient($clientId, false, '', $cimdWhy)
-			: self::findClient($clientId);
+			: (self::isInternalClientId($clientId) ? null : self::findClient($clientId));
 
 		if ($client === null) {
 			self::$clientFailure = match (true) {
@@ -1209,12 +1259,15 @@ final class OAuthServer
 			return;
 		}
 
-		$row = $db->setQuery(
+		// bind() takes its value by reference, so it must be a variable (a call's
+		// result prints a notice that corrupts the JSON reply when errors are shown).
+		$codeHash = hash('sha256', $code);
+		$row      = $db->setQuery(
 			$db->getQuery(true)
 				->select('*')
 				->from($db->quoteName(self::T_CODES))
 				->where($db->quoteName('code_hash') . ' = :h')
-				->bind(':h', hash('sha256', $code))
+				->bind(':h', $codeHash)
 		)->loadObject();
 
 		if (!$row || (string) $row->client_id !== (string) $client->client_id) {
@@ -1300,13 +1353,14 @@ final class OAuthServer
 			return;
 		}
 
-		$row = $db->setQuery(
+		$tokenHash = hash('sha256', $token);
+		$row       = $db->setQuery(
 			$db->getQuery(true)
 				->select('*')
 				->from($db->quoteName(self::T_TOKENS))
 				->where($db->quoteName('token_hash') . ' = :h')
 				->where($db->quoteName('token_type') . ' = ' . $db->quote('refresh'))
-				->bind(':h', hash('sha256', $token))
+				->bind(':h', $tokenHash)
 		)->loadObject();
 
 		if (!$row || (string) $row->client_id !== (string) $client->client_id) {
@@ -1417,13 +1471,14 @@ final class OAuthServer
 		$token  = (string) $app->getInput()->post->getString('token', '');
 
 		if ($client !== null && $token !== '') {
-			$db  = self::db();
-			$row = $db->setQuery(
+			$db        = self::db();
+			$tokenHash = hash('sha256', $token);
+			$row       = $db->setQuery(
 				$db->getQuery(true)
 					->select([$db->quoteName('family'), $db->quoteName('client_id')])
 					->from($db->quoteName(self::T_TOKENS))
 					->where($db->quoteName('token_hash') . ' = :h')
-					->bind(':h', hash('sha256', $token))
+					->bind(':h', $tokenHash)
 			)->loadObject();
 
 			if ($row && (string) $row->client_id === (string) $client->client_id) {

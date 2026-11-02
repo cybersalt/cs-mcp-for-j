@@ -583,6 +583,7 @@ details.csmcpforj-setup-advanced[open] summary::before {
 								<li class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_CLAUDEAI_CLIENT'); ?></li>
 								<li class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_CLAUDEAI_HEADERS'); ?></li>
 								<li class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_CLAUDEAI_FIREWALL'); ?></li>
+								<li class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_CLAUDEAI_REWRITE'); ?></li>
 								<li class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_CLAUDEAI_ACCOUNT'); ?></li>
 								<li><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_TROUBLE_CLAUDEAI_LOGS'); ?></li>
 							</ol>

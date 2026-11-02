@@ -84,7 +84,10 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 
 		$user = Factory::getContainer()->get(UserFactoryInterface::class)->loadUserById((int) $grant['user_id']);
 
-		if ($user->block || trim((string) $user->activation) !== '' || $user->requireReset) {
+		// Same rule as the token step (OAuthServer::loadActiveUser) and Joomla's own login:
+		// the activation column is not checked. It can hold "0" on older accounts or a
+		// pending password-reset token on a user who signs in normally (#40).
+		if ((int) $user->id === 0 || $user->block || $user->requireReset) {
 			$response->status = Authentication::STATUS_DENIED;
 
 			return;
