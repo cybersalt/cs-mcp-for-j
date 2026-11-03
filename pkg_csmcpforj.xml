@@ -28,6 +28,7 @@
 
 	<languages folder="language">
 		<language tag="en-GB">en-GB/pkg_csmcpforj.sys.ini</language>
+		<language tag="sv-SE">sv-SE/pkg_csmcpforj.sys.ini</language>
 	</languages>
 
 	<changelogurl>https://www.cybersalt.com/index.php?option=com_csreleasemanager&amp;task=api.changelogxml&amp;format=raw&amp;element=pkg_csmcpforj</changelogurl>

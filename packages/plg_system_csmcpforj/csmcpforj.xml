@@ -21,5 +21,7 @@
 	<languages>
 		<language tag="en-GB">language/en-GB/plg_system_csmcpforj.ini</language>
 		<language tag="en-GB">language/en-GB/plg_system_csmcpforj.sys.ini</language>
+		<language tag="sv-SE">language/sv-SE/plg_system_csmcpforj.ini</language>
+		<language tag="sv-SE">language/sv-SE/plg_system_csmcpforj.sys.ini</language>
 	</languages>
 </extension>

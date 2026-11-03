@@ -1,5 +1,14 @@
 # Changelog
 
+## 🧪 Unreleased (next release)
+
+### 🌍 Added
+- **Swedish (sv-SE) translation**, bundled for the component and the system, web services and OAuth authentication plugins (710 strings). Thank you to Stefan Gagner (CMS Universal / Svensk Joomla), who translated it, reviewed it on a live site and spotted the two English strings below. The same pack is also on [SvenskJoomla](https://svenskjoomla.se/oversattningar/ovriga/download/21-ovriga/127-mcp-for-j-svenska.html).
+
+### 🔧 Fixed
+- **The Dashboard's quick start said Administrators and Managers work immediately.** Only Super Users do: every other group first needs Joomla's **Web Services Login** permission, and Managers and other groups also need Use / Write in MCP for J's Options → Permissions. The text now says so, matching the Permissions card and the manual.
+- **An Options description used backslash-escaped quote marks** (`CONFIG_PRO_STATUS_DESC`), which not every INI reader accepts. It now uses `&quot;`, as the Swedish file does.
+
 ## 🚀 Version 2.11.0 (November 2, 2026)
 
 **Connecting claude.ai and ChatGPT, made findable.** From Michel Campaner (Netizis), who spent hours connecting claude.ai to his agency's Joomla sites, wrote up every snag and tested the fixes. Thank you, Michel. Thanks also to Stefan Gagner, who tracked down the two OAuth bugs below and sent the fixes.

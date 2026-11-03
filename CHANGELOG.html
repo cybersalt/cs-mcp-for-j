@@ -1,5 +1,15 @@
 <div class="changelog-container">
 <h1>📋 MCP for J — Changelog</h1>
+<h2>🧪 Unreleased (next release)</h2>
+<h3>🌍 Added</h3>
+<ul>
+<li><strong>Swedish (sv-SE) translation</strong>, bundled for the component and the system, web services and OAuth authentication plugins (710 strings). Thank you to Stefan Gagner (CMS Universal / Svensk Joomla), who translated it, reviewed it on a live site and spotted the two English strings below. The same pack is also on <a href="https://svenskjoomla.se/oversattningar/ovriga/download/21-ovriga/127-mcp-for-j-svenska.html">SvenskJoomla</a>.</li>
+</ul>
+<h3>🔧 Fixed</h3>
+<ul>
+<li><strong>The Dashboard's quick start said Administrators and Managers work immediately.</strong> Only Super Users do: every other group first needs Joomla's <strong>Web Services Login</strong> permission, and Managers and other groups also need Use / Write in MCP for J's Options → Permissions. The text now says so, matching the Permissions card and the manual.</li>
+<li><strong>An Options description used backslash-escaped quote marks</strong> (<code>CONFIG_PRO_STATUS_DESC</code>), which not every INI reader accepts. It now uses <code>&amp;quot;</code>, as the Swedish file does.</li>
+</ul>
 <h2>🚀 Version 2.11.0 (November 2, 2026)</h2>
 <p><strong>Connecting claude.ai and ChatGPT, made findable.</strong> From Michel Campaner (Netizis), who spent hours connecting claude.ai to his agency's Joomla sites, wrote up every snag and tested the fixes. Thank you, Michel. Thanks also to Stefan Gagner, who tracked down the two OAuth bugs below and sent the fixes.</p>
 <h3>🚀 Added</h3>
