@@ -44,6 +44,23 @@ abstract class AbstractTool implements ToolInterface
 	abstract protected function run(array $arguments, User $actor): ToolResult;
 
 	/**
+	 * Refuse arguments the tool's input schema doesn't declare. For tools that
+	 * report their argument keys back as what changed: a key the tool ignores
+	 * must not read as saved.
+	 *
+	 * @throws McpException
+	 */
+	protected function refuseUnknownArguments(array $arguments, string $hint = ''): void
+	{
+		$unknown = array_diff(array_keys($arguments), array_keys($this->getInputSchema()['properties'] ?? []));
+
+		if ($unknown !== []) {
+			throw new McpException(-32602, 'Nothing was saved. ' . $this->getName() . ' has no argument named '
+				. implode(', ', $unknown) . '.' . ($hint !== '' ? ' ' . $hint : ''));
+		}
+	}
+
+	/**
 	 * Derives a category from the tool's PHP namespace by default. Tools
 	 * declared in `Cybersalt\Plugin\System\Csmcpforj\Tools\Articles\…`
 	 * return "articles"; `Tools\JoomlaUpdate\…` returns "joomla_update".

@@ -89,6 +89,9 @@ final class UpdateUserTool extends AbstractTool
 	{
 		$id = $this->requirePositiveInt($arguments, 'id');
 
+		// fields_changed below is the argument keys, so an unknown one would read as saved.
+		$this->refuseUnknownArguments($arguments);
+
 		$model    = $this->getModel('com_users', 'User');
 		$existing = $model->getItem($id);
 		if (!$existing || empty($existing->id)) {

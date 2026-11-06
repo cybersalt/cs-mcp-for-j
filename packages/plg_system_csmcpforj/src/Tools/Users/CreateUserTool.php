@@ -140,9 +140,19 @@ final class CreateUserTool extends AbstractTool
 			return ToolResult::error('The username "' . $username . '" is already in use (user ' . $taken . ').');
 		}
 
-		$model  = $this->getModel('com_users', 'User');
-		$ok     = (bool) $model->save($data);
-		$error  = (string) ($model->getError() ?: '');
+		$model = $this->getModel('com_users', 'User');
+
+		// A third-party onUserAfterSave listener can throw after the row is stored:
+		// Kunena's asks KunenaFactory::getApplication(), whose return type excludes
+		// ApiApplication, so every new user died here with a TypeError (#55).
+		// Listeners ordered after it do not run, hence the warning below.
+		try {
+			$ok    = (bool) $model->save($data);
+			$error = (string) ($model->getError() ?: '');
+		} catch (\Throwable $e) {
+			$ok    = false;
+			$error = $e->getMessage();
+		}
 
 		// Find the new id by username — model's getState('user.id') is unreliable
 		// for com_users. The username row is the truthful signal: if it exists,

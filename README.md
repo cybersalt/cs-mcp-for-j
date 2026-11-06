@@ -4,7 +4,7 @@ Turns a Joomla 5/6 site into its own [MCP](https://modelcontextprotocol.io) serv
 
 **Documentation:** <https://docs.cybersalt.com/extensions/mcp-for-j> · **Download:** <https://www.cybersalt.com/extensions/mcp-for-j>
 
-> **Status:** v2.11.0. Since 2.9.0: optional OAuth sign-in (so ChatGPT and claude.ai can connect), an activity log, and Super-User-only gates on the tools that can change who has power over a site. 2.11.0 adds claude.ai's "published identity" sign-in, a **Check connection** button and firewall warnings on the Dashboard. Free and fully featured; optional add-ons extend it to specific third-party extensions.
+> **Status:** v2.12.0. Since 2.9.0: optional OAuth sign-in (so ChatGPT and claude.ai can connect), an activity log, and Super-User-only gates on the tools that can change who has power over a site. 2.11.0 adds claude.ai's "published identity" sign-in, a **Check connection** button and firewall warnings on the Dashboard; 2.12.0 fixes ChatGPT's connection and adds 16 translations. Free and fully featured; optional add-ons extend it to specific third-party extensions.
 
 > **Name:** this extension was called "Cybersalt MCP for Joomla" until 2.9.3. The Joomla trademark rules, which the Joomla Extensions Directory enforces, need a licence from Open Source Matters for any extension name containing "Joomla", so 2.9.3 renamed it "Cybersalt MCP for J". Since 2.9.4 its install name is **CS MCP for J**, matching its JED listing (the JED asks that the two match). The component is "MCP for J" in the Components menu. Only the name changed: the element (`pkg_csmcpforj`), the endpoint, settings, tokens and updates are all the same.
 

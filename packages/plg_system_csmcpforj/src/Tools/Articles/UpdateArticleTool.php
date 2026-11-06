@@ -144,7 +144,15 @@ final class UpdateArticleTool extends AbstractTool
 
 	protected function run(array $arguments, User $actor): ToolResult
 	{
-		$id    = $this->requirePositiveInt($arguments, 'id');
+		$id = $this->requirePositiveInt($arguments, 'id');
+
+		// get_article returns introtext and fulltext, so callers send them back.
+		// Dropping them while listing them in fields_changed read as a save (#50).
+		$this->refuseUnknownArguments(
+			$arguments,
+			'To replace the body, send it all as articletext, with <hr id="system-readmore"> between the intro text and the full text.'
+		);
+
 		$model = $this->getModel('com_content', 'Article');
 
 		$existing = $model->getItem($id);

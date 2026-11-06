@@ -1,12 +1,19 @@
 # Changelog
 
-## 🧪 Unreleased (next release)
+## 🚀 Version 2.12.0 (November 6, 2026)
+
+**ChatGPT can connect again, and MCP for J now comes in 17 languages.** The fix for sites on 2.11.0 that ChatGPT refused, plus Swedish from Stefan Gagner and 15 more translations.
 
 ### 🌍 Added
 - **Swedish (sv-SE) translation**, bundled for the component and the system, web services and OAuth authentication plugins (710 strings). Thank you to Stefan Gagner (CMS Universal / Svensk Joomla), who translated it, reviewed it on a live site and spotted the two English strings below. The same pack is also on [SvenskJoomla](https://svenskjoomla.se/oversattningar/ovriga/download/21-ovriga/127-mcp-for-j-svenska.html).
+- **The OAuth sign-in pages follow the site's language.** The Allow / Deny page and the sign-in error pages that people see when they connect an AI app had their English written into the code. They now come from the component's site language file (24 strings), so every translation covers them. The Swedish file includes them; Stefan, please check them. A site whose language has no file shows English.
+- **15 more languages:** Dutch (nl-NL), German (de-DE), Spanish (es-ES), French (fr-FR), Italian (it-IT), Brazilian Portuguese (pt-BR), Russian (ru-RU), Polish (pl-PL), Japanese (ja-JP), Simplified Chinese (zh-CN), Turkish (tr-TR), Greek (el-GR), Czech (cs-CZ), Norwegian Bokmål (nb-NO) and Norwegian Nynorsk (nn-NO). Each covers all 734 strings, including the OAuth sign-in pages, and uses the same labels as that language's official Joomla pack (Nynorsk has none, so it follows the Bokmål pack's terms). These were translated with AI and haven't been reviewed by native speakers yet, so corrections are very welcome.
 
 ### 🔧 Fixed
+- **ChatGPT couldn't connect to sites on 2.11.0** ([#56](https://github.com/cybersalt/cs-mcp-for-j/issues/56)). Because 2.11.0 advertises published identities, ChatGPT signs in with its own (`https://chatgpt.com/oauth/client.json`). That document prefers `private_key_jwt`, which MCP for J doesn't support, so the sign-in page refused it. ChatGPT's document also lists `none` among the methods it supports, and a published identity that does is now accepted as a public app, protected by PKCE and its own redirect addresses like every other public app. A published identity that only offers `private_key_jwt` is still refused. The sign-in page no longer tells people to choose an option their app may not have. If an app sends a signed client assertion anyway, it's ignored and the Logs say so.
 - **The Dashboard's quick start said Administrators and Managers work immediately.** Only Super Users do: every other group first needs Joomla's **Web Services Login** permission, and Managers and other groups also need Use / Write in MCP for J's Options → Permissions. The text now says so, matching the Permissions card and the manual.
+- **`update_article` said it had saved fields it ignored** ([#50](https://github.com/cybersalt/cs-mcp-for-j/issues/50)). Sending `introtext` or `fulltext`, the names `get_article` returns, came back `ok: true` with those names in `fields_changed`, and the body hadn't changed. An argument the tool doesn't have is now refused with an error that points to `articletext`, and nothing is saved. `update_user` had the same fault and gets the same fix.
+- **`create_user` reported failure for a user it had created** ([#55](https://github.com/cybersalt/cs-mcp-for-j/issues/55)). On a site with Kunena, its user plugin throws an error under the API after the account is saved, so a retry hit "username in use". The tool now returns the new user, with the plugin's error in `post_save_warning`.
 - **An Options description used backslash-escaped quote marks** (`CONFIG_PRO_STATUS_DESC`), which not every INI reader accepts. It now uses `&quot;`, as the Swedish file does.
 
 ## 🚀 Version 2.11.0 (November 2, 2026)

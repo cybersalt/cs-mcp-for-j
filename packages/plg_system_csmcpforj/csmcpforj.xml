@@ -7,7 +7,7 @@
 	<license>GNU General Public License version 2 or later; see LICENSE.txt</license>
 	<authorEmail>support@cybersalt.com</authorEmail>
 	<authorUrl>https://cybersalt.com</authorUrl>
-	<version>1.18.1</version>
+	<version>1.18.2</version>
 	<description>PLG_SYSTEM_CSMCPFORJ_XML_DESCRIPTION</description>
 
 	<namespace path="src">Cybersalt\Plugin\System\Csmcpforj</namespace>
@@ -23,5 +23,35 @@
 		<language tag="en-GB">language/en-GB/plg_system_csmcpforj.sys.ini</language>
 		<language tag="sv-SE">language/sv-SE/plg_system_csmcpforj.ini</language>
 		<language tag="sv-SE">language/sv-SE/plg_system_csmcpforj.sys.ini</language>
+		<language tag="nl-NL">language/nl-NL/plg_system_csmcpforj.ini</language>
+		<language tag="nl-NL">language/nl-NL/plg_system_csmcpforj.sys.ini</language>
+		<language tag="de-DE">language/de-DE/plg_system_csmcpforj.ini</language>
+		<language tag="de-DE">language/de-DE/plg_system_csmcpforj.sys.ini</language>
+		<language tag="es-ES">language/es-ES/plg_system_csmcpforj.ini</language>
+		<language tag="es-ES">language/es-ES/plg_system_csmcpforj.sys.ini</language>
+		<language tag="fr-FR">language/fr-FR/plg_system_csmcpforj.ini</language>
+		<language tag="fr-FR">language/fr-FR/plg_system_csmcpforj.sys.ini</language>
+		<language tag="it-IT">language/it-IT/plg_system_csmcpforj.ini</language>
+		<language tag="it-IT">language/it-IT/plg_system_csmcpforj.sys.ini</language>
+		<language tag="pt-BR">language/pt-BR/plg_system_csmcpforj.ini</language>
+		<language tag="pt-BR">language/pt-BR/plg_system_csmcpforj.sys.ini</language>
+		<language tag="ru-RU">language/ru-RU/plg_system_csmcpforj.ini</language>
+		<language tag="ru-RU">language/ru-RU/plg_system_csmcpforj.sys.ini</language>
+		<language tag="pl-PL">language/pl-PL/plg_system_csmcpforj.ini</language>
+		<language tag="pl-PL">language/pl-PL/plg_system_csmcpforj.sys.ini</language>
+		<language tag="ja-JP">language/ja-JP/plg_system_csmcpforj.ini</language>
+		<language tag="ja-JP">language/ja-JP/plg_system_csmcpforj.sys.ini</language>
+		<language tag="zh-CN">language/zh-CN/plg_system_csmcpforj.ini</language>
+		<language tag="zh-CN">language/zh-CN/plg_system_csmcpforj.sys.ini</language>
+		<language tag="tr-TR">language/tr-TR/plg_system_csmcpforj.ini</language>
+		<language tag="tr-TR">language/tr-TR/plg_system_csmcpforj.sys.ini</language>
+		<language tag="el-GR">language/el-GR/plg_system_csmcpforj.ini</language>
+		<language tag="el-GR">language/el-GR/plg_system_csmcpforj.sys.ini</language>
+		<language tag="cs-CZ">language/cs-CZ/plg_system_csmcpforj.ini</language>
+		<language tag="cs-CZ">language/cs-CZ/plg_system_csmcpforj.sys.ini</language>
+		<language tag="nb-NO">language/nb-NO/plg_system_csmcpforj.ini</language>
+		<language tag="nb-NO">language/nb-NO/plg_system_csmcpforj.sys.ini</language>
+		<language tag="nn-NO">language/nn-NO/plg_system_csmcpforj.ini</language>
+		<language tag="nn-NO">language/nn-NO/plg_system_csmcpforj.sys.ini</language>
 	</languages>
 </extension>

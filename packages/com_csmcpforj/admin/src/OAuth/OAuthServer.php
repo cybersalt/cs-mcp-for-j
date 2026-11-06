@@ -15,6 +15,7 @@ use Cybersalt\Component\Csmcpforj\Administrator\Log\ActivityLog;
 use Joomla\CMS\Application\CMSApplication;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
+use Joomla\CMS\Language\Text;
 use Joomla\CMS\Session\Session;
 use Joomla\CMS\Uri\Uri;
 use Joomla\CMS\User\User;
@@ -304,12 +305,7 @@ final class OAuthServer
 		}
 
 		if ($route === 'authorize') {
-			self::renderPage(
-				'Signing in is switched off',
-				'<p>This website does not let apps connect by signing in, so the app that sent you here cannot connect this way.</p>'
-				. '<p>A Super User can switch it on in the Joomla admin under <strong>Components &rarr; MCP for J &rarr; Options &rarr; OAuth sign-in</strong>. Then start connecting again from the app.</p>',
-				404
-			);
+			self::renderPage(self::t('COM_CSMCPFORJ_OAUTH_PAGE_DISABLED_TITLE'), self::t('COM_CSMCPFORJ_OAUTH_PAGE_DISABLED_BODY'), 404);
 		} else {
 			self::sendJson(['error' => 'oauth_disabled', 'error_description' => $description], 404, true);
 		}
@@ -843,10 +839,16 @@ final class OAuthServer
 			}
 		}
 
-		$method = (string) ($doc['token_endpoint_auth_method'] ?? 'none');
+		// Only public apps (none) are accepted. ChatGPT's document prefers
+		// private_key_jwt but also lists none among the methods it supports
+		// (#56), and our metadata offers no private_key_jwt, so it signs in
+		// as a public app: PKCE and the document's redirect addresses then
+		// protect it as they do any other public app.
+		$method    = (string) ($doc['token_endpoint_auth_method'] ?? 'none');
+		$supported = is_array($doc['token_endpoint_auth_methods_supported'] ?? null) ? $doc['token_endpoint_auth_methods_supported'] : [];
 
-		if ($method !== 'none') {
-			$why = 'the app authenticates with ' . mb_substr($method, 0, 40) . ', and this site only accepts published identities of public apps (none)';
+		if ($method !== 'none' && !in_array('none', $supported, true)) {
+			$why = 'the app only signs in with ' . mb_substr($method, 0, 40) . ', which this site does not support yet (it accepts published identities of public apps, auth method none)';
 
 			return null;
 		}
@@ -893,12 +895,7 @@ final class OAuthServer
 
 			if ($client === null) {
 				self::log('warning', 'oauth.cimd', 'Sign-in page refused: could not use the published identity at ' . mb_substr($req['client_id'], 0, 300) . ': ' . $why . '.');
-				self::renderPage(
-					'This app\'s identity could not be checked',
-					'<p>The app that sent you here identified itself with a published identity document, but this site could not use it: ' . self::e($why) . '.</p>'
-					. '<p>In the app, remove the connector and add it again, choosing <strong>Register automatically</strong> instead of the published identity. The site&rsquo;s administrator can see the details under Components &rarr; MCP for J &rarr; Logs.</p>',
-					400
-				);
+				self::renderPage(self::t('COM_CSMCPFORJ_OAUTH_PAGE_CIMD_TITLE'), self::t('COM_CSMCPFORJ_OAUTH_PAGE_CIMD_BODY', self::e($why)), 400);
 
 				return;
 			}
@@ -910,7 +907,7 @@ final class OAuthServer
 			self::log('warning', 'oauth.authorize', 'Sign-in page refused: the app is not registered here, or was revoked.', [
 				'client_id' => mb_substr($req['client_id'], 0, 64),
 			]);
-			self::renderPage('This app is not registered', '<p>The app that sent you here is not registered with this site, or its access was revoked. Go back to the app and add the connector again.</p>', 400);
+			self::renderPage(self::t('COM_CSMCPFORJ_OAUTH_PAGE_UNREGISTERED_TITLE'), self::t('COM_CSMCPFORJ_OAUTH_PAGE_UNREGISTERED_BODY'), 400);
 
 			return;
 		}
@@ -927,7 +924,7 @@ final class OAuthServer
 			self::log('warning', 'oauth.authorize', 'Sign-in page refused: the app asked to return to an address it did not register.', [
 				'details' => ['requested' => mb_substr($req['redirect_uri'], 0, 500), 'registered' => $registered],
 			]);
-			self::renderPage('Invalid redirect address', '<p>The app asked to return to an address it did not register. For your safety this request was stopped.</p>', 400);
+			self::renderPage(self::t('COM_CSMCPFORJ_OAUTH_PAGE_REDIRECT_TITLE'), self::t('COM_CSMCPFORJ_OAUTH_PAGE_REDIRECT_BODY'), 400);
 
 			return;
 		}
@@ -980,9 +977,8 @@ final class OAuthServer
 				],
 			]);
 			self::renderPage(
-				'Your account cannot use MCP',
-				'<p>You are signed in as <strong>' . self::e($user->name) . '</strong> (' . self::e($user->username) . '), but this account is not allowed to use MCP for J on this site.</p>'
-				. '<p>A Super User can allow it: the account\'s group needs Joomla\'s <em>Web Services Login</em> permission (System &rarr; Global Configuration &rarr; Permissions), plus access to MCP for J in the component\'s Options &rarr; Permissions.</p>',
+				self::t('COM_CSMCPFORJ_OAUTH_PAGE_NOT_ALLOWED_TITLE'),
+				self::t('COM_CSMCPFORJ_OAUTH_PAGE_NOT_ALLOWED_BODY', self::e($user->name), self::e($user->username)),
 				403
 			);
 
@@ -994,9 +990,8 @@ final class OAuthServer
 		if (self::loadActiveUser((int) $user->id, $why) === null) {
 			self::log('warning', 'oauth.authorize', 'Allow / Deny page not shown: ' . $why . '.');
 			self::renderPage(
-				'Your account cannot connect apps yet',
-				'<p>You are signed in as <strong>' . self::e($user->name) . '</strong> (' . self::e($user->username) . '), but this account cannot connect apps right now: ' . self::e($why) . '.</p>'
-				. '<p>Once that is sorted out, start the connection again from your app.</p>',
+				self::t('COM_CSMCPFORJ_OAUTH_PAGE_INACTIVE_TITLE'),
+				self::t('COM_CSMCPFORJ_OAUTH_PAGE_INACTIVE_BODY', self::e($user->name), self::e($user->username), self::e($why)),
 				403
 			);
 
@@ -1013,7 +1008,7 @@ final class OAuthServer
 
 		if (!Session::checkToken('post')) {
 			self::log('warning', 'oauth.authorize', 'Allow / Deny answer refused: the form token had expired (session timed out or cookies blocked).');
-			self::renderPage('Session expired', '<p>Your session expired before you answered. Go back to the app and try connecting again.</p>', 400);
+			self::renderPage(self::t('COM_CSMCPFORJ_OAUTH_PAGE_EXPIRED_TITLE'), self::t('COM_CSMCPFORJ_OAUTH_PAGE_EXPIRED_BODY'), 400);
 
 			return;
 		}
@@ -1085,7 +1080,7 @@ final class OAuthServer
 		$extra = '';
 
 		if (self::isCimdClientId($req['client_id'])) {
-			$extra .= '<li>The app identified itself with the identity published at <strong>' . self::e((string) parse_url($req['client_id'], PHP_URL_HOST)) . '</strong>.</li>';
+			$extra .= '<li>' . self::t('COM_CSMCPFORJ_OAUTH_CONSENT_PUBLISHED', self::e((string) parse_url($req['client_id'], PHP_URL_HOST))) . '</li>';
 		}
 
 		$registered = json_decode((string) $client->redirect_uris, true) ?: [];
@@ -1098,23 +1093,23 @@ final class OAuthServer
 		}
 
 		if ($localOnly) {
-			$extra .= '<li><strong>The approval goes to a program on this computer</strong> (' . self::e($host) . '). Only allow it if you just started connecting from an app on this computer.</li>';
+			$extra .= '<li>' . self::t('COM_CSMCPFORJ_OAUTH_CONSENT_LOCAL', self::e($host)) . '</li>';
 		}
 
-		$body = '<p class="lead"><strong>' . self::e((string) $client->client_name) . '</strong> wants to connect to <strong>' . self::e($site) . '</strong> through MCP for J.</p>'
+		$body = '<p class="lead">' . self::t('COM_CSMCPFORJ_OAUTH_CONSENT_LEAD', self::e((string) $client->client_name), self::e($site)) . '</p>'
 			. '<ul>'
-			. '<li>It will act as <strong>' . self::e($user->name) . '</strong> (' . self::e($user->username) . '), with exactly the permissions this account has on the site, including making changes if the account can.</li>'
-			. '<li>After you allow it, you will be sent back to <strong>' . self::e($host) . '</strong>.</li>'
+			. '<li>' . self::t('COM_CSMCPFORJ_OAUTH_CONSENT_ACT_AS', self::e($user->name), self::e($user->username)) . '</li>'
+			. '<li>' . self::t('COM_CSMCPFORJ_OAUTH_CONSENT_RETURN', self::e($host)) . '</li>'
 			. $extra
-			. '<li>You can disconnect it at any time under Components &rarr; MCP for J.</li>'
+			. '<li>' . self::t('COM_CSMCPFORJ_OAUTH_CONSENT_DISCONNECT') . '</li>'
 			. '</ul>'
-			. '<p class="muted">Only allow apps you added yourself. If you did not just add a connector, choose Deny.</p>'
+			. '<p class="muted">' . self::t('COM_CSMCPFORJ_OAUTH_CONSENT_WARNING') . '</p>'
 			. '<form method="post" action="' . self::e(self::endpoint('authorize')) . '">' . $hidden
-			. '<button type="submit" name="decision" value="allow" class="allow">Allow</button> '
-			. '<button type="submit" name="decision" value="deny" class="deny">Deny</button>'
+			. '<button type="submit" name="decision" value="allow" class="allow">' . self::t('COM_CSMCPFORJ_OAUTH_CONSENT_ALLOW') . '</button> '
+			. '<button type="submit" name="decision" value="deny" class="deny">' . self::t('COM_CSMCPFORJ_OAUTH_CONSENT_DENY') . '</button>'
 			. '</form>';
 
-		self::renderPage('Connect ' . (string) $client->client_name . '?', $body, 200, false);
+		self::renderPage(self::t('COM_CSMCPFORJ_OAUTH_CONSENT_TITLE', (string) $client->client_name), $body, 200, false);
 	}
 
 	private static function resourceMatches(string $resource): bool
@@ -1224,6 +1219,7 @@ final class OAuthServer
 
 		if ($client === null) {
 			self::$clientFailure = match (true) {
+				$clientId === '' && $post->getString('client_assertion', '') !== '' => 'The app sent a signed client assertion (private_key_jwt) but no client_id; this site does not support private_key_jwt yet.',
 				$clientId === '' => 'No client_id was sent (neither in the form body nor in HTTP Basic auth).',
 				$cimdWhy !== ''  => 'Published identity ' . mb_substr($clientId, 0, 300) . ' cannot be used: ' . $cimdWhy . '.',
 				default          => 'client_id ' . mb_substr($clientId, 0, 64) . ' is not registered here, or was revoked.',
@@ -1239,6 +1235,13 @@ final class OAuthServer
 
 				return null;
 			}
+		}
+
+		if ($post->getString('client_assertion', '') !== '') {
+			self::log('info', 'oauth.token', 'The app "' . $client->client_name . '" sent a signed client assertion (private_key_jwt). This site does not check those yet, so it was ignored: the app is treated as ' . $client->auth_method . ', as it would be without one.', [
+				'subject'   => (string) $client->client_name,
+				'client_id' => (string) $client->client_id,
+			]);
 		}
 
 		return $client;
@@ -1887,6 +1890,27 @@ final class OAuthServer
 		return htmlspecialchars($s, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 	}
 
+	private static bool $languageLoaded = false;
+
+	/**
+	 * A string for the sign-in pages, from the component's site language
+	 * file. English is loaded first and the site's language over it, so a
+	 * language without a file shows English rather than raw keys.
+	 */
+	private static function t(string $key, string ...$args): string
+	{
+		if (!self::$languageLoaded) {
+			self::$languageLoaded = true;
+			$lang = Factory::getApplication()->getLanguage();
+
+			foreach (['en-GB', $lang->getTag()] as $tag) {
+				$lang->load('com_csmcpforj', JPATH_SITE . '/components/com_csmcpforj', $tag, true, false);
+			}
+		}
+
+		return $args === [] ? Text::_($key) : Text::sprintf($key, ...$args);
+	}
+
 	private static function tokenError(string $error, string $description, int $status = 400, string $detail = ''): void
 	{
 		$grant = (string) ($_POST['grant_type'] ?? '');
@@ -1936,7 +1960,7 @@ final class OAuthServer
 
 		$site = self::e((string) Factory::getApplication()->get('sitename', 'Joomla'));
 
-		echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+		echo '<!doctype html><html lang="' . self::e(Factory::getApplication()->getLanguage()->getTag()) . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
 			. '<title>' . self::e($title) . ' - ' . $site . '</title><style>'
 			. ':root{color-scheme:light dark}body{font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f4f5f7;color:#1f2328}'
 			. 'main{max-width:560px;margin:48px auto;padding:28px 32px;background:#fff;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.08)}'
