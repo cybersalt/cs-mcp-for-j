@@ -37,7 +37,10 @@ abstract class AbstractTool implements ToolInterface
 		try {
 			return $this->run($arguments, $actor);
 		} catch (Throwable $e) {
-			return ToolResult::error($this->getName() . ' failed: ' . $e->getMessage());
+			// ErrorText keeps SQL, the table prefix and server paths away from
+			// non-Super-Users and logs the full exception when it hides anything.
+			return ToolResult::error($this->getName() . ' failed: '
+				. ErrorText::forClient($e, $actor, 'tools/call', ['subject' => $this->getName()]));
 		}
 	}
 

@@ -138,7 +138,9 @@ final class Server
 		} catch (Throwable $e) {
 			ActivityLog::exception('mcp', $method, $e, $this->logContext($method, $params, $started));
 
-			return $isNotification ? null : $this->errorResponse($id, -32603, 'Internal error: ' . $e->getMessage());
+			// Already logged in full above; the client gets the ErrorText version.
+			return $isNotification ? null : $this->errorResponse($id, -32603, 'Internal error: '
+				. ErrorText::forClient($e, $this->actor, null));
 		}
 
 		$this->logResult($method, $params, $result, $started);

@@ -1,5 +1,10 @@
 # Changelog
 
+## 🧪 Unreleased (next release)
+
+### 🔒 Security
+- **Tool errors no longer show database details or server paths to the AI app.** When a tool hit an error it didn't handle itself, the app was sent the raw message: a database error carried part of the SQL and the site's real table prefix, and a PHP error carried the server's file paths. That text then sat in the AI conversation. Only someone already signed in with a valid token could see it, but it shouldn't leave the site. Now file paths are replaced with `[path]` and the table prefix shows as `#__`. Database errors and PHP internal errors are shown in full only to a Super User; anyone else is told what kind of error it was and that the details are in Components → MCP for Joomla → Logs, where the full error (with where it happened) is now recorded. The same applies to the "Internal error" answer for a request that fails outside a tool. Messages written by MCP for J itself, such as a missing argument, are unchanged. Found in our own review of the add-ons; about 180 add-on tools relied on this part of core.
+
 ## 🚀 Version 2.12.0 (November 6, 2026)
 
 **ChatGPT can connect again, and MCP for J now comes in 17 languages.** The fix for sites on 2.11.0 that ChatGPT refused, plus Swedish from Stefan Gagner and 15 more translations.
