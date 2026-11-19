@@ -10,6 +10,7 @@ declare(strict_types=1);
 \defined('_JEXEC') or die;
 
 use Cybersalt\Component\Csmcpforj\Administrator\Helper\FieldStyleHelper;
+use Cybersalt\Component\Csmcpforj\Administrator\Helper\OAuthDiagnostics;
 use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Router\Route;
@@ -234,6 +235,9 @@ $endpoint = htmlspecialchars($this->endpointUrl, ENT_QUOTES, 'UTF-8');
 							<a class="btn btn-sm btn-primary text-white ms-1" href="<?php echo $this->escape($this->optionsUrl); ?>"><?php echo Text::_('COM_CSMCPFORJ_DASHBOARD_OAUTH_ENABLE'); ?></a>
 						</div>
 					<?php endif; ?>
+
+					<?php // Allowed, but the app never came back for its token (#60). Already escaped. ?>
+					<?php echo OAuthDiagnostics::renderNotice($this->oauthUnclaimed, 'csmcpforj-notice mb-3', $this->oauthUnclaimedLogsUrl); ?>
 
 					<?php // ---- Way 1: log in (OAuth) ---- ?>
 					<details class="csmcpforj-way mb-2" id="csmcpforj-oauth">

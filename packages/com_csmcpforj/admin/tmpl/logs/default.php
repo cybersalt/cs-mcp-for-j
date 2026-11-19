@@ -16,6 +16,7 @@
 
 \defined('_JEXEC') or die;
 
+use Cybersalt\Component\Csmcpforj\Administrator\Helper\OAuthDiagnostics;
 use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Layout\LayoutHelper;
@@ -28,6 +29,7 @@ $listOrder = $this->escape((string) $this->state->get('list.ordering'));
 $listDirn  = $this->escape((string) $this->state->get('list.direction'));
 $base      = Route::_('index.php?option=com_csmcpforj&view=logs', false);
 $filterUrl = static fn (array $f): string => $base . '&' . http_build_query(['filter' => $f + ['search' => '', 'status' => '', 'source' => '', 'event' => '', 'since' => '', 'request_id' => '', 'user_id' => '']]);
+$unclaimedIds = array_map(static fn (object $row): int => (int) $row->id, $this->unclaimed);
 
 $badge = static function (string $status): string {
 	$class = match ($status) {
@@ -78,6 +80,9 @@ $cards = [
 			<p class="mb-0"><?php echo Text::_('COM_CSMCPFORJ_LOGS_LEVEL_' . strtoupper($this->level) . '_BODY'); ?></p>
 		</div>
 	<?php endif; ?>
+
+	<?php // Allowed, but the app never came back for its token (#60). Already escaped. ?>
+	<?php echo OAuthDiagnostics::renderNotice($this->unclaimed, 'csmcpforj-callout csmcpforj-callout-warning'); ?>
 
 	<div class="row row-cols-2 row-cols-md-4 row-cols-xl-8 g-2 mb-3">
 		<?php foreach ($cards as [$key, $label, $href, $tone]) : ?>
@@ -142,7 +147,10 @@ $cards = [
 										<pre class="border rounded p-2 mt-2 mb-0 small csmcpforj-log-details"><?php echo $this->escape($item->details); ?></pre>
 									</details>
 								<?php endif; ?>
-								<?php if ((string) $item->ip !== '' || (string) $item->client_id !== '') : ?>
+								<?php if (in_array((int) $item->id, $unclaimedIds, true)) : ?>
+										<span class="badge bg-warning text-dark mt-1"><?php echo Text::_('COM_CSMCPFORJ_LOGS_UNCLAIMED_BADGE'); ?></span>
+									<?php endif; ?>
+									<?php if ((string) $item->ip !== '' || (string) $item->client_id !== '') : ?>
 									<div class="small text-body-secondary mt-1">
 										<?php if ((string) $item->ip !== '') : ?>IP <?php echo $this->escape($item->ip); ?><?php endif; ?>
 										<?php if ((string) $item->client_id !== '') : ?> &middot; <?php echo Text::_('COM_CSMCPFORJ_LOGS_APP'); ?> <code><?php echo $this->escape($item->client_id); ?></code><?php endif; ?>

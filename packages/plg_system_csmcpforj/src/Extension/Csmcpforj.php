@@ -155,6 +155,8 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\JoomlaUpdate\CheckJoomlaUpdateTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\JoomlaUpdate\JoomlaUpdateHealthcheckTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\JoomlaUpdate\ApplyJoomlaUpdateTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\JoomlaUpdate\CheckDatabaseSchemaTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\JoomlaUpdate\FixDatabaseSchemaTool::class,
 		],
 		'Schema.org (SEO)' => [
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\SchemaOrg\ListSchemaTypesTool::class,
@@ -203,6 +205,10 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 	 * here covers mySites.guru, Watchful, Install from URL and the core
 	 * updater alike, stamped or not. A URL that already carries a dlid is left
 	 * alone, and nothing is added for any other host or route.
+	 *
+	 * MCP for J's dlid goes only on MCP for J's own downloads (#49). Another
+	 * Cybersalt product's download gets the dlid that product linked onto its
+	 * own update site, or nothing.
 	 */
 	public function onInstallerBeforePackageDownload($event): void
 	{
@@ -221,11 +227,18 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 				return;
 			}
 
-			if (!class_exists(ProActivationHelper::class)) {
-				return;
-			}
+			$element = self::urlElement($url);
 
-			$dlid = ProActivationHelper::getDlid();
+			if (!self::isOwnElement($element)) {
+				// Another Cybersalt product (#49): send the dlid it linked onto
+				// its own update site, never MCP for J's, which may belong to a
+				// different cybersalt.com account.
+				$dlid = $element === '' ? '' : $this->productOwnDlid($element);
+			} elseif (!class_exists(ProActivationHelper::class)) {
+				return;
+			} else {
+				$dlid = ProActivationHelper::getDlid();
+			}
 
 			if ($dlid === '') {
 				return;
@@ -275,6 +288,65 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 
 		return ($query['option'] ?? '') === 'com_csreleasemanager'
 			&& ($query['task'] ?? '') === 'api.download';
+	}
+
+	/**
+	 * The `element=` a Cybersalt URL asks for ('' when none).
+	 */
+	private static function urlElement(string $url): string
+	{
+		parse_str((string) (parse_url(html_entity_decode($url, ENT_QUOTES | ENT_HTML5), PHP_URL_QUERY) ?? ''), $query);
+
+		return strtolower(trim((string) ($query['element'] ?? '')));
+	}
+
+	/**
+	 * MCP for J itself and its add-ons. Same rule as
+	 * ProActivationHelper::isOwnElement(), kept here so the helper isn't
+	 * autoloaded before we know the download is ours (see above).
+	 */
+	private static function isOwnElement(string $element): bool
+	{
+		return preg_match('/^(pkg_)?csmcpforj[a-z0-9_]*$/', $element) === 1;
+	}
+
+	/**
+	 * The dlid another Cybersalt product linked onto its OWN update site
+	 * (`extra_query`, else the `location`), or '' when it has none.
+	 */
+	private function productOwnDlid(string $element): string
+	{
+		$db   = $this->getDatabase();
+		$rows = $db->setQuery(
+			$db->getQuery(true)
+				->select($db->quoteName(['location', 'extra_query']))
+				->from($db->quoteName('#__update_sites'))
+				->where($db->quoteName('location') . ' LIKE ' . $db->quote('%cybersalt.com%task=api.updatexml%'))
+		)->loadAssocList() ?: [];
+
+		foreach ($rows as $row) {
+			$location = (string) $row['location'];
+
+			if (strtolower((string) parse_url($location, PHP_URL_SCHEME)) !== 'https'
+				|| !in_array(strtolower((string) parse_url($location, PHP_URL_HOST)), ['cybersalt.com', 'www.cybersalt.com'], true)
+				|| self::urlElement($location) !== $element) {
+				continue;
+			}
+
+			$extra = (string) $row['extra_query'];
+
+			if (str_starts_with($extra, 'dlid=') && strlen($extra) > 5) {
+				return substr($extra, 5);
+			}
+
+			parse_str((string) (parse_url($location, PHP_URL_QUERY) ?? ''), $query);
+
+			if (!empty($query['dlid'])) {
+				return (string) $query['dlid'];
+			}
+		}
+
+		return '';
 	}
 
 	/**

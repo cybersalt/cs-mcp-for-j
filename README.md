@@ -68,7 +68,7 @@ The Joomla user who owns the token (or who signed in) is the actor on every tool
 
 **Read-only mode** (Options → MCP server) makes the endpoint announce and accept read-only tools only. A client can also add `?read_only=1` to the endpoint URL to narrow a session further, but can't unlock writes on a site set to read-only. `?categories=articles,users` limits a session to some tool groups.
 
-## Built-in tools (96)
+## Built-in tools (98)
 
 `read` = Use MCP endpoint, `write` = Write through MCP endpoint, `write (Super User)` = also needs a Super User. Every tool publishes its JSON schema and MCP annotations through `tools/list`.
 
@@ -228,12 +228,14 @@ The Joomla user who owns the token (or who signed in) is the actor on every tool
 | `get_site_info` | read | Returns site name, base URL, locale, timezone, mailer-from settings, debug/SEF flags, default editor, and basic counts (articles, users,... |
 | `list_scheduled_tasks` | read | List Joomla scheduled tasks (System → Manage → Scheduled Tasks). |
 
-### Joomla update (3)
+### Joomla update (5)
 
 | Tool | Access | What it does |
 |---|---|---|
 | `apply_joomla_update` | write (Super User) | Apply the currently-available Joomla core update: download the package, extract it, and run the upgrade in sequence. |
+| `check_database_schema` | read (Extensions: Manage) | The check on System → Maintenance: Database: schema versions, manifest versions and table-structure problems per extension, Joomla CMS first. |
 | `check_joomla_update` | read | Check whether a Joomla core update is available. |
+| `fix_database_schema` | write (Super User) | The Fix button on System → Maintenance: Database, with `confirm=true`; returns the check before and after. |
 | `joomla_update_healthcheck` | read | Run pre-update health checks before applying a Joomla core update. |
 
 ### Admin menu presets (2)

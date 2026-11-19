@@ -11,6 +11,7 @@ namespace Cybersalt\Component\Csmcpforj\Administrator\View\Logs;
 
 \defined('_JEXEC') or die;
 
+use Cybersalt\Component\Csmcpforj\Administrator\Helper\OAuthDiagnostics;
 use Cybersalt\Component\Csmcpforj\Administrator\Log\ActivityLog;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
@@ -37,6 +38,9 @@ final class HtmlView extends BaseHtmlView
 	public bool $tableExists = true;
 	public string $level = 'all';
 
+	/** Sign-ins the user allowed that no token request followed (#60). */
+	public array $unclaimed = [];
+
 	public function display($tpl = null): void
 	{
 		/** @var \Cybersalt\Component\Csmcpforj\Administrator\Model\LogsModel $model */
@@ -49,6 +53,8 @@ final class HtmlView extends BaseHtmlView
 			$this->items      = $model->getItems() ?: [];
 			$this->pagination = $model->getPagination();
 			$this->stats      = $model->getStats();
+
+			$this->unclaimed  = OAuthDiagnostics::unclaimedAuthorizations();
 		}
 
 		$this->state         = $model->getState();

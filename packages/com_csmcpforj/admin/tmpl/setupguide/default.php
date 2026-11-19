@@ -497,6 +497,7 @@ details.csmcpforj-setup-advanced[open] summary::before {
 							<div class="tab-pane fade" id="pane-chatgpt" role="tabpanel">
 								<h5><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CHATGPT_HEADING'); ?></h5>
 								<p class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CHATGPT_BODY' . ($this->oauthEnabled ? '_OAUTH' : '')); ?></p>
+								<p class="mb-2"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CHATGPT_NEW_TOOLS'); ?></p>
 								<p class="mb-2"><small class="text-body-secondary"><?php echo Text::_('COM_CSMCPFORJ_SETUPGUIDE_CLIENT_CHATGPT_TIER_NOTE'); ?></small></p>
 								<div class="position-relative">
 									<pre id="csmcpforj-snippet-chatgpt" data-csmcpforj-snippet><code><?php echo htmlspecialchars($snippetChatGpt, ENT_QUOTES, 'UTF-8'); ?></code></pre>

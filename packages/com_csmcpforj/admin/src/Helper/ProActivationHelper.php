@@ -410,14 +410,34 @@ final class ProActivationHelper
 	 * picks up add-ons installed by any route, including a manual
 	 * Install-from-URL that never went through our catalog.
 	 *
+	 * ONLY MCP FOR J'S OWN FEEDS (#49). Other Cybersalt products (Release
+	 * Manager, Hosting Bridge, the A-Z Menu, Auto Gallery, Video Schema…) link
+	 * their own account and write their own dlid onto their own update site.
+	 * Before 2.13.0 this overwrote theirs, so with two different accounts their
+	 * update checks went out under MCP for J's identity and were refused. Now
+	 * a feed is ours only when its `element=` is MCP for J or one of its
+	 * add-ons (see isOwnElement()); any other feed is left alone, except that
+	 * a dlid WE put there earlier (recognised by our installation id) is
+	 * removed.
+	 *
+	 * @param  string $forgetInstallationId An installation id this site just
+	 *                                      dropped (deactivate), so its stamps
+	 *                                      on other products' feeds go too.
+	 *
 	 * @return int Number of update-site rows written.
 	 */
-	public static function syncUpdateSiteDlid(): int
+	public static function syncUpdateSiteDlid(string $forgetInstallationId = ''): int
 	{
 		$dlid = self::getDlid();
 
 		// Not linked → clear rather than leave a stale credential behind.
 		$extraQuery = $dlid === '' ? '' : 'dlid=' . $dlid;
+
+		// Installation ids whose dlid we may remove from other products' feeds.
+		$ownIds = array_values(array_filter(array_unique([
+			self::readPro()['installation_id'],
+			$forgetInstallationId,
+		])));
 
 		$db = Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class);
 
@@ -446,6 +466,35 @@ final class ProActivationHelper
 								->set($db->quoteName('location') . ' = ' . $db->quote(
 									rtrim((string) preg_replace('/([?&])dlid=[^&]*/', '$1', (string) $row['location']), '?&')
 								))
+								->where($db->quoteName('update_site_id') . ' = ' . (int) $row['update_site_id'])
+						)->execute();
+						$written++;
+					}
+
+					continue;
+				}
+
+				if (!self::isOwnElement(self::feedElement((string) $row['location']))) {
+					// Another product's feed: its dlid is its own business.
+					// Only take back a dlid this site's MCP for J stamped there
+					// before 2.13.0; never write ours.
+					$location   = (string) $row['location'];
+					$foreignEq  = (string) $row['extra_query'];
+
+					if (self::isOwnDlid(self::dlidIn($location), $ownIds)) {
+						$location = rtrim((string) preg_replace('/([?&])dlid=[^&]*/', '', $location), '?&');
+					}
+
+					if (str_starts_with($foreignEq, 'dlid=') && self::isOwnDlid(substr($foreignEq, 5), $ownIds)) {
+						$foreignEq = '';
+					}
+
+					if ($location !== (string) $row['location'] || $foreignEq !== (string) $row['extra_query']) {
+						$db->setQuery(
+							$db->getQuery(true)
+								->update($db->quoteName('#__update_sites'))
+								->set($db->quoteName('extra_query') . ' = ' . $db->quote($foreignEq))
+								->set($db->quoteName('location') . ' = ' . $db->quote($location))
 								->where($db->quoteName('update_site_id') . ' = ' . (int) $row['update_site_id'])
 						)->execute();
 						$written++;
@@ -798,6 +847,48 @@ final class ProActivationHelper
 	}
 
 	/**
+	 * The `element=` an update-XML URL asks for ('' when it has none).
+	 */
+	public static function feedElement(string $url): string
+	{
+		parse_str((string) (parse_url(html_entity_decode($url, ENT_QUOTES | ENT_HTML5), PHP_URL_QUERY) ?? ''), $query);
+
+		return strtolower(trim((string) ($query['element'] ?? '')));
+	}
+
+	/**
+	 * True for MCP for J itself and its add-ons: pkg_csmcpforj, the
+	 * csmcpforj* plugins and add-on packages such as pkg_csmcpforjconvertformspro.
+	 */
+	public static function isOwnElement(string $element): bool
+	{
+		return (bool) preg_match('/^(pkg_)?csmcpforj[a-z0-9_]*$/', $element);
+	}
+
+	/**
+	 * The dlid value carried in a URL's query string ('' when none).
+	 */
+	private static function dlidIn(string $url): string
+	{
+		parse_str((string) (parse_url(html_entity_decode($url, ENT_QUOTES | ENT_HTML5), PHP_URL_QUERY) ?? ''), $query);
+
+		return (string) ($query['dlid'] ?? '');
+	}
+
+	/**
+	 * True when a dlid (installation_id:email_hash) belongs to one of the
+	 * given MCP for J installation ids.
+	 *
+	 * @param  string[] $installationIds
+	 */
+	private static function isOwnDlid(string $dlid, array $installationIds): bool
+	{
+		$id = strstr($dlid, ':', true);
+
+		return $id !== false && $id !== '' && in_array($id, $installationIds, true);
+	}
+
+	/**
 	 * Repair a site whose saved installation_id the store has never heard of.
 	 *
 	 * Before 2.8.3 the id was saved the moment it was generated, so a
@@ -985,6 +1076,8 @@ final class ProActivationHelper
 	 */
 	public static function deactivate(): void
 	{
+		$oldInstallationId = self::readPro()['installation_id'];
+
 		self::saveParam('pro_installation_id', '');
 		self::saveParam('pro_email', '');
 		self::saveParam('pro_email_hash', '');
@@ -1006,7 +1099,7 @@ final class ProActivationHelper
 		// Clear the credential off the update sites too. Leaving a dlid for an
 		// account this site is no longer linked to would keep working until the
 		// membership lapsed, which is not what "deactivate" should mean.
-		self::syncUpdateSiteDlid();
+		self::syncUpdateSiteDlid($oldInstallationId);
 
 		// Clear the per-request memo so the very next call to ensureInstallationId()
 		// (e.g. if Tim deactivates then re-activates in the same browser session

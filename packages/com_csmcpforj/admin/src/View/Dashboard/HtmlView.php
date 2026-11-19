@@ -12,6 +12,7 @@ namespace Cybersalt\Component\Csmcpforj\Administrator\View\Dashboard;
 \defined('_JEXEC') or die;
 
 use Cybersalt\Component\Csmcpforj\Administrator\Helper\FirewallHelper;
+use Cybersalt\Component\Csmcpforj\Administrator\Helper\OAuthDiagnostics;
 use Cybersalt\Component\Csmcpforj\Administrator\Helper\OptionsLink;
 use Cybersalt\Component\Csmcpforj\Administrator\Integrity\IntegrityCheck;
 use Joomla\CMS\Component\ComponentHelper;
@@ -79,6 +80,10 @@ final class HtmlView extends BaseHtmlView
 	public string $oauthMetadataUrl = '';
 	public int $oauthProblems24h = 0;
 	public string $oauthProblemsUrl = '';
+
+	/** Sign-ins allowed in the last 7 days that no token request followed (#60). */
+	public array $oauthUnclaimed = [];
+	public string $oauthUnclaimedLogsUrl = '';
 
 	/** While OAuth is off: sign-in attempts it refused in the last 24 hours (#52). */
 	public int $oauthRefused24h = 0;
@@ -221,6 +226,9 @@ final class HtmlView extends BaseHtmlView
 			}
 
 			$this->oauthProblemsUrl = \Joomla\CMS\Router\Route::_('index.php?option=com_csmcpforj&view=logs&filter[status]=problems&filter[since]=24h', false);
+
+			$this->oauthUnclaimed        = OAuthDiagnostics::unclaimedAuthorizations();
+			$this->oauthUnclaimedLogsUrl = Route::_('index.php?option=com_csmcpforj&view=logs&filter[source]=oauth&filter[since]=7d', false);
 		} else {
 			// An agency user lost hours to claude.ai's "cannot register" while
 			// OAuth was off (#52). If an app has tried, say so on the Dashboard.
