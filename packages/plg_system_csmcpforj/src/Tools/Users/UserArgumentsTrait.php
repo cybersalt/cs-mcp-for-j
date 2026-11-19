@@ -313,7 +313,7 @@ trait UserArgumentsTrait
 		} catch (\Throwable $e) {
 			throw new \RuntimeException(
 				'Permission denied: you cannot change the ' . implode(' or ', $fields) . ' of user ' . $targetId
-				. '. (' . $e->getMessage() . ')'
+				. '. (' . $this->exceptionTextForClient($e, $actor) . ')'
 			);
 		}
 	}

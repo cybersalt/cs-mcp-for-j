@@ -97,7 +97,7 @@ final class JoomlaUpdateHealthcheckTool extends AbstractTool
 			$checks[] = [
 				'name'    => 'database',
 				'status'  => 'warning',
-				'message' => 'Could not query database version: ' . $e->getMessage(),
+				'message' => 'Could not query database version: ' . $this->exceptionTextForClient($e, $actor),
 			];
 		}
 

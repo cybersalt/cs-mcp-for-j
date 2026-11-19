@@ -151,7 +151,7 @@ final class CreateUserTool extends AbstractTool
 			$error = (string) ($model->getError() ?: '');
 		} catch (\Throwable $e) {
 			$ok    = false;
-			$error = $e->getMessage();
+			$error = $this->exceptionTextForClient($e, $actor);
 		}
 
 		// Find the new id by username — model's getState('user.id') is unreliable
@@ -208,7 +208,7 @@ final class CreateUserTool extends AbstractTool
 					$response['token_warning'] = 'Token mint succeeded but display string is empty — site secret may be missing in configuration.php.';
 				}
 			} catch (\Throwable $e) {
-				$response['token_warning'] = 'User created, but no API token was minted: ' . $e->getMessage();
+				$response['token_warning'] = 'User created, but no API token was minted: ' . $this->exceptionTextForClient($e, $actor);
 			}
 		}
 

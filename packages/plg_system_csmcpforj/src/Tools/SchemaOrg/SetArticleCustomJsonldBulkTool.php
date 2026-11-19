@@ -164,7 +164,7 @@ final class SetArticleCustomJsonldBulkTool extends AbstractTool
 					'index'   => $i,
 					'item_id' => $itemId,
 					'ok'      => false,
-					'error'   => $e->getMessage(),
+					'error'   => $this->exceptionTextForClient($e, $actor),
 				];
 				$failed++;
 			}

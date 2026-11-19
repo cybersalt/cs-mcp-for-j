@@ -12,6 +12,7 @@ namespace Cybersalt\Plugin\System\Csmcpforj\Tools\JoomlaUpdate;
 \defined('_JEXEC') or die;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
+use Cybersalt\Component\Csmcpforj\Administrator\MCP\ErrorText;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\Extension\ExtensionHelper;
 use Joomla\CMS\Factory;
@@ -245,7 +246,7 @@ final class ApplyJoomlaUpdateTool extends AbstractTool
 		} catch (\Throwable $e) {
 			return ToolResult::error(
 				'Preparing the Joomla ' . $latest . ' update failed before any site file was changed: '
-				. $e->getMessage()
+				. $this->exceptionTextForClient($e, $actor)
 			);
 		}
 
@@ -258,7 +259,7 @@ final class ApplyJoomlaUpdateTool extends AbstractTool
 
 			return ToolResult::error(
 				'Copying the Joomla ' . $latest . ' files over the site failed partway through: '
-				. $e->getMessage() . '. The site is now a MIX of ' . $fromVersion . ' and ' . $latest
+				. $this->exceptionTextForClient($e, $actor) . '. The site is now a MIX of ' . $fromVersion . ' and ' . $latest
 				. ' files. Restore from the backup, or fix the file permissions and run the update again '
 				. 'from Joomla\'s web UI. The downloaded package was removed from the tmp folder.'
 			);
@@ -319,13 +320,13 @@ final class ApplyJoomlaUpdateTool extends AbstractTool
 			$finalised = (bool) $model->finaliseUpgrade();
 		} catch (\Throwable $e) {
 			$finalised = false;
-			$model->setError($e->getMessage());
+			$model->setError(ErrorText::clean($e->getMessage()));
 		}
 
 		$errors = [];
 
 		foreach ((array) $model->getErrors() as $error) {
-			$errors[] = $error instanceof \Throwable ? $error->getMessage() : (string) $error;
+			$errors[] = ErrorText::clean($error instanceof \Throwable ? $error->getMessage() : (string) $error);
 		}
 
 		if (!$finalised) {

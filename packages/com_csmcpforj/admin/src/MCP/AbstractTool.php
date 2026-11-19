@@ -47,6 +47,16 @@ abstract class AbstractTool implements ToolInterface
 	abstract protected function run(array $arguments, User $actor): ToolResult;
 
 	/**
+	 * Text for an exception a tool catches itself, by the same rules as an
+	 * uncaught one (see ErrorText). Use it instead of $e->getMessage()
+	 * whenever the message goes back to the client.
+	 */
+	protected function exceptionTextForClient(Throwable $e, User $actor): string
+	{
+		return ErrorText::forClient($e, $actor, 'tools/call', ['subject' => $this->getName()]);
+	}
+
+	/**
 	 * Refuse arguments the tool's input schema doesn't declare. For tools that
 	 * report their argument keys back as what changed: a key the tool ignores
 	 * must not read as saved.

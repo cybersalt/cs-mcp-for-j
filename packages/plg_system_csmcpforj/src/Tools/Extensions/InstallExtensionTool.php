@@ -125,7 +125,7 @@ final class InstallExtensionTool extends AbstractTool
 			$ok = (bool) $installer->install($package['extractdir']);
 		} catch (\Throwable $e) {
 			$this->cleanup($localZip, $package, $downloaded);
-			return ToolResult::error('Installer threw: ' . $e->getMessage());
+			return ToolResult::error('Installer threw: ' . $this->exceptionTextForClient($e, $actor));
 		}
 
 		// 4. Pull what we can about the result before cleanup.

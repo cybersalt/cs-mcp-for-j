@@ -1,9 +1,13 @@
 # Changelog
 
-## 🧪 Unreleased (next release)
+## 🚀 Version 2.13.0 (November 19, 2026)
+
+**Two Database-screen tools, a warning when an AI app's sign-in is blocked before the token step, and download IDs kept to their own products.**
 
 ### 🔒 Security
 - **Tool errors no longer show database details or server paths to the AI app.** When a tool hit an error it didn't handle itself, the app was sent the raw message: a database error carried part of the SQL and the site's real table prefix, and a PHP error carried the server's file paths. That text then sat in the AI conversation. Only someone already signed in with a valid token could see it, but it shouldn't leave the site. Now file paths are replaced with `[path]` and the table prefix shows as `#__`. Database errors and PHP internal errors are shown in full only to a Super User; anyone else is told what kind of error it was and that the details are in Components → MCP for Joomla → Logs, where the full error (with where it happened) is now recorded. The same applies to the "Internal error" answer for a request that fails outside a tool. Messages written by MCP for J itself, such as a missing argument, are unchanged. Found in our own review of the add-ons; about 180 add-on tools relied on this part of core.
+- **Download IDs only go to cybersalt.com.** The check that decides whether a download is a cybersalt.com download, and so gets your download ID, is stricter: an address could be written so that it passed the check while the download went to a different host. Found in our own security review before this release. Update when you can.
+- **The same rule for errors that tools catch themselves.** Seven core tools (`get_admin_menu_preset`, `check_joomla_update`, `apply_joomla_update`, `install_extension`, `fetch_rendered_url`, `create_user` and `joomla_update_healthcheck`, plus one line in `set_article_custom_jsonld_bulk`) passed a caught error's raw text back. They now follow the rule above.
 
 ### 🚀 Added
 - **`check_database_schema` and `fix_database_schema`: System → Maintenance: Database as two tools** ([#48](https://github.com/cybersalt/cs-mcp-for-j/issues/48)). Every Joomla upgrade, and most extension upgrades, ends with "check the Database screen and press Fix if anything is listed", which so far meant opening the admin. `check_database_schema` (read-only, needs Extensions: Manage like the screen itself) lists for each extension, Joomla CMS first, the schema version against the newest SQL update file, the manifest version against the installed XML, and any table-structure problems, with Joomla's own messages. `fix_database_schema` does what the Fix button does and returns the check before and after; it is Super User only, needs `confirm=true`, and can be limited to chosen extensions with `extension_ids`. Both use Joomla's own Database model, so they say exactly what the screen says, on Joomla 5.4 and 6.

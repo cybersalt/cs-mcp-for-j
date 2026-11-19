@@ -81,7 +81,7 @@ final class CheckJoomlaUpdateTool extends AbstractTool
 		try {
 			$updater->findUpdates([$extensionId], 0, Updater::STABILITY_STABLE);
 		} catch (\Throwable $e) {
-			return ToolResult::error('Update check failed: ' . $e->getMessage());
+			return ToolResult::error('Update check failed: ' . $this->exceptionTextForClient($e, $actor));
 		}
 
 		// Read whatever Joomla found in #__updates for that extension.

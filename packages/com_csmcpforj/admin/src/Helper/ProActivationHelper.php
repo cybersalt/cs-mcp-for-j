@@ -830,7 +830,7 @@ final class ProActivationHelper
 	 */
 	public static function isCybersaltUpdateFeed(string $url): bool
 	{
-		$parts = parse_url(html_entity_decode($url, ENT_QUOTES | ENT_HTML5));
+		$parts = self::urlParts($url);
 
 		if (strtolower((string) ($parts['scheme'] ?? '')) !== 'https') {
 			return false;
@@ -851,7 +851,7 @@ final class ProActivationHelper
 	 */
 	public static function feedElement(string $url): string
 	{
-		parse_str((string) (parse_url(html_entity_decode($url, ENT_QUOTES | ENT_HTML5), PHP_URL_QUERY) ?? ''), $query);
+		parse_str((string) (self::urlParts($url)['query'] ?? ''), $query);
 
 		return strtolower(trim((string) ($query['element'] ?? '')));
 	}
@@ -870,9 +870,29 @@ final class ProActivationHelper
 	 */
 	private static function dlidIn(string $url): string
 	{
-		parse_str((string) (parse_url(html_entity_decode($url, ENT_QUOTES | ENT_HTML5), PHP_URL_QUERY) ?? ''), $query);
+		parse_str((string) (self::urlParts($url)['query'] ?? ''), $query);
 
 		return (string) ($query['dlid'] ?? '');
+	}
+
+	/**
+	 * parse_url() of a URL as it will really be requested. Only `&amp;` is
+	 * turned back into `&`: decoding every entity could make the host we
+	 * check differ from the host Joomla contacts. A URL with user info, or
+	 * whose host differs between the two readings, gives [].
+	 */
+	private static function urlParts(string $url): array
+	{
+		$parts = parse_url(str_replace('&amp;', '&', $url));
+		$raw   = parse_url($url);
+
+		if (!is_array($parts) || !is_array($raw)
+			|| isset($parts['user']) || isset($parts['pass']) || isset($raw['user']) || isset($raw['pass'])
+			|| strtolower((string) ($parts['host'] ?? '')) !== strtolower((string) ($raw['host'] ?? ''))) {
+			return [];
+		}
+
+		return $parts;
 	}
 
 	/**

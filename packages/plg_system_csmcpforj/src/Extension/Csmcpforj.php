@@ -269,9 +269,30 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 		}
 	}
 
+	/**
+	 * parse_url() of a URL as it will really be requested. Only `&amp;` is
+	 * turned back into `&` (update XML often stores it that way): decoding
+	 * every entity let a URL like `https://cybersalt.com&sol;x@evil.example/`
+	 * pass the host check while the download went to evil.example. A URL
+	 * with user info, or whose host differs between the two readings, gives [].
+	 */
+	private static function urlParts(string $url): array
+	{
+		$parts = parse_url(str_replace('&amp;', '&', $url));
+		$raw   = parse_url($url);
+
+		if (!is_array($parts) || !is_array($raw)
+			|| isset($parts['user']) || isset($parts['pass']) || isset($raw['user']) || isset($raw['pass'])
+			|| strtolower((string) ($parts['host'] ?? '')) !== strtolower((string) ($raw['host'] ?? ''))) {
+			return [];
+		}
+
+		return $parts;
+	}
+
 	private static function isCybersaltMembersDownload(string $url): bool
 	{
-		$parts = parse_url(html_entity_decode($url, ENT_QUOTES | ENT_HTML5));
+		$parts = self::urlParts($url);
 		$host  = strtolower((string) ($parts['host'] ?? ''));
 
 		// The dlid is a credential: never send it over plain http, even to our
@@ -295,7 +316,7 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 	 */
 	private static function urlElement(string $url): string
 	{
-		parse_str((string) (parse_url(html_entity_decode($url, ENT_QUOTES | ENT_HTML5), PHP_URL_QUERY) ?? ''), $query);
+		parse_str((string) (self::urlParts($url)['query'] ?? ''), $query);
 
 		return strtolower(trim((string) ($query['element'] ?? '')));
 	}
@@ -325,11 +346,12 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 		)->loadAssocList() ?: [];
 
 		foreach ($rows as $row) {
-			$location = (string) $row['location'];
+			$parts = self::urlParts((string) $row['location']);
+			parse_str((string) ($parts['query'] ?? ''), $query);
 
-			if (strtolower((string) parse_url($location, PHP_URL_SCHEME)) !== 'https'
-				|| !in_array(strtolower((string) parse_url($location, PHP_URL_HOST)), ['cybersalt.com', 'www.cybersalt.com'], true)
-				|| self::urlElement($location) !== $element) {
+			if (strtolower((string) ($parts['scheme'] ?? '')) !== 'https'
+				|| !in_array(strtolower((string) ($parts['host'] ?? '')), ['cybersalt.com', 'www.cybersalt.com'], true)
+				|| strtolower(trim((string) ($query['element'] ?? ''))) !== $element) {
 				continue;
 			}
 
@@ -338,8 +360,6 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			if (str_starts_with($extra, 'dlid=') && strlen($extra) > 5) {
 				return substr($extra, 5);
 			}
-
-			parse_str((string) (parse_url($location, PHP_URL_QUERY) ?? ''), $query);
 
 			if (!empty($query['dlid'])) {
 				return (string) $query['dlid'];

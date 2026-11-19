@@ -77,13 +77,13 @@ final class GetAdminMenuPresetTool extends AbstractTool
 		try {
 			$absolute = $this->resolvePresetPath($component, $name);
 		} catch (PresetNotFoundException $e) {
-			return ToolResult::error($e->getMessage());
+			return ToolResult::error($this->exceptionTextForClient($e, $actor));
 		}
 
 		try {
 			$bytes = $this->readPresetBytes($absolute);
 		} catch (\Throwable $e) {
-			return ToolResult::error($e->getMessage());
+			return ToolResult::error($this->exceptionTextForClient($e, $actor));
 		}
 
 		$sha   = hash('sha256', $bytes);

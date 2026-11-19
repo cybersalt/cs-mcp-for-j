@@ -98,7 +98,7 @@ final class FetchRenderedUrlTool extends AbstractTool
 			$http     = HttpFactory::getHttp();
 			$response = $http->get($absoluteUrl, [], $timeout);
 		} catch (\Throwable $e) {
-			return ToolResult::error('HTTP fetch failed: ' . $e->getMessage());
+			return ToolResult::error('HTTP fetch failed: ' . $this->exceptionTextForClient($e, $actor));
 		}
 
 		$body   = (string) $response->body;
