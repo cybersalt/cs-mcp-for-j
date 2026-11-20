@@ -68,20 +68,41 @@ The Joomla user who owns the token (or who signed in) is the actor on every tool
 
 **Read-only mode** (Options → MCP server) makes the endpoint announce and accept read-only tools only. A client can also add `?read_only=1` to the endpoint URL to narrow a session further, but can't unlock writes on a site set to read-only. `?categories=articles,users` limits a session to some tool groups.
 
-## Built-in tools (98)
+**Tool access** (Options → Tool access) limits the members of a user group to the tool areas you pick (for example Articles and Media for news editors), optionally read-only. A user is limited as soon as one of their groups has a rule; Super Users never are.
+
+## Built-in tools (108)
 
 `read` = Use MCP endpoint, `write` = Write through MCP endpoint, `write (Super User)` = also needs a Super User. Every tool publishes its JSON schema and MCP annotations through `tools/list`.
 
-### Articles (6)
+### Articles (11)
+
+The article tools follow Joomla's article permissions as well: Create on the category, Edit or Edit Own, Edit State for publishing (state, featured, publish dates), Delete to delete for good. Without Edit State an article is saved as an unpublished draft.
 
 | Tool | Access | What it does |
 |---|---|---|
 | `create_article` | write | Create a new article in com_content. |
 | `delete_article` | write | Delete or trash an article (or several at once). |
 | `get_article` | read | Fetch a single article by id, returning its core fields, resolved category title, and tags (array of {id, title}). |
+| `get_article_version` | read | One saved version of an article and which fields differ from now. |
+| `list_article_versions` | read | An article's version history: version id, date, who saved it, version note. |
 | `list_articles` | read | List articles with optional filters: search by title substring, by category, by author, by state, by language. |
 | `list_categories` | read | List com_content categories so an article can be assigned to a valid catid. |
+| `publish_article` | write | Publish one or more articles (needs Edit State on each). |
+| `restore_article_version` | write | Bring an article's content back from a saved version; state, category and dates are left as they are. |
+| `unpublish_article` | write | Unpublish one or more articles (needs Edit State on each). |
 | `update_article` | write | Update an existing article. |
+
+### Media (5)
+
+Through Joomla's Media Manager: its allowed file types, MIME check, size limit and permissions apply. Photos are processed as set in Options → Media uploads (turned upright, resized, EXIF/GPS removed, optionally WebP).
+
+| Tool | Access | What it does |
+|---|---|---|
+| `create_media_folder` | write | Create a folder in a Media folder (needs Create in Media). |
+| `create_media_upload_link` | write | A short-lived link where the user uploads files in their browser, for chat apps that can't pass attachments to tools (Claude). |
+| `delete_media` | write | Delete one file or one empty folder (needs Delete in Media). |
+| `list_media` | read | List a Media folder's subfolders and files, with paths, URLs, sizes and image dimensions. |
+| `upload_media` | write | Upload a file: a ChatGPT attachment, a public https address, or base64 content (needs Create in Media). |
 
 ### Categories (any extension) (5)
 

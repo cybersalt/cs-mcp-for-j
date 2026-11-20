@@ -64,10 +64,18 @@ final class ToolRegistry
 	 * `annotations` key so MCP-spec-aware clients can render safety badges
 	 * (read-only / destructive / idempotent) on each tool.
 	 *
+	 * A third, $access, is the tool set the user's groups allow (Options →
+	 * Tool access, see ToolAccess); null means no limit.
+	 *
+	 * A tool may also describe itself further with a public getMcpMeta()
+	 * returning the descriptor's `_meta` (e.g. ChatGPT's `openai/fileParams`).
+	 * It is optional and checked with method_exists(), so add-ons built
+	 * against older cores keep working.
+	 *
 	 * @param array<int, string> $categories Lowercase domain slugs to keep, or [] for all
 	 * @return array<int, array{name: string, description: string, inputSchema: array, annotations?: array}>
 	 */
-	public function describeForMcp(array $categories = [], bool $readOnly = false): array
+	public function describeForMcp(array $categories = [], bool $readOnly = false, ?ToolAccess $access = null): array
 	{
 		$categories = array_values(array_filter(array_map(
 			static fn($c): string => strtolower(trim((string) $c)),
@@ -86,6 +94,10 @@ final class ToolRegistry
 				continue;
 			}
 
+			if ($access !== null && !$access->allows($tool)) {
+				continue;
+			}
+
 			// Normalise inputSchema so empty `properties` serialises as JSON
 			// object `{}` (MCP-spec record) rather than JSON array `[]`.
 			// PHP's json_encode on an empty native array emits `[]`; the MCP
@@ -100,12 +112,19 @@ final class ToolRegistry
 				$inputSchema['properties'] = new \stdClass();
 			}
 
-			$out[] = [
+			$descriptor = [
 				'name'        => $tool->getName(),
 				'description' => $tool->getDescription(),
 				'inputSchema' => $inputSchema,
 				'annotations' => $annotations,
 			];
+
+			$meta = method_exists($tool, 'getMcpMeta') ? $tool->getMcpMeta() : [];
+			if (is_array($meta) && $meta !== []) {
+				$descriptor['_meta'] = $meta;
+			}
+
+			$out[] = $descriptor;
 		}
 
 		return $out;
@@ -117,7 +136,7 @@ final class ToolRegistry
 	 * Server's tools/call dispatcher so a client can't invoke a tool that the
 	 * matching tools/list call wouldn't have shown them.
 	 */
-	public function isCallable(string $name, array $categories = [], bool $readOnly = false): bool
+	public function isCallable(string $name, array $categories = [], bool $readOnly = false, ?ToolAccess $access = null): bool
 	{
 		$tool = $this->get($name);
 		if ($tool === null) {
@@ -134,6 +153,10 @@ final class ToolRegistry
 		}
 
 		if ($readOnly && empty($tool->getMcpAnnotations()['readOnlyHint'])) {
+			return false;
+		}
+
+		if ($access !== null && !$access->allows($tool)) {
 			return false;
 		}
 

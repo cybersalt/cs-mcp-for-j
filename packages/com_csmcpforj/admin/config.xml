@@ -68,6 +68,192 @@
 		</field>
 	</fieldset>
 
+	<!-- Per-group tool sets (Michel Campaner, 2026-11-20): staff in a group can
+	     be limited to some tool domains (content + media, say), optionally
+	     read-only. Read by MCP\ToolAccess on every request. -->
+	<fieldset
+		name="toolaccess"
+		label="COM_CSMCPFORJ_CONFIG_TOOLACCESS_FIELDSET_LABEL"
+		description="COM_CSMCPFORJ_CONFIG_TOOLACCESS_FIELDSET_DESC"
+		addfieldprefix="Cybersalt\Component\Csmcpforj\Administrator\Field"
+	>
+		<field
+			name="tool_access_note"
+			type="note"
+			description="COM_CSMCPFORJ_CONFIG_TOOLACCESS_NOTE"
+			class="alert alert-info"
+		/>
+		<field
+			name="tool_access_rules"
+			type="subform"
+			label="COM_CSMCPFORJ_CONFIG_TOOLACCESS_RULES_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_TOOLACCESS_RULES_DESC"
+			multiple="true"
+			layout="joomla.form.field.subform.repeatable"
+			buttons="add,remove"
+		>
+			<form addfieldprefix="Cybersalt\Component\Csmcpforj\Administrator\Field">
+				<field
+					name="group"
+					type="usergrouplist"
+					label="COM_CSMCPFORJ_CONFIG_TOOLACCESS_GROUP_LABEL"
+					description="COM_CSMCPFORJ_CONFIG_TOOLACCESS_GROUP_DESC"
+					filter="integer"
+				>
+					<option value="">COM_CSMCPFORJ_CONFIG_TOOLACCESS_GROUP_SELECT</option>
+				</field>
+				<field
+					name="domains"
+					type="ToolDomains"
+					label="COM_CSMCPFORJ_CONFIG_TOOLACCESS_DOMAINS_LABEL"
+					description="COM_CSMCPFORJ_CONFIG_TOOLACCESS_DOMAINS_DESC"
+					multiple="true"
+					layout="joomla.form.field.list-fancy-select"
+				/>
+				<field
+					name="tools"
+					type="text"
+					label="COM_CSMCPFORJ_CONFIG_TOOLACCESS_TOOLS_LABEL"
+					description="COM_CSMCPFORJ_CONFIG_TOOLACCESS_TOOLS_DESC"
+					filter="string"
+				/>
+				<field
+					name="read_only"
+					type="radio"
+					layout="joomla.form.field.radio.switcher"
+					label="COM_CSMCPFORJ_CONFIG_TOOLACCESS_READ_ONLY_LABEL"
+					description="COM_CSMCPFORJ_CONFIG_TOOLACCESS_READ_ONLY_DESC"
+					default="0"
+				>
+					<option value="0">JNO</option>
+					<option value="1">JYES</option>
+				</field>
+			</form>
+		</field>
+	</fieldset>
+
+	<!-- Uploads through the Media tools and the upload link page. Joomla's own
+	     Media settings (allowed extensions, MIME types, maximum size) still
+	     apply; these narrow them and process images. Read by
+	     Helper\MediaUploadHelper. -->
+	<fieldset
+		name="media"
+		label="COM_CSMCPFORJ_CONFIG_MEDIA_FIELDSET_LABEL"
+		description="COM_CSMCPFORJ_CONFIG_MEDIA_FIELDSET_DESC"
+	>
+		<field
+			name="media_max_upload_mb"
+			type="number"
+			label="COM_CSMCPFORJ_CONFIG_MEDIA_MAX_MB_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_MEDIA_MAX_MB_DESC"
+			default="20"
+			min="1"
+			max="200"
+			filter="integer"
+		/>
+		<field
+			name="media_process_images"
+			type="radio"
+			layout="joomla.form.field.radio.switcher"
+			label="COM_CSMCPFORJ_CONFIG_MEDIA_PROCESS_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_MEDIA_PROCESS_DESC"
+			default="1"
+		>
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+		<field
+			name="media_fix_orientation"
+			type="radio"
+			layout="joomla.form.field.radio.switcher"
+			label="COM_CSMCPFORJ_CONFIG_MEDIA_ORIENTATION_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_MEDIA_ORIENTATION_DESC"
+			default="1"
+			showon="media_process_images:1"
+		>
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+		<field
+			name="media_max_dimension"
+			type="number"
+			label="COM_CSMCPFORJ_CONFIG_MEDIA_MAX_DIMENSION_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_MEDIA_MAX_DIMENSION_DESC"
+			default="2560"
+			min="0"
+			max="10000"
+			filter="integer"
+			showon="media_process_images:1"
+		/>
+		<field
+			name="media_strip_metadata"
+			type="radio"
+			layout="joomla.form.field.radio.switcher"
+			label="COM_CSMCPFORJ_CONFIG_MEDIA_STRIP_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_MEDIA_STRIP_DESC"
+			default="1"
+			showon="media_process_images:1"
+		>
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+		<field
+			name="media_convert_webp"
+			type="radio"
+			layout="joomla.form.field.radio.switcher"
+			label="COM_CSMCPFORJ_CONFIG_MEDIA_WEBP_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_MEDIA_WEBP_DESC"
+			default="0"
+			showon="media_process_images:1"
+		>
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+		<field
+			name="media_jpeg_quality"
+			type="number"
+			label="COM_CSMCPFORJ_CONFIG_MEDIA_JPEG_QUALITY_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_MEDIA_JPEG_QUALITY_DESC"
+			default="85"
+			min="40"
+			max="100"
+			filter="integer"
+			showon="media_process_images:1"
+		/>
+		<field
+			name="media_webp_quality"
+			type="number"
+			label="COM_CSMCPFORJ_CONFIG_MEDIA_WEBP_QUALITY_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_MEDIA_WEBP_QUALITY_DESC"
+			default="82"
+			min="40"
+			max="100"
+			filter="integer"
+			showon="media_process_images:1[AND]media_convert_webp:1"
+		/>
+		<field
+			name="media_upload_link_minutes"
+			type="number"
+			label="COM_CSMCPFORJ_CONFIG_MEDIA_LINK_MINUTES_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_MEDIA_LINK_MINUTES_DESC"
+			default="30"
+			min="5"
+			max="1440"
+			filter="integer"
+		/>
+		<field
+			name="media_allow_svg"
+			type="radio"
+			layout="joomla.form.field.radio.switcher"
+			label="COM_CSMCPFORJ_CONFIG_MEDIA_SVG_LABEL"
+			description="COM_CSMCPFORJ_CONFIG_MEDIA_SVG_DESC"
+			default="0"
+		>
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+	</fieldset>
+
 	<fieldset
 		name="oauth"
 		label="COM_CSMCPFORJ_CONFIG_OAUTH_FIELDSET_LABEL"

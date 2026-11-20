@@ -14,6 +14,7 @@ namespace Cybersalt\Component\Csmcpforj\Api\Controller;
 use Cybersalt\Component\Csmcpforj\Administrator\Log\ActivityLog;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\Event\RegisterToolsEvent;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\Server;
+use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolAccess;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolRegistry;
 use Joomla\CMS\Application\CMSApplication;
 use Joomla\CMS\Component\ComponentHelper;
@@ -104,8 +105,9 @@ final class McpController extends BaseController
 		$categoryFilter = $this->parseCategoryFilter($app);
 		$readOnlyMode   = $this->resolveReadOnlyMode($app);
 		$secrets        = $this->collectSecretsToGuard();
+		$toolAccess     = ToolAccess::forUser($user);
 
-		$server   = new Server($registry, $user, $categoryFilter, $readOnlyMode, $secrets);
+		$server   = new Server($registry, $user, $categoryFilter, $readOnlyMode, $secrets, $toolAccess);
 		$response = $server->handle($message);
 
 		if ($response === null) {

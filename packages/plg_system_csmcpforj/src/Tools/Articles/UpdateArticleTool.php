@@ -81,6 +81,7 @@ use Joomla\Registry\Registry;
  */
 final class UpdateArticleTool extends AbstractTool
 {
+	use ArticleAclTrait;
 	use ArticleAuthorTrait;
 	use ArticleFieldsTrait;
 	use ItemAssociationsTrait;
@@ -110,7 +111,9 @@ final class UpdateArticleTool extends AbstractTool
 			. 'note, version_note, and the dates created, publish_up, publish_down, featured_up and featured_down. '
 			. 'images, urls, attribs and metadata are objects: pass only the keys to change; they are merged onto '
 			. 'what is stored, and a null value removes a key. Dates are UTC ("YYYY-MM-DD HH:MM:SS"), the same as '
-			. 'get_article returns them.';
+			. 'get_article returns them. Joomla\'s permissions apply: Edit (or Edit Own on your own article), Edit State '
+			. 'for state, featured and the publish / featured dates, and Create on the category when you move it. '
+			. 'Earlier versions are kept in the article\'s version history (list_article_versions).';
 	}
 
 	public function getInputSchema(): array
@@ -158,6 +161,14 @@ final class UpdateArticleTool extends AbstractTool
 		$existing = $model->getItem($id);
 		if (!$existing || empty($existing->id)) {
 			return ToolResult::error('Article ' . $id . ' not found.');
+		}
+
+		// Joomla's permissions (2.14.0): Edit or Edit Own, Edit State for the
+		// publishing fields, Create on a new category. See ArticleAclTrait.
+		$this->requireArticleEdit($actor, $existing);
+		$this->requireArticleEditStateFor($actor, $id, (int) $existing->catid, $arguments, false);
+		if (array_key_exists('catid', $arguments) && (int) $arguments['catid'] !== (int) $existing->catid) {
+			$this->requireArticleCreate($actor, (int) $arguments['catid']);
 		}
 
 		$hits = null;

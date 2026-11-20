@@ -14,6 +14,7 @@ namespace Cybersalt\Plugin\System\Csmcpforj\Extension;
 use Cybersalt\Component\Csmcpforj\Administrator\Helper\ProActivationHelper;
 use Cybersalt\Component\Csmcpforj\Administrator\Log\ActivityLog;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\Event\RegisterToolsEvent;
+use Cybersalt\Component\Csmcpforj\Administrator\Helper\MediaUploadLink;
 use Cybersalt\Component\Csmcpforj\Administrator\OAuth\OAuthServer;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolRegistry;
 use Joomla\CMS\Plugin\CMSPlugin;
@@ -49,6 +50,18 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Articles\CreateArticleTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Articles\UpdateArticleTool::class,
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Articles\DeleteArticleTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Articles\PublishArticleTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Articles\UnpublishArticleTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Articles\ListArticleVersionsTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Articles\GetArticleVersionTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Articles\RestoreArticleVersionTool::class,
+		],
+		'Media' => [
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Media\ListMediaTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Media\UploadMediaTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Media\CreateMediaUploadLinkTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Media\CreateMediaFolderTool::class,
+			\Cybersalt\Plugin\System\Csmcpforj\Tools\Media\DeleteMediaTool::class,
 		],
 		'Categories' => [
 			\Cybersalt\Plugin\System\Csmcpforj\Tools\Categories\ListCategoriesInTool::class,
@@ -392,6 +405,14 @@ final class Csmcpforj extends CMSPlugin implements SubscriberInterface
 		// /.well-known/ sits at the site root where no component owns it. The
 		// match is a cheap string test so ordinary page loads pay nothing.
 		if ($app->isClient('site')) {
+			// Upload link page (2.14.0, create_media_upload_link). Its own query
+			// key, answered before routing like the OAuth pages.
+			if (isset($_GET[MediaUploadLink::QUERY_KEY])) {
+				MediaUploadLink::handle($app);
+
+				return;
+			}
+
 			$oauthRoute = OAuthServer::matchRequest(
 				(string) parse_url($uri, PHP_URL_PATH),
 				isset($_GET[OAuthServer::QUERY_KEY]) ? (string) $_GET[OAuthServer::QUERY_KEY] : null

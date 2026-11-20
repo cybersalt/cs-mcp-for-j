@@ -12,6 +12,7 @@ namespace Cybersalt\Plugin\System\Csmcpforj\Tools\Articles;
 \defined('_JEXEC') or die;
 
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\AbstractTool;
+use Cybersalt\Component\Csmcpforj\Administrator\MCP\McpException;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\RequiresTrashFirstTrait;
 use Cybersalt\Component\Csmcpforj\Administrator\MCP\ToolResult;
 use Joomla\CMS\User\User;
@@ -24,6 +25,7 @@ use Joomla\CMS\User\User;
  */
 final class DeleteArticleTool extends AbstractTool
 {
+	use ArticleAclTrait;
 	use RequiresTrashFirstTrait;
 
 	public function getName(): string { return 'delete_article'; }
@@ -68,6 +70,17 @@ final class DeleteArticleTool extends AbstractTool
 
 		$permanent = (bool) ($arguments['permanent'] ?? false);
 		$model     = $this->getModel('com_content', 'Article');
+
+		// Joomla's permissions, checked up front so the answer names them: the
+		// model checks them too, but drops a refused id quietly (2.14.0).
+		foreach ($ids as $id) {
+			if ($permanent) {
+				$this->requireArticleDelete($actor, $id);
+			} elseif (!$this->canEditArticleState($actor, $id, 0)) {
+				throw new McpException(-32002, 'Nothing was trashed. Moving article ' . $id . ' to the trash needs Joomla\'s '
+					. 'Edit State permission on it, which you do not have.');
+			}
+		}
 
 		if ($permanent) {
 			// Belt-and-braces: even though com_content's Article model already

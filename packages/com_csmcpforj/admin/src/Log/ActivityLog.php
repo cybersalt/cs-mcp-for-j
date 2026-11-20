@@ -140,7 +140,7 @@ final class ActivityLog
 				break;
 			}
 
-			$out[$key] = is_string($key) && preg_match('/pass(word)?|secret|token|api[_-]?key|dlid|credential|private[_-]?key/i', $key)
+			$out[$key] = is_string($key) && preg_match('/pass(word)?|secret|token|api[_-]?key|dlid|credential|private[_-]?key|download_url/i', $key)
 				? '[redacted]'
 				: self::redact($item, $depth + 1);
 		}

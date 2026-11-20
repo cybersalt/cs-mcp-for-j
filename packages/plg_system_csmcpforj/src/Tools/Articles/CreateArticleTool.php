@@ -24,9 +24,15 @@ use Joomla\Registry\Registry;
  * docblock for why every date is UTC. featured_up / featured_down are passed
  * in $data, where ArticleModel::save() hands them to featured() along with
  * `featured`.
+ *
+ * Joomla's permissions (2.14.0, ArticleAclTrait): Create on the category, and
+ * Edit State for anything but an unpublished, unfeatured draft. Without Edit
+ * State the article is still saved, as a draft, when the caller leaves the
+ * publishing fields out; it is refused when they ask for one.
  */
 final class CreateArticleTool extends AbstractTool
 {
+	use ArticleAclTrait;
 	use ArticleAuthorTrait;
 	use ArticleFieldsTrait;
 	use ItemAssociationsTrait;
@@ -44,6 +50,9 @@ final class CreateArticleTool extends AbstractTool
 			. 'figure class, caption), urls (links A to C), attribs (the Options tab), metadata (robots, author, rights), '
 			. 'note, version_note, and the dates created, publish_up, publish_down, featured_up and featured_down '
 			. '(UTC, "YYYY-MM-DD HH:MM:SS"). '
+			. 'Joomla\'s permissions apply: you need Create on the category, and publishing (state other than 0, '
+			. 'featured, publish dates) needs Edit State. Without it, leave those out and the article is saved as an '
+			. 'unpublished draft for someone who has it to publish. '
 			. 'Returns the new article id and edit URL.';
 	}
 
@@ -83,6 +92,9 @@ final class CreateArticleTool extends AbstractTool
 		$title = $this->requireString($arguments, 'title');
 		$catid = $this->requirePositiveInt($arguments, 'catid');
 		$body  = $this->requireString($arguments, 'articletext');
+
+		$this->requireArticleCreate($actor, $catid);
+		$this->requireArticleEditStateFor($actor, 0, $catid, $arguments, true);
 
 		// Validated before anything is written, so a bad author creates nothing.
 		$author = array_key_exists('created_by', $arguments)

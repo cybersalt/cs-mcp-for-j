@@ -64,12 +64,18 @@ final class Server
 	/** @var array<int, string> */
 	private array $secrets;
 
+	/**
+	 * $toolAccess is the tool set the actor's groups allow (Options → Tool
+	 * access); null means no limit. Applied to tools/list and tools/call alike,
+	 * like the other two filters.
+	 */
 	public function __construct(
 		private readonly ToolRegistry $registry,
 		private readonly User $actor,
 		array $categoryFilter = [],
 		bool $readOnlyMode = false,
-		array $secrets = []
+		array $secrets = [],
+		private readonly ?ToolAccess $toolAccess = null
 	) {
 		$this->categoryFilter = $categoryFilter;
 		$this->readOnlyMode   = $readOnlyMode;
@@ -186,7 +192,7 @@ final class Server
 	{
 		PermissionHelper::requireUse($this->actor);
 
-		return ['tools' => $this->registry->describeForMcp($this->categoryFilter, $this->readOnlyMode)];
+		return ['tools' => $this->registry->describeForMcp($this->categoryFilter, $this->readOnlyMode, $this->toolAccess)];
 	}
 
 	private function handleToolsCall(mixed $params): array
@@ -216,6 +222,10 @@ final class Server
 					? '(session scoped to categories: ' . implode(', ', $this->categoryFilter) . ')'
 					: '')
 			);
+		}
+
+		if ($this->toolAccess !== null && !$this->registry->isCallable($name, [], false, $this->toolAccess)) {
+			throw new McpException(-32002, $this->toolAccess->refusal($tool));
 		}
 
 		if ($tool->getRequiredPermission() === 'write') {
