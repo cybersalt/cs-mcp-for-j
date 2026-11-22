@@ -1,6 +1,6 @@
 # Changelog
 
-## 🧪 Unreleased (next release)
+## 🚀 Version 2.14.0 (November 21, 2026)
 
 **News editors can work from Claude or ChatGPT: upload photos and PDFs, keep to drafts, and see only the tools their group is allowed.** Asked for by Michel Campaner (Netizis) for a town hall whose staff post news from an AI app. Thank you, Michel.
 
